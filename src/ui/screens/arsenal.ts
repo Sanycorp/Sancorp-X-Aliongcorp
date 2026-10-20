@@ -126,7 +126,7 @@ export function createArsenal(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS-M / LOADOUT' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS MUSIC / LOADOUT' }),
         el('h1', { class: 'screen__title', html: 'PRESET <em>ARSENAL</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: '14' }), el('span', { text: 'VALIDATED' }))),

@@ -1,5 +1,5 @@
 /**
- * Ratings — the only user data AEGIS-M accepts.
+ * Ratings — the only user data Aegis Music accepts.
  *
  * Three principles, in order:
  *  1. The star is a local fact first. A rating is written to this device the

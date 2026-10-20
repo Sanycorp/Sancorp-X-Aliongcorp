@@ -17,6 +17,7 @@ import { clearSession } from '../../io/storage';
 import { session } from '../../state/session';
 import { PRO_PASS_DAYS, PRO_PRICE, planFor } from '../../model/tiers';
 import { openAccount } from '../account';
+import { brandPlate } from '../brand';
 import { createRatingGroup } from '../rating';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
@@ -215,8 +216,21 @@ export function createSystem(): Screen {
     sectionHead('06', 'TENTANG'),
     el(
       'div',
+      { class: 'brand-block' },
+      brandPlate(64),
+      el(
+        'div',
+        {},
+        el('div', { class: 'brand-block__name', text: 'AEGIS MUSIC' }),
+        el('div', { class: 'brand-block__co', text: 'Produk Sanayacorp' }),
+        el('div', { class: 'brand-block__line', text: 'Forge audio offline untuk web dan PWA.' }),
+      ),
+    ),
+    el(
+      'div',
       { class: 'about-grid' },
-      infoCell('APP', 'EL TZY AEGIS-M'),
+      infoCell('APP', 'AEGIS MUSIC'),
+      infoCell('PERUSAHAAN', 'SANAYACORP'),
       infoCell('VERSI', APP_VERSION),
       infoCell('ENGINE', 'TS 7 · Vite 8'),
       infoCell('DSP', 'Murni TS · 32-bit'),
@@ -264,7 +278,7 @@ export function createSystem(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS-M / CONTROL ROOM' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS MUSIC / CONTROL ROOM' }),
         el('h1', { class: 'screen__title', html: 'SYSTEM <em>CONTROL</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'OFFLINE' }))),
@@ -279,7 +293,7 @@ export function createSystem(): Screen {
       ratingGroup.el,
       aboutGroup,
     ),
-    el('div', { class: 'footnote', text: `EL TZY AEGIS-M ${APP_VERSION} · dibuat untuk dipakai, bukan untuk di-upload` }),
+    el('div', { class: 'footnote', text: `Aegis Music ${APP_VERSION} · Sanayacorp · dibuat untuk dipakai, bukan untuk di-upload` }),
   );
 
   function renderHistory(): void {

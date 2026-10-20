@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "EL TZY AEGIS-M",
-  "short_name": "AEGIS-M",
-  "description": "Offline mecha audio forge — slowed, nightcore, 8D, reverb, mastering. Semua proses di perangkat, nol upload.",
+  "name": "Aegis Music — Sanayacorp",
+  "short_name": "Aegis Music",
+  "description": "Aegis Music by Sanayacorp — offline mecha audio forge — slowed, nightcore, 8D, reverb, mastering. Semua proses di perangkat, nol upload.",
   "lang": "id",
   "dir": "ltr",
   "start_url": "./",

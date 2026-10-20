@@ -48,7 +48,7 @@ function telegramLink(message: string): string {
 export function purchaseLink(code = orderCode()): string {
   return telegramLink(
     [
-      `Halo, saya mau aktifkan AEGIS-M PRO Pass ${PRO_PASS_DAYS} hari (${PRO_PRICE}).`,
+      `Halo, saya mau aktifkan Aegis Music PRO Pass ${PRO_PASS_DAYS} hari (${PRO_PRICE}).`,
       '',
       `Kode pesanan: ${code}`,
       'Nama / panggilan: ',
@@ -63,7 +63,7 @@ export function purchaseLink(code = orderCode()): string {
 export function renewLink(serial: string): string {
   return telegramLink(
     [
-      `Halo, saya mau perpanjang AEGIS-M PRO (${PRO_PRICE} / ${PRO_PASS_DAYS} hari).`,
+      `Halo, saya mau perpanjang Aegis Music PRO (${PRO_PRICE} / ${PRO_PASS_DAYS} hari).`,
       '',
       `Serial: ${serial}`,
       `Kode pesanan: ${orderCode()}`,
@@ -73,7 +73,7 @@ export function renewLink(serial: string): string {
   );
 }
 
-export const PURCHASE_URL = telegramLink('Halo, saya mau aktifkan AEGIS-M PRO Pass.');
+export const PURCHASE_URL = telegramLink('Halo, saya mau aktifkan Aegis Music PRO Pass.');
 
 /** Shown next to the price so nobody expects an instant checkout. */
 export const PURCHASE_NOTE =

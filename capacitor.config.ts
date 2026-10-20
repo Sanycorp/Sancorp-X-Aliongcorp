@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.eltzy.app',
-  appName: 'EL TZY AEGIS-M',
+  appName: 'Aegis Music',
   webDir: 'dist',
   server: {
     // The APK is offline by design: bundle origin only, no remote navigation.
@@ -28,7 +28,7 @@ const config: CapacitorConfig = {
       overlaysWebView: false,
     },
     Share: {
-      dialogTitle: 'Bagikan hasil AEGIS-M',
+      dialogTitle: 'Bagikan hasil Aegis Music',
     },
   },
 };

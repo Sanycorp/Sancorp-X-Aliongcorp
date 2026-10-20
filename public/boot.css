@@ -1,4 +1,4 @@
-/* AEGIS-M boot splash — served before the app bundle so first paint is instant. */
+/* Aegis Music boot splash — served before the app bundle so first paint is instant. */
 html,
 body {
   margin: 0;
@@ -24,28 +24,30 @@ body {
   opacity: 0;
   visibility: hidden;
 }
-#boot .shield {
+#boot .seal {
   width: 74px;
-  height: 84px;
-  clip-path: polygon(50% 0, 100% 18%, 100% 62%, 50% 100%, 0 62%, 0 18%);
-  background: #0a0d12;
-  display: grid;
-  place-items: center;
+  height: 80px;
   position: relative;
   animation: shieldIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-#boot .shield::before {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  clip-path: inherit;
-  border: 1px solid rgba(232, 236, 243, 0.3);
+#boot .seal svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
 }
-#boot .shield span {
-  color: #e8ecf3;
-  font-size: 20px;
-  letter-spacing: 1px;
-  font-weight: 700;
+#boot .seal__shield {
+  stroke: #0a0d12;
+}
+#boot .seal__wire {
+  stroke: #0a0d12;
+  opacity: 0.45;
+}
+#boot .seal__letter {
+  stroke: #0b4fd6;
+}
+#boot .seal__field {
+  opacity: 0.9;
 }
 #boot .name {
   font-size: 13px;

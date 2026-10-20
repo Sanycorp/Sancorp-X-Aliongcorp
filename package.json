@@ -1,9 +1,9 @@
 {
   "name": "el-tzy-aegis",
   "private": true,
-  "version": "8.7.0",
+  "version": "8.8.0",
   "type": "module",
-  "description": "EL TZY AEGIS-M \u2014 offline mecha audio forge. Web-native DSP, zero upload.",
+  "description": "Aegis Music by Sanayacorp \u2014 offline mecha audio forge. Web-native DSP, zero upload.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node tools/sri.mjs",

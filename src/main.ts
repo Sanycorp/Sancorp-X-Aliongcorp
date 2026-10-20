@@ -20,6 +20,7 @@ import { createControl } from './ui/screens/control';
 import { accountButton } from './ui/account';
 import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
+import { brandMark } from './ui/brand';
 import { isNativeApp } from './security/platform';
 import {
   installMagnets,
@@ -89,9 +90,9 @@ function boot(): void {
     ),
   );
 
-  const brandMark = el('div', { class: 'brand__mark', html: '<span>E/T</span>' });
-  const brandName = el('div', { class: 'brand__name', text: 'EL TZY' });
-  const brandSub = el('div', { class: 'brand__sub', html: `AEGIS-M <b>${APP_VERSION}</b>` });
+  const mark = brandMark(30);
+  const brandName = el('div', { class: 'brand__name', text: 'SANAYACORP' });
+  const brandSub = el('div', { class: 'brand__sub', html: `AEGIS MUSIC <b>${APP_VERSION}</b>` });
   const headerStatus = el('span', { class: 'chip chip--live' }, el('b', { text: 'READY' }));
   const starBtn = el(
     'button',
@@ -119,7 +120,7 @@ function boot(): void {
   const header = el(
     'header',
     { class: 'app-header' },
-    el('div', { class: 'brand' }, brandMark, el('div', { class: 'brand__text' }, brandName, brandSub)),
+    el('div', { class: 'brand' }, mark, el('div', { class: 'brand__text' }, brandName, brandSub)),
     el('div', { class: 'header__meta' }, headerStatus, accountButton(), starBtn),
   );
 
@@ -237,7 +238,7 @@ function boot(): void {
       btn.setAttribute('aria-selected', String(btn.dataset.route === id));
     }
     document.documentElement.dataset.route = id;
-    document.title = `EL TZY AEGIS-M · ${id.toUpperCase()}`;
+    document.title = `AEGIS MUSIC · ${id.toUpperCase()}`;
     routeAnnouncer.textContent = `Layar ${ROUTES.find((r) => r.id === id)?.label ?? 'Kontrol'}`;
     const navIndex = ROUTES.findIndex((r) => r.id === id);
     if (navIndex >= 0) navPulse.move(navIndex);

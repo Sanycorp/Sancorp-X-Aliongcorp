@@ -27,7 +27,7 @@ describe('WAV encoder', () => {
   const audio = makeSignal(0.1);
 
   it('writes a valid 16-bit header with INFO metadata', async () => {
-    const data = await bytes(encodeWav(audio, 16, { artist: 'EL TZY', title: 'Test' }));
+    const data = await bytes(encodeWav(audio, 16, { artist: 'Sanayacorp', title: 'Test' }));
     expect(ascii(data, 0, 4)).toBe('RIFF');
     expect(ascii(data, 8, 4)).toBe('WAVE');
     expect(ascii(data, 12, 4)).toBe('fmt ');
@@ -209,7 +209,7 @@ function parseFlac(data: Uint8Array): {
 describe('FLAC encoder', () => {
   it('writes spec-valid frames with matching CRCs', async () => {
     const audio = makeSignal(0.5);
-    const data = await bytes(encodeFlac(audio, { artist: 'EL TZY', title: 'Roundtrip' }));
+    const data = await bytes(encodeFlac(audio, { artist: 'Sanayacorp', title: 'Roundtrip' }));
     const flac = parseFlac(data);
 
     expect(flac.sampleRate).toBe(SR);

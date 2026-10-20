@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — EL TZY AEGIS-M v8.7.0
+# PROJECT HANDOFF — AEGIS MUSIC (Sanayacorp) v8.8.0
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -6,8 +6,10 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 
 | | |
 | --- | --- |
-| Produk | EL TZY AEGIS-M |
-| Versi | 8.7.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Produk | Aegis Music |
+| Perusahaan | Sanayacorp (logo & identitas induk) |
+| Master ikon | `brand/aegis-music-icon.png` → `npm run icons` → `public/icons/*` + `store/icon-512.png` |
+| Versi | 8.8.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -17,7 +19,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **180 test lulus** (14 file: dsp 27, engine 29, security 18, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 18, control 3, ops 8, rating 14)
+- `npx vitest run` → **192 test lulus** (15 file: dsp 27, engine 29, security 18, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 18, control 3, ops 8, rating 14, brand 12)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -32,9 +34,11 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-m-v8.7.0
+  sw.js                    # cache shell, versi aegis-music-v8.8.0
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
-tools/make-icons.mjs       # generator PNG tanpa dependency + mipmap Android
+brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
+tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
+tools/make-icons.mjs       # CLI: tulis public/icons + store + mipmap Android
 .github/workflows/android.yml
 
 src/
@@ -82,6 +86,8 @@ src/
   ui/
     rating.ts     blok RATING di SYSTEM: bintang per aplikasi/preset, catatan,
                   kirim ke /api/rating, agregat publik
+    brand.ts      brandMark() untuk header + brandPlate() untuk TENTANG,
+                  SVG dibuat via createElementNS (aman Trusted Types)
     motion.ts     tween, animateValue, scramble, ripple, magnet, tilt, burst,
                   kineticTitle, installScrollChrome, installNavPulse (move/hide)
     elements.ts   el(), fader/toggle/segmented(locks)/select/button, toast
@@ -173,6 +179,7 @@ Worker mengembalikan buffer hasil dengan transfer; `renderClient` mempertahankan
 - **auth.test.ts** — 18 tes: round-trip kunci, tanda tangan diubah, tier diubah, kedaluwarsa, perpanjangan (serial tetap, kunci mati bisa dihidupkan), pencabutan sesi, cookie, rate limit.
 - **ops.test.ts** — 8 tes ledger: parsing kunci, dedupe serial, perpanjangan, filter status, nilai pass, ekspor/impor JSON+CSV.
 - **control.test.ts** — 3 tes konsol: terkunci tanpa sesi, lima tab (LIVE/AKUN/RATING/TERBIT/KEAMANAN) + copy meja lisensi, offline tidak pernah memberi tier.
+- **brand.test.ts** — 12 tes identitas: round-trip PNG, semua ukuran ikon ada, field datar di sudut, safe area maskable, tinta seal benar-benar ada, manifest menamai produk dan ikonnya ada, `brandMark()` punya nama aksesibel dan id gradien unik per instance.
 - **rating.test.ts** — 14 tes penilaian: pembulatan/clamp bintang, pembersihan catatan (tautan & kendali), ringkasan distribusi, peringkat preset, tren 7 hari, satu suara per target, id perangkat stabil, dedupe remote, ekspor JSON.
 
 ## 8. Yang belum ada / kandidat lanjutan
@@ -296,3 +303,29 @@ ulang kanal; angka tetap tampil dari cache saat jaringan mati.
 
 Yang **tidak** dikirim: audio, nama file, kunci lisensi, tier, atau isi riwayat
 export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.
+
+## 13. Identitas merek (v8.8.0)
+
+| | |
+| --- | --- |
+| Perusahaan | **Sanayacorp** — pemilik logo (phoenix, perisai, huruf S, jalur sirkuit, pita holografik) |
+| Produk | **Aegis Music** — aplikasi forge audio web/PWA |
+| Master | `brand/aegis-music-icon.png` (1600², RGB) |
+| Turunan | `public/icons/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `favicon-64.png`, `store/icon-512.png`, mipmap Android bila `android/` ada |
+| Perintah | `npm run icons` |
+
+Pipeline sengaja tanpa dependensi gambar: `tools/brand-icon.mjs` men-decode PNG
+sendiri (filter 0–4, 8-bit RGB/RGBA), memotong ke kotak isi dengan warna kertas
+hasil sampling sudut, lalu menyeragamkan latar ke `#e8ecf3` (sama dengan
+`theme_color`) supaya grain kertas bawaan gambar AI hilang dan ikon tetap ringan
+— `icon-512.png` turun dari 196 kB ke ±118 kB tanpa kehilangan ketajaman.
+
+Di dalam aplikasi, logo dipakai dua kali sebagai vektor, bukan PNG:
+`brandMark()` (30 px, header) dan `brandPlate()` (64 px, SYSTEM → TENTANG).
+Vektor dipilih karena ikut berganti warna di finish cockpit dan tetap tajam di
+layar 3×. Setiap instance punya id gradien sendiri supaya dua pemakaian dalam
+satu halaman tidak saling menimpa.
+
+Penamaan: chromewordmark = **SANAYACORP**, sub-lini = **AEGIS MUSIC v8.8.x**,
+kicker layar = *AEGIS MUSIC / …*, judul dokumen = `Aegis Music · <LAYAR>`,
+manifest = `Aegis Music — Sanayacorp` / `Aegis Music`.

@@ -514,7 +514,7 @@ export function createDeck(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS-M / FORGE DECK' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS MUSIC / FORGE DECK' }),
         el('h1', { class: 'screen__title', html: 'FORGE <em>DECK</em>' }),
       ),
       el('div', { class: 'header__meta' },
