@@ -1,13 +1,26 @@
-/* EL TZY AEGIS-M service worker — app shell cache, no audio leaves the device. */
-const VERSION = 'aegis-m-v8.2.1';
+/*
+ * EL TZY AEGIS-M service worker.
+ *
+ * Security rules for this file:
+ *  - same-origin, GET, http(s) only — nothing else is ever intercepted
+ *  - API routes are never cached (CSP reports must reach the server)
+ *  - only successful, basic-type, cacheable responses enter the cache
+ *  - responses carrying `Cache-Control: no-store` are passed through untouched
+ *  - a version bump is the only way to invalidate, so stale shells cannot serve
+ *    markup that references retired asset hashes.
+ */
+const VERSION = 'aegis-m-v8.3.0';
 const SHELL = [
   './',
   './index.html',
+  './boot.css',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/favicon-64.png',
 ];
+
+const CACHEABLE_PATH = /^\/(assets\/|icons\/|boot\.css$|manifest\.webmanifest$|index\.html$|\/$)/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -27,32 +40,56 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function cacheable(response) {
+  if (!response || !response.ok) return false;
+  if (response.type !== 'basic') return false;
+  const cc = response.headers.get('cache-control') || '';
+  if (cc.includes('no-store') || cc.includes('private')) return false;
+  return true;
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
-  const url = new URL(req.url);
-  if (url.origin !== location.origin) return;
 
-  // Navigations: network first, fall back to the cached shell offline.
+  let url;
+  try {
+    url = new URL(req.url);
+  } catch {
+    return;
+  }
+  if (url.origin !== self.location.origin) return;
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
+  // Reports and any future endpoint go straight to the network.
+  if (url.pathname.startsWith('/api/')) return;
+  if (!CACHEABLE_PATH.test(url.pathname)) return;
+
+  // Navigations: network first, cached shell when the network is gone.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
-          const copy = res.clone();
-          caches.open(VERSION).then((c) => c.put('./index.html', copy));
+          if (cacheable(res)) {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put('./index.html', copy));
+          }
           return res;
         })
-        .catch(() => caches.match('./index.html').then((r) => r || Response.error())),
+        .catch(() =>
+          caches
+            .match('./index.html')
+            .then((r) => r || new Response('Offline', { status: 503, headers: { 'content-type': 'text/plain' } })),
+        ),
     );
     return;
   }
 
-  // Hashed assets: cache-first. Everything else: stale-while-revalidate.
+  // Hashed assets: cache first, then network, refreshing in the background.
   event.respondWith(
     caches.match(req).then((cached) => {
       const network = fetch(req)
         .then((res) => {
-          if (res.ok) {
+          if (cacheable(res)) {
             const copy = res.clone();
             caches.open(VERSION).then((c) => c.put(req, copy));
           }
@@ -62,4 +99,9 @@ self.addEventListener('fetch', (event) => {
       return cached || network;
     }),
   );
+});
+
+self.addEventListener('message', (event) => {
+  // Only this origin's pages may ask the worker to take over immediately.
+  if (event.data === 'SKIP_WAITING' && event.source) self.skipWaiting();
 });

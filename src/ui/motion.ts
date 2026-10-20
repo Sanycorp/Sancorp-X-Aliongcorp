@@ -390,9 +390,9 @@ export function installScrollChrome(header: HTMLElement): () => void {
   const bar = document.createElement('div');
   bar.className = 'scroll-progress';
   bar.setAttribute('aria-hidden', 'true');
-  bar.innerHTML = '<i></i>';
+  const fill = document.createElement('i');
+  bar.appendChild(fill);
   header.appendChild(bar);
-  const fill = bar.firstElementChild as HTMLElement;
 
   let ticking = false;
   const update = (): void => {

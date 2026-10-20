@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — EL TZY AEGIS-M v8.2.1
+# PROJECT HANDOFF — EL TZY AEGIS-M v8.3.0
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -7,7 +7,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | | |
 | --- | --- |
 | Produk | EL TZY AEGIS-M |
-| Versi | 8.2.1 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.3.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -17,7 +17,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **100 test lulus** (dsp 27, engine 29, encode 7, motion 12, responsive 12, ui 12, probe 1)
+- `npx vitest run` → **117 test lulus** (dsp 27, engine 29, security 17, encode 7, motion 12, responsive 12, ui 12, probe 1)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -32,7 +32,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-m-v8.2.1
+  sw.js                    # cache shell, versi aegis-m-v8.3.0
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 tools/make-icons.mjs       # generator PNG tanpa dependency + mipmap Android
 .github/workflows/android.yml
@@ -73,7 +73,10 @@ src/
     scope.ts      oscilloscope
     haptics.ts
     screens/      deck.ts, lab.ts, arsenal.ts, system.ts
-  styles/         base.css, primitives.css, controls.css, app.css, motion.css
+  security/
+    sanitize.ts   setHtml() + Trusted Types policy `aegis` (DOMPurify allowlist)
+    posture.ts    pembacaan header/probe runtime untuk panel SECURITY
+  styles/         base.css, primitives.css, controls.css, app.css, motion.css, security.css
                   (token fluid, breakpoint 360/720/900/1080/1440, landscape,
                    safe-area, container query, view transition, scroll-driven,
                    kinetic/reveal/ripple/tilt/spark, reduced-motion kill sheet)
@@ -92,6 +95,11 @@ src/
 8. Semua animasi baru harus punya pasangan di kill-sheet `motion.css` (`prefers-reduced-motion` + `[data-motion='reduced']`).
 9. Animasi re-trigger hanya dari perubahan state nyata. Deck meng-cache tag/pipeline DOM (`lastTagSig`, `lastPipeSig`) supaya `store.emit()` tidak memutar ulang animasi.
 10. `tween()` meng-anchor timeline di frame pertama; jangan pakai `performance.now()` sebagai start (rAF punya clock sendiri, dan jsdom berbeda).
+11. **Jangan pernah** menulis `element.innerHTML = ...` langsung. Pakai `setHtml()` dari `src/security/sanitize.ts`; CSP produksi menegakkan `require-trusted-types-for 'script'`, jadi assignment langsung akan gagal (fail closed).
+12. **Jangan menambah inline `<style>` atau atribut `style=`** di HTML. `style-src 'self'` aktif; styling dinamis lewat CSSOM (`node.style.cssText`, `Object.assign(node.style, …)`).
+13. `npm run build` = `tsc --noEmit && vite build && node tools/sri.mjs`. SRI menghasilkan 3 tag bertanda tangan; kalau tool gagal menemukan aset, build gagal (disengaja).
+14. Header keamanan hidup di `vercel.json` dan diuji statis oleh `tests/security.test.ts` — ubah keduanya bersamaan.
+15. `vercel.json` memakai `rewrites` SPA `/((?!api/).*)`; jangan tambahkan rewrite yang menelan `/api/*`.
 
 ## 5. Invarian DSP yang tidak boleh dilanggar
 
@@ -129,6 +137,7 @@ Worker mengembalikan buffer hasil dengan transfer; `renderClient` mempertahankan
 - **ui.test.ts** — boot jsdom, 4 layar, 14 chip/preset, routing, apply preset, fader, theme toggle, forge tanpa source tidak crash, persist localStorage.
 - **responsive.test.ts** — audit statis CSS: clamp, breakpoint, safe-area, larangan 100vw, target ≥44 px, hover gating, reduced motion, dock, view transition.
 - **ui.test.ts** — boot jsdom, 4 layar, 14 chip/preset, routing, preset, fader, siklus tema auto→armor→cockpit, dock + meter + skeleton, persistensi.
+- **security.test.ts** — header Vercel (CSP/TT/HSTS/COOP/COEP/Permissions/SRI), guard service worker, `security.txt`, endpoint CSP report (405/415/400/204 + redaksi query string), sanitizer (buang script/onerror/javascript:), pembaca posture.
 - **motion.test.ts** — tween selesai + `onDone`, retarget `animateValue`, decode `scramble`, ripple muncul/hilang, `kineticTitle` tidak double-wrap, spark canvas tunggal, dan semua jalur instan saat Reduce Motion.
 - **probe.test.ts** — angka referensi (bukan assertion ketat) untuk debugging.
 

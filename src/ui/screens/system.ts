@@ -14,6 +14,8 @@ import {
   toggle,
 } from '../elements';
 import { clearSession } from '../../io/storage';
+import { postureOnce, postureVerdict } from '../../security/posture';
+import type { Posture, PostureState } from '../../security/posture';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
 
@@ -151,6 +153,64 @@ export function createSystem(): Screen {
     historyList,
   );
 
+  // ------------------------------------------------------------- security
+  const secChip = el('span', { class: 'chip', text: 'MEMINDAI' });
+  const secList = el('div', { class: 'posture-list' });
+  const secNote = el('p', {
+    class: 'lab-group__note',
+    text: 'Status dibaca langsung dari platform saat layar ini dibuka — header CSP, enforcement Trusted Types, cakupan SRI, isolasi lintas-origin, dan cache shell.',
+  });
+
+  const securityGroup = el(
+    'div',
+    { class: 'plate settings-group' },
+    el(
+      'div',
+      { class: 'row', style: 'align-items:center;gap:10px' },
+      el('div', { style: 'flex:1;min-width:0' }, sectionHead('05', 'SECURITY')),
+      secChip,
+    ),
+    secList,
+    secNote,
+  );
+
+  const STATE_LABEL: Record<PostureState, string> = { on: 'ON', partial: 'PART', off: 'OFF' };
+
+  function renderPosture(p: Posture): void {
+    secChip.className = `chip ${p.score === p.total ? 'chip--live' : ''}`;
+    secChip.textContent = `${postureVerdict(p)} ${p.score}/${p.total}`;
+    const rows = p.items.map((item) =>
+      el(
+        'div',
+        { class: 'posture-row', dataset: { state: item.state } },
+        el('span', { class: 'posture-dot' }),
+        el(
+          'div',
+          { class: 'posture-copy' },
+          el('b', { text: item.label }),
+          el('span', { text: item.detail }),
+        ),
+        el('span', { class: 'posture-state', text: STATE_LABEL[item.state] }),
+      ),
+    );
+    secList.replaceChildren(...rows);
+  }
+
+  async function refreshPosture(): Promise<void> {
+    try {
+      renderPosture(await postureOnce(true));
+    } catch {
+      secChip.textContent = 'TIDAK TERBACA';
+      secList.replaceChildren(
+        el('div', { class: 'posture-row', dataset: { state: 'off' } },
+          el('span', { class: 'posture-dot' }),
+          el('div', { class: 'posture-copy' }, el('b', { text: 'POSTURE' }), el('span', { text: 'gagal membaca status platform' })),
+          el('span', { class: 'posture-state', text: 'OFF' }),
+        ),
+      );
+    }
+  }
+
   // ------------------------------------------------------------- about
   const aboutGroup = el(
     'div',
@@ -218,6 +278,7 @@ export function createSystem(): Screen {
       uiGroup,
       outputGroup,
       historyGroup,
+      securityGroup,
       aboutGroup,
     ),
     el('div', { class: 'footnote', text: `EL TZY AEGIS-M ${APP_VERSION} · dibuat untuk dipakai, bukan untuk di-upload` }),
@@ -261,6 +322,7 @@ export function createSystem(): Screen {
 
   store.subscribe(update);
   update();
+  void refreshPosture();
 
-  return { el: screen, update };
+  return { el: screen, update, onEnter: () => void refreshPosture() };
 }

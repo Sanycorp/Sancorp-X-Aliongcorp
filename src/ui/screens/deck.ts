@@ -18,6 +18,7 @@ import {
 import { createWaveform } from '../waveform';
 import { createScope } from '../scope';
 import { animateValue, burst, scramble } from '../motion';
+import { setHtml } from '../../security/sanitize';
 
 const STAGE_ORDER = ['CLEAN', 'TONE', 'SPACE', 'WARMTH', 'MASTER', 'LIMIT'];
 
@@ -421,8 +422,10 @@ export function createDeck(): Screen {
   const dockRingHost = document.createElement('div');
   dockRingHost.className = 'ring';
   dockRingHost.setAttribute('aria-hidden', 'true');
-  dockRingHost.innerHTML =
-    '<svg viewBox="0 0 44 44"><circle class="ring__track" cx="22" cy="22" r="18"/><circle class="ring__value" cx="22" cy="22" r="18"/></svg>';
+  setHtml(
+    dockRingHost,
+    '<svg viewBox="0 0 44 44"><circle class="ring__track" cx="22" cy="22" r="18"/><circle class="ring__value" cx="22" cy="22" r="18"/></svg>',
+  );
   const ringValue = dockRingHost.querySelector('.ring__value') as SVGCircleElement;
   const ringPct = el('span', { class: 'ring__pct', text: 'GO' });
   dockRingHost.appendChild(ringPct);
@@ -531,11 +534,14 @@ export function createDeck(): Screen {
   });
 
   function updateTransport(): void {
-    playBtn.innerHTML = `<span style="display:inline-flex">${
-      player.playing
-        ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>'
-        : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5l11 7-11 7z"/></svg>'
-    }</span>`;
+    setHtml(
+      playBtn,
+      `<span class="ico-inline">${
+        player.playing
+          ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>'
+          : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5l11 7-11 7z"/></svg>'
+      }</span>`,
+    );
     playBtn.setAttribute('aria-label', player.playing ? 'Jeda preview' : 'Putar hasil');
     wave.el.classList.toggle('is-playing', player.playing);
     if (!player.playing) {
@@ -552,12 +558,15 @@ export function createDeck(): Screen {
       if (v > peak) peak = v;
     }
     const tp = peak > 0 ? 20 * Math.log10(peak) : -Infinity;
-    scopeTelemetry.innerHTML = `
+    setHtml(
+      scopeTelemetry,
+      `
       <span class="dot"></span>
       <span>SR <b>${(audio.sampleRate / 1000).toFixed(1)}k</b></span>
       <span>CH <b>2</b></span>
       <span>LEN <b>${formatDuration(audio.left.length / audio.sampleRate)}</b></span>
-      <span>TP <b>${Number.isFinite(tp) ? tp.toFixed(1) : '−∞'} dB</b></span>`;
+      <span>TP <b>${Number.isFinite(tp) ? tp.toFixed(1) : '−∞'} dB</b></span>`,
+    );
   }
 
   function tag(label: string, value: string, on = true): HTMLElement {
@@ -848,7 +857,7 @@ export function createDeck(): Screen {
       // Keep the trailing unit node, tween only the number.
       let target = v.querySelector('b') as HTMLElement | null;
       if (!target) {
-        v.innerHTML = '';
+        v.replaceChildren();
         target = document.createElement('b');
         v.append(target);
         if (unit) {
@@ -866,7 +875,7 @@ export function createDeck(): Screen {
       target.classList.add('is-ticking');
       return;
     }
-    v.innerHTML = '';
+    v.replaceChildren();
     v.append(document.createTextNode(value));
     if (unit) {
       const small = document.createElement('small');

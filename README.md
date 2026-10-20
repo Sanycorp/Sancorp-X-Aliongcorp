@@ -1,6 +1,6 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.2.1**
+**Offline mecha audio forge — v8.3.0**
 
 Slowed + reverb, nightcore, 8D orbit, club masters. Semua diproses **di dalam perangkat**, nol upload, nol server, nol telemetry.
 
@@ -118,6 +118,36 @@ npm test           # 100 tes: DSP, engine, encoder, UI (jsdom), motion, audit re
 npm run typecheck
 npm run build      # bundle produksi di dist/
 npm run icons      # regenerate ikon PWA + Android mipmaps
+```
+
+## Keamanan (edisi web, Oktober 2026)
+
+Build web di-deploy ke Vercel dengan header yang tidak bisa dilonggarkan tanpa
+mengubah `vercel.json`. Detail lengkap ada di [SECURITY.md](SECURITY.md).
+
+| Kontrol | Implementasi |
+| --- | --- |
+| **CSP Level 3** | `default-src 'none'`, `script-src 'self'`, `style-src 'self'`, `frame-ancestors 'none'`, `form-action 'none'` |
+| **Trusted Types** | `require-trusted-types-for 'script'` + policy tunggal `aegis` (DOMPurify 3.4.17) untuk semua sink `innerHTML` |
+| **SRI** | `tools/sri.mjs` menandatangani setiap script & stylesheet dengan `sha384` saat build |
+| **Isolasi** | `COOP: same-origin`, `COEP: credentialless`, `CORP: same-origin`, `Origin-Agent-Cluster: ?1` |
+| **Permissions-Policy** | kamera, mikrofon, lokasi, USB, serial, payment, MIDI, HID, ad-APIs ditolak eksplisit |
+| **Service worker** | hanya GET same-origin, `/api/*` tidak pernah di-cache, respons `no-store` dilewatkan |
+| **Pelaporan** | `/api/csp-report` menerima laporan CSP, membuang query string, hanya menyimpan direktif + origin + baris |
+| **Metadata** | `/.well-known/security.txt` (RFC 9116), `robots.txt` menutup `/api/` |
+
+Layar **System → 05 SECURITY** membaca postur keamanan secara live: header CSP
+yang benar-benar diterima, enforcement Trusted Types, cakupan SRI, isolasi
+lintas-origin, dan status service worker. Tidak ada klaim yang tidak diukur.
+
+### Deploy ke Vercel
+
+`vercel.json` sudah memuat semuanya: framework, build command, output directory,
+header keamanan, cache policy, dan SPA rewrite. Import repo di Vercel, atau:
+
+```bash
+npm run build          # tsc + vite build + SRI signing
+vercel deploy --prod   # dengan project link
 ```
 
 ### APK Android

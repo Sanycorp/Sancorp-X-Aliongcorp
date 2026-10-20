@@ -3,6 +3,7 @@ import './styles/primitives.css';
 import './styles/controls.css';
 import './styles/app.css';
 import './styles/motion.css';
+import './styles/security.css';
 
 import { store } from './state/store';
 import { resolveFinish } from './model/settings';
@@ -281,7 +282,7 @@ function boot(): void {
     applyTheme();
     const busy = store.status.active;
     headerStatus.className = `chip ${busy ? '' : 'chip--live'}`;
-    headerStatus.innerHTML = '';
+    headerStatus.replaceChildren();
     const chipText = busy ? store.status.stage : 'READY';
     const chipLabel = el('b', { text: chipText });
     if (headerStatus.textContent !== chipText) chipLabel.classList.add('chip-flip');

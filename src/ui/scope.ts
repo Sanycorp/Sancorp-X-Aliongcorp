@@ -3,6 +3,8 @@
  * otherwise a low-amplitude synthetic carrier so the cockpit never looks dead.
  * Runs on one rAF loop and stops when the tab is hidden.
  */
+import { setHtml } from '../security/sanitize';
+
 export interface Scope {
   el: HTMLElement;
   setData(left: Float32Array, right: Float32Array, sampleRate: number): void;
@@ -17,7 +19,7 @@ export function createScope(): Scope {
 
   const label = document.createElement('div');
   label.className = 'scope-meta mono';
-  label.innerHTML = '<span>SIG · MON</span><span class="scope-rate">48.0 kHz</span><span>TP −∞</span>';
+  setHtml(label, '<span>SIG · MON</span><span class="scope-rate">48.0 kHz</span><span>TP −∞</span>');
 
   const el = document.createElement('div');
   el.className = 'scope';

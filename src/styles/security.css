@@ -1,0 +1,111 @@
+/* ==========================================================================
+   Security posture panel (System → 05 SECURITY)
+   ========================================================================== */
+
+.posture-list {
+  display: grid;
+  gap: 1px;
+  margin: 12px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.posture-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  background: var(--panel);
+}
+
+.posture-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--crimson);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--crimson) 14%, transparent);
+}
+
+.posture-row[data-state='on'] .posture-dot {
+  background: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 16%, transparent);
+}
+
+.posture-row[data-state='partial'] .posture-dot {
+  background: var(--amber);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 16%, transparent);
+}
+
+.posture-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.posture-copy b {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.posture-copy span {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.posture-state {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+  color: var(--crimson);
+  border: 1px solid currentcolor;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.posture-row[data-state='on'] .posture-state {
+  color: var(--signal);
+}
+
+.posture-row[data-state='partial'] .posture-state {
+  color: var(--amber);
+}
+
+/* Panel enters with a sweep, one row at a time */
+.posture-row {
+  animation: postureIn 0.38s var(--ease-out) both;
+}
+
+.posture-row:nth-child(1) { animation-delay: 0.02s; }
+.posture-row:nth-child(2) { animation-delay: 0.05s; }
+.posture-row:nth-child(3) { animation-delay: 0.08s; }
+.posture-row:nth-child(4) { animation-delay: 0.11s; }
+.posture-row:nth-child(5) { animation-delay: 0.14s; }
+.posture-row:nth-child(6) { animation-delay: 0.17s; }
+.posture-row:nth-child(7) { animation-delay: 0.2s; }
+
+@keyframes postureIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .posture-row {
+    animation: none;
+  }
+}
+
+[data-motion='reduced'] .posture-row {
+  animation: none;
+}

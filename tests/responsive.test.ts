@@ -88,7 +88,12 @@ describe('app shell markup contract', () => {
   });
 
   it('routes the boot splash through safe areas', () => {
-    expect(html).toContain('safe-area-inset-top');
-    expect(html).toContain('safe-area-inset-bottom');
+    // The splash stylesheet now lives in /boot.css so the document can ship
+    // without inline <style> under a strict CSP.
+    const boot = readFileSync(join(process.cwd(), 'public', 'boot.css'), 'utf8');
+    expect(boot).toContain('safe-area-inset-top');
+    expect(boot).toContain('safe-area-inset-bottom');
+    expect(html).toContain('/boot.css');
+    expect(html).not.toContain('<style>');
   });
 });

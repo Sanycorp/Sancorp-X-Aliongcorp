@@ -1,4 +1,5 @@
 import { formatDuration } from '../io/audioFile';
+import { setHtml } from '../security/sanitize';
 import type { Store } from '../state/store';
 
 export interface Waveform {
@@ -175,7 +176,10 @@ export function createWaveform(store: Store, onTrimChange: () => void): Waveform
   const updateReadout = (): void => {
     const { start, end } = trim();
     const len = Math.max(0, end - start);
-    readout.innerHTML = `<span>IN <b>${formatDuration(start, true)}</b></span><span>LEN <b>${formatDuration(len, true)}</b></span><span>OUT <b>${formatDuration(end, true)}</b></span>`;
+    setHtml(
+      readout,
+      `<span>IN <b>${formatDuration(start, true)}</b></span><span>LEN <b>${formatDuration(len, true)}</b></span><span>OUT <b>${formatDuration(end, true)}</b></span>`,
+    );
   };
 
   canvas.addEventListener('pointerdown', (ev) => {

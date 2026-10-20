@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { setHtml } from '../security/sanitize';
 
 export type Child = Node | string | number | null | undefined | false;
 
@@ -27,8 +28,9 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (props.title) node.title = props.title;
   if (props.role) node.setAttribute('role', props.role);
   if (props.text !== undefined) node.textContent = props.text;
-  if (props.html !== undefined) node.innerHTML = props.html;
-  if (typeof props.style === 'string') node.setAttribute('style', props.style);
+  if (props.html !== undefined) setHtml(node, props.html);
+  // CSSOM assignment (not a style attribute) so CSP can stay strict on styles.
+  if (typeof props.style === 'string') node.style.cssText = props.style;
   else if (props.style) Object.assign(node.style, props.style);
   if (props.dataset) for (const [k, v] of Object.entries(props.dataset)) node.dataset[k] = v;
   if (props.attrs) {
@@ -86,7 +88,7 @@ export const ICONS = {
 export function icon(name: keyof typeof ICONS, size = 16): HTMLElement {
   const span = document.createElement('span');
   span.className = 'ico';
-  span.innerHTML = svg(ICONS[name], size);
+  setHtml(span, svg(ICONS[name], size));
   span.style.display = 'inline-flex';
   return span;
 }
@@ -308,7 +310,7 @@ export function iconButton(name: keyof typeof ICONS, label: string, onClick: () 
     },
     (() => {
       const s = document.createElement('span');
-      s.innerHTML = svg(ICONS[name], 16);
+      setHtml(s, svg(ICONS[name], 16));
       s.style.display = 'inline-flex';
       return s;
     })(),
