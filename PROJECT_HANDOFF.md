@@ -184,6 +184,16 @@ ffmpeg -v error -i hasil.flac -f null -
 | Header | 100% dari `vercel.json` (CSP, HSTS, COOP/COEP, CORP, Permissions-Policy, SRI) |
 | Prober | job `probe` di `android.yml`, target dibaca dari `.vercel-url` |
 
+**Tiga jalur deploy yang sudah disiapkan**
+
+1. **GitHub Login Connection** (paling rapi) — hubungkan sekali, lalu `create_deployment`
+   dengan `git_source` bekerja dan setiap push auto-build.
+2. **Token CI** — `.github/workflows/vercel.yml`: tambahkan secret `VERCEL_TOKEN`,
+   setiap push ke `arena/**` menjalankan `vercel pull → build → deploy --prebuilt --prod`.
+   Tanpa secret, job keluar dengan status sukses (tidak mengganggu fork/PR).
+3. **Custom domain** — proteksi tim bertipe `all_except_custom_domains`, jadi domain
+   sendiri otomatis publik tanpa mematikan apa pun.
+
 **Blocker yang butuh aksi pemilik akun** (tidak bisa dilakukan lewat API connector):
 
 1. **Deployment Protection** — team default `ssoProtection: all_except_custom_domains`
@@ -201,6 +211,9 @@ ffmpeg -v error -i hasil.flac -f null -
   (`["{\"file\":\"index.html\",\"data\":\"...\"}"]`), dan file yang di-upload mendarat
   di direktori `src/` pada snapshot deployment. Untuk deploy statis tanpa git,
   set `root_directory` project ke `src` lalu `output_directory` ke `.`.
+- Tim baru `aegis-m-eltzy` (`team_MWFOZvHuvKThmyhWF8a2LqpP`) sempat dibuat untuk menguji
+  apakah scope baru bebas dari default protection. Token connector tidak punya izin
+  menyentuhnya (Access denied), jadi tim itu **tidak terpakai** dan bisa dihapus manual.
 - Tanpa akses HTTP keluar ke `*.vercel.app`, verifikasi deploy dilakukan lewat job
   `probe` di GitHub Actions; hasil diagnostik dibaca dari **annotations API**
   (`gh api repos/.../check-runs/<job_id>/annotations`) karena log artifact diblokir.

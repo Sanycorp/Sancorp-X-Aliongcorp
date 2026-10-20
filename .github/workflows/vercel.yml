@@ -1,0 +1,95 @@
+name: vercel
+
+# Token-based deployment. This is the fallback when the Vercel project is not
+# linked to GitHub: add a repository secret named VERCEL_TOKEN
+# (Vercel → Account Settings → Tokens) and every push to the arena branch
+# builds and promotes a production deployment from CI.
+#
+# Without the secret the job exits cleanly, so forks and PRs are unaffected.
+
+on:
+  push:
+    branches: ['arena/**']
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      VERCEL_ORG_ID: team_AWY0rnVWqjWBuD5zU7odihmb
+      VERCEL_PROJECT_ID: prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj
+
+    steps:
+      - name: Check for token
+        id: check
+        env:
+          TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "VERCEL_TOKEN not set — skipping deployment."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip == 'false'
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.skip == 'false'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        if: steps.check.outputs.skip == 'false'
+        run: npm ci
+
+      - name: Typecheck + tests
+        if: steps.check.outputs.skip == 'false'
+        run: npm test
+
+      - name: Pull project settings
+        if: steps.check.outputs.skip == 'false'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        if: steps.check.outputs.skip == 'false'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output
+        if: steps.check.outputs.skip == 'false'
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          url=$(npx --yes vercel@latest deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed: $url"
+
+      - name: Summarise
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          {
+            echo "### Vercel deployment"
+            echo ""
+            echo "\`${{ steps.deploy.outputs.url }}\`"
+            echo ""
+            echo "Set \`.vercel-url\` to this origin so the probe job verifies headers,"
+            echo "SRI and the service worker on the next push."
+          } >> "$GITHUB_STEP_SUMMARY"
