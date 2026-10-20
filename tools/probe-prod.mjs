@@ -15,7 +15,7 @@
 
 import { appendFileSync } from 'node:fs';
 
-const ORIGIN = (process.argv[2] || process.env.PROBE_ORIGIN || 'https://sancorp-x-aliongcorp.vercel.app').replace(/\/$/, '');
+const ORIGIN = (process.argv[2] || process.env.PROBE_ORIGIN || 'https://sanayacorp-aegismusic.vercel.app').replace(/\/$/, '');
 
 const results = [];
 const check = (name, ok, detail = '') => {

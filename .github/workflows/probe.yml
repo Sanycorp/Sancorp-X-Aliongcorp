@@ -22,13 +22,14 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'tools/probe-prod.mjs'
+      - '.vercel-url'
       - '.github/workflows/probe.yml'
   workflow_dispatch:
     inputs:
       origin:
         description: Origin to probe
         required: false
-        default: https://sancorp-x-aliongcorp.vercel.app
+        default: https://sanayacorp-aegismusic.vercel.app
 
 concurrency:
   group: probe-${{ github.ref }}
@@ -55,7 +56,7 @@ jobs:
         env:
           SHA: ${{ github.sha }}
         run: |
-          origin="${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}"
+          origin="${{ inputs.origin || 'https://sanayacorp-aegismusic.vercel.app' }}"
           short=$(printf '%.7s' "$SHA")
           echo "waiting for $short on $origin"
           for attempt in $(seq 1 24); do
@@ -70,13 +71,13 @@ jobs:
           exit 1
 
       - name: Probe
-        run: node tools/probe-prod.mjs "${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}"
+        run: node tools/probe-prod.mjs "${{ inputs.origin || 'https://sanayacorp-aegismusic.vercel.app' }}"
 
       - name: Raise an alert issue
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
-          ORIGIN: ${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}
+          ORIGIN: ${{ inputs.origin || 'https://sanayacorp-aegismusic.vercel.app' }}
           SHA: ${{ github.sha }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -101,6 +102,6 @@ jobs:
           {
             echo "### Production probe"
             echo ""
-            echo "Origin: \`${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}\`"
+            echo "Origin: \`${{ inputs.origin || 'https://sanayacorp-aegismusic.vercel.app' }}\`"
             echo "Result: **${{ job.status }}**"
           } >> "$GITHUB_STEP_SUMMARY"
