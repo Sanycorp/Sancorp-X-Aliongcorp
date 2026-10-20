@@ -8,11 +8,19 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#e8ecf3",
   "theme_color": "#e8ecf3",
-  "categories": ["music", "productivity", "utilities"],
+  "categories": [
+    "music",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -38,19 +46,45 @@
       "name": "Forge Deck",
       "short_name": "Deck",
       "url": "./#/deck",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Tuning Lab",
       "short_name": "Lab",
       "url": "./#/lab",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Preset Arsenal",
       "short_name": "Arsenal",
       "url": "./#/arsenal",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "AEGIS OPS — konsol operator",
+      "short_name": "OPS",
+      "url": "./#/control",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
