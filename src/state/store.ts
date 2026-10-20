@@ -1,7 +1,7 @@
 import type { Stereo } from '../dsp/buffer';
 import { peaksFrom } from '../io/audioFile';
 import type { AppSettings, EditSettings, SourceInfo } from '../model/settings';
-import { APP_DEFAULTS, NEUTRAL, cloneSettings } from '../model/settings';
+import { APP_DEFAULTS, FORMAT_META, NEUTRAL, SPACE_META, TARGET_META, cloneSettings } from '../model/settings';
 import { loadSession, saveSession } from '../io/storage';
 
 export interface ExportRecord {
@@ -219,7 +219,7 @@ export class Store {
     const data = loadSession();
     if (!data) return;
     if (data.edit && typeof data.edit === 'object') {
-      this.edit = { ...NEUTRAL, ...(data.edit as EditSettings) };
+      this.edit = sanitizeEdit({ ...NEUTRAL, ...(data.edit as EditSettings) });
     }
     if (data.settings && typeof data.settings === 'object') {
       this.settings = { ...APP_DEFAULTS, ...(data.settings as AppSettings) };
@@ -228,6 +228,23 @@ export class Store {
     this.slotA = (data.slotA as EditSettings | null) ?? null;
     this.slotB = (data.slotB as EditSettings | null) ?? null;
   }
+}
+
+/**
+ * Sessions can outlive an enum change (formats or targets removed between
+ * versions). Coerce anything unknown back to a safe default instead of
+ * crashing the deck on boot.
+ */
+function sanitizeEdit(edit: EditSettings): EditSettings {
+  const safe = { ...edit };
+  if (!FORMAT_META[safe.format]) safe.format = 'mp3';
+  if (!(safe.target in TARGET_META)) safe.target = 'streaming';
+  if (!(safe.reverbType in SPACE_META)) safe.reverbType = 'hall';
+  if (!['retro', 'modern'].includes(safe.speedMode)) safe.speedMode = 'retro';
+  if (!Number.isFinite(safe.speed)) safe.speed = 1;
+  safe.speed = Math.min(2, Math.max(0.5, safe.speed));
+  if (![128, 192, 256, 320].includes(safe.bitrate)) safe.bitrate = 320;
+  return safe;
 }
 
 export const store = new Store();
