@@ -225,7 +225,7 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sanayacorp-aegismusic` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` (nama project diganti 2026-10-20; ID tetap) |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_8jAjN5rLzzZbNt9jtrTnEY7MmHG5` (commit `f76335d`, v8.7.0) — `READY`/`PROMOTED`, alias utama `sanayacorp-aegismusic.vercel.app` + alias lama; `/api/health` melaporkan `commit:"f76335d"` |
+| Deployment aktif | `dpl_F8yMfCdFHHZ4XP4rrowNVgttAa3V` (commit `9067373`, v8.8.0) — `READY`/`PROMOTED`, alias utama `sanayacorp-aegismusic.vercel.app` + alias lama; `/api/health` melaporkan `commit:"9067373"` |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
@@ -244,7 +244,7 @@ ffmpeg -v error -i hasil.flac -f null -
 8. `/api/license` (GET meja & POST terbit) dan `GET /api/csp-report` menolak anonim (403), kunci palsu ditolak (401) tanpa Set-Cookie
 9. `/api/rating` menjawab `summary` untuk anonim **tanpa** field `ratings` (teks ulasan hanya untuk sesi operator)
 
-Catatan operasional: `probe` punya dua lapis penyaring. Lapis pertama `paths:` di trigger; lapis kedua langkah **gate** yang men-diff rentang push dan hanya menilai kalau `src/`, `api/`, `public/`, `index.html`, `vercel.json`, atau `package*.json` ikut berubah. Push dokumen/CI jadi no-op yang tetap hijau, bukan timeout empat menit. Deploy tetap manual lewat connector, jadi setelah push yang menyentuh build, buat deployment sebelum probe kehabisan waktu tunggu (4 menit). Kegagalan membuka/comment issue berlabel `monitor`. `tools/probe-prod.mjs` ikut dinilai, supaya perubahan pada probe sendiri tidak lolos tanpa diuji ke produksi.
+Catatan operasional: `probe` punya dua lapis penyaring. Lapis pertama `paths:` di trigger; lapis kedua langkah **gate** yang men-diff rentang push dan hanya menilai kalau `src/`, `api/`, `public/`, `index.html`, `vercel.json`, atau `package*.json` ikut berubah. Push dokumen/CI jadi no-op yang tetap hijau, bukan timeout empat menit. Deploy tetap manual lewat connector, jadi setelah push yang menyentuh build, buat deployment sebelum probe kehabisan waktu tunggu (4 menit). Kegagalan membuka/comment issue berlabel `monitor`. `tools/probe-prod.mjs` ikut dinilai, supaya perubahan pada probe sendiri tidak lolos tanpa diuji ke produksi. Kalau `entry bundle served` gagal padahal `/api/health` sudah melaporkan sha baru, itu race promosi HTML: probe sekarang mengambil ulang halaman dengan cache-buster sebelum menyimpulkan build hilang.
 
 Kirim kegagalan sebagai annotation (`::error`) supaya tetap terbaca lewat API check-runs. Probe run terakhir: `39396855403` (push `5c39de9`) — **success**, 18/18 pemeriksaan, hanya annotation `warning` (Node 20) dan `notice` (runner Ubuntu)
 walaupun log job tidak bisa diunduh dari sandbox.
@@ -253,7 +253,7 @@ walaupun log job tidak bisa diunduh dari sandbox.
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang berhasil (terbaru lebih dulu): `dpl_8jAjN5rLzzZbNt9jtrTnEY7MmHG5` (`f76335d`, v8.7.0 — rating; probe `39406776524` hijau), `dpl_GmaMC4oUjmBFnG55DDNod3yfxLAG` (`4d782a5`, perbaikan probe), lalu `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1), `dpl_Fe2rvrszrxnGTraza5uBy4SEvg2V`, `dpl_JDkgdgmpi5vQrJnNwoVVBpCDTJhj`, `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx`, `dpl_5wnMuwHHTHc32oxkjMZnUNix2yd6` (v8.5.0), `dpl_8XhXi8od6p35T8b4DB8w4yrYCLzq` (a0200c3), lalu `dpl_Hirrjqr9cp5uWpMSpCX7VqA7CgEz` (cedbdee) `dpl_8uR6fRoihDUxTA8n5VAR6owDmjNr` (5457339), `dpl_2rJbzzVHzZh7JbuaywyoLNsySeie` (de70cf1, v8.6.0), dan `dpl_4JvKzABL2spYQkYmaUYXPciybBCj` (5c39de9, shortcut OPS).
+- Deploy yang berhasil (terbaru lebih dulu): `dpl_F8yMfCdFHHZ4XP4rrowNVgttAa3V` (`9067373`, v8.8.0 — brand Sanayacorp/Aegis Music; probe `39417335964` hijau), `dpl_2Lq8BNV9kaCUojyF6kajxmcb19SX` (`07e09e4`, ikon baru; probe merah karena race HTML→aset, sudah diperbaiki), `dpl_8jAjN5rLzzZbNt9jtrTnEY7MmHG5` (`f76335d`, v8.7.0 — rating; probe `39406776524` hijau), `dpl_GmaMC4oUjmBFnG55DDNod3yfxLAG` (`4d782a5`, perbaikan probe), lalu `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1), `dpl_Fe2rvrszrxnGTraza5uBy4SEvg2V`, `dpl_JDkgdgmpi5vQrJnNwoVVBpCDTJhj`, `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx`, `dpl_5wnMuwHHTHc32oxkjMZnUNix2yd6` (v8.5.0), `dpl_8XhXi8od6p35T8b4DB8w4yrYCLzq` (a0200c3), lalu `dpl_Hirrjqr9cp5uWpMSpCX7VqA7CgEz` (cedbdee) `dpl_8uR6fRoihDUxTA8n5VAR6owDmjNr` (5457339), `dpl_2rJbzzVHzZh7JbuaywyoLNsySeie` (de70cf1, v8.6.0), dan `dpl_4JvKzABL2spYQkYmaUYXPciybBCj` (5c39de9, shortcut OPS).
 
 ### Cara deploy berikutnya
 
