@@ -145,6 +145,7 @@ Google menolak dengan **Error 403: access_denied**. Itu bukan bug aplikasi.
 | `Error 400: redirect_uri_mismatch` | URI yang dikirim tidak sama dengan yang terdaftar | Pastikan daftar di console persis `https://sanayacorp-aegismusic.vercel.app/api/auth/google/callback`, tanpa `/` di ujung, tanpa `?google=callback` |
 | `Error 403: access_denied` | App masih `Testing` dan akun tidak ada di test users | Tambah akun di Audience → Test users, atau Publish app |
 | `Error 401: invalid_client` | Client ID/secret salah, tertukar, atau ada spasi | Ulangi tempel di Vercel, pastikan secret berawalan `GOCSPX-`, redeploy |
+| `"google":false` padahal env sudah disimpan | Deployment yang berjalan dibuat sebelum env itu ada | Redeploy; env tidak menempel ke deployment lama |
 | Halaman "Masuk dengan Google belum aktif" (503) | Env belum ada di deployment yang berjalan | Simpan env di environment yang benar, lalu redeploy |
 | Kembali ke `/?masuk=gagal` | `state` kedaluwarsa (>10 menit), cookie diblokir, atau penukaran kode ditolak | Coba lagi dari awal di jendela normal; pastikan jam perangkat benar |
 | Login berhasil tapi tetap `FREE` | Belum ada grant untuk email itu | Buat grant di `#/control` → 03b, tempel ke `AEGIS_PREMIUM`, redeploy |
