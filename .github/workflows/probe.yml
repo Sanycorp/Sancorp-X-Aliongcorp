@@ -98,6 +98,17 @@ jobs:
             case "$body" in
               *"\"commit\":\"$short\""*) echo "live: $short"; exit 0 ;;
             esac
+            # Deployments are created by hand, one per release. A push that was
+            # superseded by a newer commit can never go live, so grading it would
+            # fail forever; if the live commit is a descendant of this one, the
+            # newer build already contains these changes.
+            live=$(printf '%s' "$body" | sed -n 's/.*"commit":"\([0-9a-f]\{7,40\}\)".*/\1/p')
+            if [ -n "$live" ] && git cat-file -e "${live}^{commit}" 2>/dev/null; then
+              if git merge-base --is-ancestor "$SHA" "$live"; then
+                echo "superseded: $short is an ancestor of the live $live — nothing to grade"
+                exit 0
+              fi
+            fi
             sleep 10
           done
           echo "deployment for $short did not answer in time" >&2
@@ -138,5 +149,6 @@ jobs:
             echo ""
             echo "Origin: \`${{ inputs.origin || 'https://sanayacorp-aegismusic.vercel.app' }}\`"
             echo "Graded: **${{ steps.gate.outputs.run == 'true' && 'yes' || 'no — no build inputs in this push' }}**"
+            echo "Commit: `${{ github.sha }}`"
             echo "Result: **${{ job.status }}**"
           } >> "$GITHUB_STEP_SUMMARY"
