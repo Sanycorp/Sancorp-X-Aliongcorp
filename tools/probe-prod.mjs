@@ -69,11 +69,13 @@ const sri = [...index.body.matchAll(/<(?:script|link)[^>]*(?:src|href)="([^"]+)"
 check('SRI on entry assets', sri.length >= 2, `${sri.length} signed`);
 
 // --- the bundle -----------------------------------------------------------
-const entry = index.body.match(/src="([^"]*assets\/index-[^"]+\.js)"/)?.[1];
+const rawEntry = index.body.match(/src="([^"]*assets\/index-[^"]+\.js)"/)?.[1];
+// Vite emits relative asset URLs (`./assets/...`); make them absolute paths.
+const entry = rawEntry ? `/${rawEntry.replace(/^\.?\//, '')}` : null;
 if (entry) {
   const bundle = await get(entry);
   check('entry bundle served', bundle.res.status === 200, entry.split('/').pop());
-  const version = bundle.body.match(/EL TZY AEGIS-M (\d+\.\d+\.\d+)/)?.[1] ?? 'unknown';
+  const version = bundle.body.match(/["'](8\.\d+\.\d+)["']/)?.[1] ?? 'unknown';
   check('version 8.5.x', /^8\.5\./.test(version), version);
   check('console shipped', bundle.body.includes('AKSES OPERATOR'));
   check('account sheet shipped', bundle.body.includes('AKTIFKAN AKSES'));
@@ -121,6 +123,15 @@ check('forged key rejected', badKey.res.status === 401, `HTTP ${badKey.res.statu
 check('no cookie on rejection', !badKey.res.headers.get('set-cookie'));
 
 const failed = results.filter((r) => !r.ok);
+
+// Turn each failure into a GitHub annotation: they are readable through the
+// check-runs API even when job logs are not.
+if (process.env.GITHUB_ACTIONS) {
+  for (const r of failed) {
+    console.log(`::error title=Probe ${r.name}::${r.detail || 'check failed'}`);
+  }
+}
+
 summarise();
 console.log(`\n${results.length - failed.length}/${results.length} checks passed on ${ORIGIN}`);
 if (failed.length > 0) {
