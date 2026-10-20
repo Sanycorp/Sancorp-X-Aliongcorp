@@ -74,7 +74,7 @@ jobs:
           fi
           changed=$(git diff --name-only "$BEFORE" "$AFTER" -- \
             'src/**' 'api/**' 'public/**' 'index.html' 'vercel.json' \
-            'package.json' 'package-lock.json' || true)
+            'package.json' 'package-lock.json' 'tools/probe-prod.mjs' || true)
           if [ -n "$changed" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo "build inputs changed:"

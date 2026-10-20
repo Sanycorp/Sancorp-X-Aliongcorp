@@ -13,9 +13,13 @@
  * Exit code 0 only when every check passes.
  */
 
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 
 const ORIGIN = (process.argv[2] || process.env.PROBE_ORIGIN || 'https://sanayacorp-aegismusic.vercel.app').replace(/\/$/, '');
+
+/** The version this repo is supposed to be serving. Hardcoding it here made a
+ *  release turn the probe red for no reason, so it is read from package.json. */
+const PKG = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -83,12 +87,26 @@ if (entry) {
   check('shop channel shipped', bundle.body.includes('ElTzyy8'));
   check('price shipped', bundle.body.includes('Rp 5.000'));
   check('locked preset copy shipped', bundle.body.includes('arsenal PRO'));
+  check('rating block shipped', bundle.body.includes('KIRIM PENILAIAN') && bundle.body.includes('PRESET AKTIF'));
   check('bundle immutable', (bundle.res.headers.get('cache-control') || '').includes('immutable'));
 } else {
   check('entry bundle served', false, 'entry script not found');
 }
 
 // --- server ---------------------------------------------------------------
+const rating = await get('/api/rating');
+let ratingBody = null;
+try {
+  ratingBody = JSON.parse(rating.body);
+} catch {
+  ratingBody = null;
+}
+check(
+  'rating endpoint answers aggregates',
+  rating.res.status === 200 && Boolean(ratingBody?.summary) && !('ratings' in (ratingBody ?? {})),
+  `HTTP ${rating.res.status}`,
+);
+
 const health = await get('/api/health');
 let healthJson = {};
 try {
