@@ -221,11 +221,11 @@ ffmpeg -v error -i hasil.flac -f null -
 | Hal | Nilai |
 | --- | --- |
 | **URL produksi** | **https://sanayacorp-aegismusic.vercel.app** |
-| Alias lama | `sancorp-x-aliongcorp.vercel.app` — tetap terpasang di project, jadi tautan lama masih melayani build yang sama |
+| Alias lama | `sancorp-x-aliongcorp.vercel.app` — **dicabut 2026-10-20** lewat `remove_project_domain`; sekarang menjawab `404 DEPLOYMENT_NOT_FOUND`. Jangan dipasang ulang kecuali memang diminta |
 | Project | `sanayacorp-aegismusic` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` (nama project diganti 2026-10-20; ID tetap) |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_AQqM2eeiqi97wTLk96w862hhJMiy` (commit `8dc378f`, v8.9.0) — `READY`/`PROMOTED`, alias utama `sanayacorp-aegismusic.vercel.app` + alias lama; `/api/health` melaporkan `commit:"8dc378f"` |
+| Deployment aktif | `dpl_AQqM2eeiqi97wTLk96w862hhJMiy` (commit `8dc378f`, v8.9.0) — `READY`/`PROMOTED`, satu-satunya domain project: `sanayacorp-aegismusic.vercel.app`; `/api/health` melaporkan `commit:"8dc378f"` |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
@@ -269,6 +269,7 @@ Verifikasi selalu lewat job `probe` (target dari `.vercel-url`); jangan menganda
 ### Catatan
 
 - Tim `aegis-m-eltzy` (`team_MWFOZvHuvKThmyhWF8a2LqpP`) dibuat saat uji coba lepas dari default protection. Token connector tidak berizin menghapusnya — silakan hapus manual di dashboard, tidak dipakai.
+- Satu project hanya boleh punya satu domain produksi. Domain yang pernah dipakai harus dicabut (`remove_project_domain`); kalau dibiarkan, aplikasi bisa dipasang sebagai PWA di origin lama dan menyimpan sesi serta ledger terpisah yang membingungkan operator.
 - Lima fungsi serverless: `auth`, `license`, `health`, `csp-report`, `rating`. Semuanya berbagi `api/_lib/auth.js`. Kalau feed CSP membanjir, itu tanda ada aset yang melanggar direktif.
 - Pencabutan: `api/_lib/revoked.js` dibaca setiap `readSession`, jadi sesi mati pada permintaan berikutnya setelah deploy. Untuk darurat tanpa deploy, isi `AEGIS_REVOKED` (dipisah koma) — nilainya dibaca saat cold start.
 - `license.js` sekarang punya tiga operasi: `issue`, `extend` (serial tetap), `inspect` (validitas kunci tanpa membocorkan rahasia). `GET` hanya mengembalikan jumlah serial dicabut, bukan daftarnya.
