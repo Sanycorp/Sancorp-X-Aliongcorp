@@ -52,7 +52,7 @@ Applied by `tools/android-harden.mjs` right after `cap sync`, and asserted in CI
 | Debugging | `webContentsDebuggingEnabled: false`, `allowMixedContent: false`, `captureInput: false` |
 | Permissions | Dangerous runtime permissions stripped from the manifest; build fails if any remain (camera, mic, location, contacts, SMS, storage, Bluetooth, sensors, notifications, QUERY_ALL_PACKAGES) |
 | Components | Only `MainActivity` may be exported; build fails otherwise |
-| Markup sinks | Same Trusted Types policy + DOMPurify as web (the bundle is shared) |
+| Markup sinks | Same `setHtml()` + DOMPurify allowlist (the bundle is shared). Inside a WebView the policy is code-enforced, not browser-enforced, and the panel says so. |
 | Integrity | Same sha384 SRI attributes; assets ship inside the APK |
 | Service worker | **Not registered** on native — bundled assets already exist, a SW would only add a stale-cache failure mode |
 

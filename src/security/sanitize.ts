@@ -82,17 +82,15 @@ export function setHtml(node: HTMLElement, html: string): void {
   }
 }
 
-/** True when the browser enforces Trusted Types for script sinks. */
-export function trustedTypesEnforced(): boolean {
-  if (typeof document === 'undefined') return false;
-  try {
-    const probe = document.createElement('div');
-    // Assigning a plain string is a violation when the policy is enforced.
-    probe.innerHTML = '<b>tt</b>';
-    return false;
-  } catch {
-    return true;
-  }
+/**
+ * True when this document is *required* to use Trusted Types.
+ *
+ * Read from the CSP the server actually sent rather than probing with a
+ * deliberate violation — a probe would fire a report on every page load and
+ * burn a serverless invocation for nothing.
+ */
+export function trustedTypesEnforced(csp = ''): boolean {
+  return csp.toLowerCase().includes("require-trusted-types-for 'script'");
 }
 
 /** True when the platform exposes the Trusted Types API at all. */

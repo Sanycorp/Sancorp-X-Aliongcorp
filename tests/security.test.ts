@@ -201,9 +201,12 @@ describe('sanitised HTML sinks', () => {
     expect(host.querySelector('path')?.getAttribute('d')).toBe('M4 4h16');
   });
 
-  it('reports no Trusted Types enforcement outside a secured browser', () => {
-    // jsdom has no Trusted Types implementation, so the probe must not throw.
+  it('reads enforcement from the CSP instead of probing', () => {
+    // No CSP → nothing is being enforced.
     expect(trustedTypesEnforced()).toBe(false);
+    expect(trustedTypesEnforced("script-src 'self'")).toBe(false);
+    // The shipped header must be recognised.
+    expect(trustedTypesEnforced(csp)).toBe(true);
   });
 });
 

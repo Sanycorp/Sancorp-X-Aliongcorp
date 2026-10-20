@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — EL TZY AEGIS-M v8.4.0
+# PROJECT HANDOFF — EL TZY AEGIS-M v8.4.1
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -7,7 +7,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | | |
 | --- | --- |
 | Produk | EL TZY AEGIS-M |
-| Versi | 8.4.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.4.1 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -32,7 +32,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-m-v8.4.0
+  sw.js                    # cache shell, versi aegis-m-v8.4.1
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 tools/make-icons.mjs       # generator PNG tanpa dependency + mipmap Android
 .github/workflows/android.yml

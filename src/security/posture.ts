@@ -60,9 +60,19 @@ function sriSnapshot(): { covered: number; total: number } {
   return { covered, total: nodes.length };
 }
 
-function trustItems(): PostureItem[] {
-  const enforced = trustedTypesEnforced();
+function trustItems(mode: 'web' | 'app', csp = ''): PostureItem[] {
   const supported = trustedTypesSupported();
+  if (mode === 'app') {
+    return [
+      {
+        id: 'tt',
+        label: 'SANITIZED HTML SINKS',
+        state: supported ? 'on' : 'partial',
+        detail: 'policy aegis + DOMPurify — diterapkan oleh kode, bukan browser',
+      },
+    ];
+  }
+  const enforced = trustedTypesEnforced(csp);
   return [
     {
       id: 'tt',
@@ -71,8 +81,8 @@ function trustItems(): PostureItem[] {
       detail: enforced
         ? 'require-trusted-types-for script · policy aegis (DOMPurify)'
         : supported
-          ? 'API tersedia, enforcement belum aktif di origin ini'
-          : 'belum didukung WebView/browser ini',
+          ? 'API tersedia, header belum menegakkan'
+          : 'belum didukung browser ini',
     },
   ];
 }
@@ -129,7 +139,7 @@ async function webPosture(): Promise<Posture> {
       : 'header belum terkirim (dev server / bukan Vercel)',
   });
 
-  items.push(...trustItems());
+  items.push(...trustItems('web', csp));
 
   const isolated = typeof window !== 'undefined' && window.crossOriginIsolated === true;
   items.push({
@@ -168,7 +178,7 @@ async function appPosture(): Promise<Posture> {
     detail: `${location.protocol}//${location.host} · aset lokal, tanpa server`,
   });
 
-  items.push(...trustItems());
+  items.push(...trustItems('app'));
   items.push(sriItem());
 
   // Native manifest guarantees, applied by tools/android-harden.mjs at build time.
