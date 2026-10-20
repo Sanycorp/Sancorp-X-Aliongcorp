@@ -225,7 +225,7 @@ export function createSystem(): Screen {
     ),
     el('p', {
       class: 'lab-group__note',
-      text: 'Seluruh pemrosesan audio berjalan lokal di perangkat — file tidak pernah diunggah dan tidak ada telemetry. Satu-satunya panggilan jaringan adalah pemeriksaan lisensi. Loudness memakai BS.1770-4 dengan true peak 4× oversampling.',
+      text: 'Seluruh pemrosesan audio berjalan lokal di perangkat — file tidak pernah diunggah. Jaringan hanya dipakai untuk tiga hal: memeriksa lisensi, membaca rata-rata penilaian, dan mengirim penilaian saat tombolnya kamu tekan sendiri. Tidak ada pelacakan latar. Loudness memakai BS.1770-4 dengan true peak 4× oversampling.',
     }),
     el(
       'div',
