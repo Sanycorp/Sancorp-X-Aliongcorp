@@ -1,0 +1,32 @@
+# ---- Flutter / Dart ----
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.iml
+.idea/
+.vscode/
+
+# ---- Android ----
+android/local.properties
+android/.gradle/
+android/.cxx/
+android/app/release/
+android/key.properties
+*.jks
+*.keystore
+
+# ---- Tooling / scratch ----
+tool/.dart_tool/
+google_drive/
+_source_unzip/
+*.log
+
+# ---- Website prototype ----
+preview/node_modules/
+preview/dist/
+
+# ---- OS noise ----
+.DS_Store
+Thumbs.db

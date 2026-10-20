@@ -1,0 +1,55 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.eltzy.app"
+    compileSdk = 36
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    defaultConfig {
+        applicationId = "com.eltzy.app"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            // Local builds: debug keystore. Provide android/key.properties +
+            // a real keystore to sign for distribution.
+            signingConfig = signingConfigs.debug
+            minifyEnabled = false
+            shrinkResources = false
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // FFmpegKit ships large native libraries; legacy packaging keeps
+            // install/load behaviour predictable on all supported devices.
+            useLegacyPackaging = true
+        }
+    }
+}
+
+dependencies {
+    implementation "androidx.documentfile:documentfile:1.0.1"
+    implementation "androidx.core:core:1.13.1"
+}
+
+flutter {
+    source = "../.."
+}

@@ -1,0 +1,17 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Keep the project at zero issues; these are style-only but noisy.
+    use_build_context_synchronously: warning
+  exclude:
+    - build/**
+    - preview/**
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    avoid_print: true
+    require_trailing_commas: true
+    prefer_const_constructors: true
+    prefer_const_declarations: true
