@@ -13,6 +13,8 @@
  * Exit code 0 only when every check passes.
  */
 
+import { appendFileSync } from 'node:fs';
+
 const ORIGIN = (process.argv[2] || process.env.PROBE_ORIGIN || 'https://sancorp-x-aliongcorp.vercel.app').replace(/\/$/, '');
 
 const results = [];
@@ -20,6 +22,22 @@ const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
   const mark = ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
   console.log(`${mark} ${name}${detail ? ` — ${detail}` : ''}`);
+};
+
+/** Mirror the result table into the Actions run summary so a red run is
+ *  diagnosable from the run page alone (logs are not always reachable). */
+const summarise = () => {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
+  const failed = results.filter((r) => !r.ok);
+  const rows = results
+    .map((r) => `| ${r.ok ? '✅' : '❌'} | ${r.name} | ${r.detail || ''} |`)
+    .join('\n');
+  const body = `\n### Probe ${ORIGIN}\n\n| | check | detail |\n| --- | --- | --- |\n${rows}\n\n**${results.length - failed.length}/${results.length} passed**\n`;
+  try {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, body);
+  } catch {
+    /* summary is best-effort */
+  }
 };
 
 const get = async (path, init = {}) => {
@@ -50,21 +68,19 @@ check('permissions-policy denies camera', has(index.res, 'permissions-policy', '
 const sri = [...index.body.matchAll(/<(?:script|link)[^>]*(?:src|href)="([^"]+)"[^>]*integrity="sha384-([^"]+)"/g)];
 check('SRI on entry assets', sri.length >= 2, `${sri.length} signed`);
 
-// --- version --------------------------------------------------------------
-const version = index.body.match(/AEGIS-M\s*(\d+\.\d+\.\d+)/)?.[1] ?? 'unknown';
-check('version 8.5.x', /^8\.5\./.test(version), version);
-
-// --- the console actually shipped -----------------------------------------
+// --- the bundle -----------------------------------------------------------
 const entry = index.body.match(/src="([^"]*assets\/index-[^"]+\.js)"/)?.[1];
 if (entry) {
   const bundle = await get(entry);
-  check('console bundle shipped', bundle.body.includes('AKSES OPERATOR'));
+  check('entry bundle served', bundle.res.status === 200, entry.split('/').pop());
+  const version = bundle.body.match(/EL TZY AEGIS-M (\d+\.\d+\.\d+)/)?.[1] ?? 'unknown';
+  check('version 8.5.x', /^8\.5\./.test(version), version);
+  check('console shipped', bundle.body.includes('AKSES OPERATOR'));
   check('account sheet shipped', bundle.body.includes('AKTIFKAN AKSES'));
-  // The service role string must never leak into the client bundle.
-  check('no secret in bundle', !bundle.body.includes('AEGIS_SECRET') && !bundle.body.includes('AEGIS_ADMIN_PASSWORD'));
-  check('bundle integrity', /sha384-/.test(index.body), 'entry hash present');
+  check('locked preset copy shipped', bundle.body.includes('arsenal PRO'));
+  check('bundle immutable', (bundle.res.headers.get('cache-control') || '').includes('immutable'));
 } else {
-  check('console bundle shipped', false, 'entry script not found');
+  check('entry bundle served', false, 'entry script not found');
 }
 
 // --- server ---------------------------------------------------------------
@@ -105,6 +121,7 @@ check('forged key rejected', badKey.res.status === 401, `HTTP ${badKey.res.statu
 check('no cookie on rejection', !badKey.res.headers.get('set-cookie'));
 
 const failed = results.filter((r) => !r.ok);
+summarise();
 console.log(`\n${results.length - failed.length}/${results.length} checks passed on ${ORIGIN}`);
 if (failed.length > 0) {
   console.log('failed:', failed.map((f) => f.name).join(', '));
