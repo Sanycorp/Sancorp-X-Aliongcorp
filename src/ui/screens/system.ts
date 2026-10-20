@@ -19,8 +19,6 @@ import type { Screen } from './deck';
 
 import { APP_VERSION } from '../../version';
 export { APP_VERSION };
-const REPO = 'https://github.com/Sanycorp/Sancorp-X-Aliongcorp';
-const ACTIONS = `${REPO}/actions/workflows/android.yml`;
 
 export function createSystem(): Screen {
   // ------------------------------------------------------------- finish
@@ -153,42 +151,11 @@ export function createSystem(): Screen {
     historyList,
   );
 
-  // ------------------------------------------------------------- apk
-  const apkGroup = el(
-    'div',
-    { class: 'plate settings-group' },
-    sectionHead('04', 'ANDROID APK'),
-    el('p', {
-      class: 'lab-group__note',
-      style: 'margin-top:0',
-      text: 'Build APK dibuat otomatis oleh GitHub Actions. Setiap push ke main menghasilkan artifact debug APK yang bisa langsung di-install — tanpa bot, tanpa ZIP.',
-    }),
-    el(
-      'div',
-      { class: 'about-grid', style: 'margin:10px 0' },
-      infoCell('WORKFLOW', 'android.yml'),
-      infoCell('ENGINE', 'Node 22 · JDK 21'),
-      infoCell('GRADLE', './gradlew assembleDebug'),
-      infoCell('ARTIFACT', 'aegis-m-debug-apk'),
-    ),
-    el(
-      'div',
-      { style: 'display:grid; gap:8px' },
-      anchorButton('BUKA GITHUB ACTIONS', ACTIONS, 'primary'),
-      anchorButton('SOURCE REPOSITORY', REPO, 'ghost'),
-    ),
-    el('div', {
-      class: 'footnote',
-      style: 'text-align:left',
-      text: 'APK butuh signing key sendiri untuk rilis Play Store. Build debug sudah bisa di-sideload.',
-    }),
-  );
-
   // ------------------------------------------------------------- about
   const aboutGroup = el(
     'div',
     { class: 'plate settings-group' },
-    sectionHead('05', 'TENTANG'),
+    sectionHead('04', 'TENTANG'),
     el(
       'div',
       { class: 'about-grid' },
@@ -231,16 +198,6 @@ export function createSystem(): Screen {
     return el('div', {}, el('span', { text: label }), el('b', { text: value }));
   }
 
-  function anchorButton(label: string, href: string, tone: 'primary' | 'ghost'): HTMLElement {
-    const a = el('a', {
-      class: `btn btn--${tone} btn--block`,
-      attrs: { href, target: '_blank', rel: 'noopener noreferrer' },
-      style: 'text-decoration:none',
-    });
-    a.appendChild(el('span', { text: label }));
-    return a;
-  }
-
   const screen = el(
     'section',
     { class: 'screen', id: 'screen-system', attrs: { 'aria-label': 'System settings' } },
@@ -261,7 +218,6 @@ export function createSystem(): Screen {
       uiGroup,
       outputGroup,
       historyGroup,
-      apkGroup,
       aboutGroup,
     ),
     el('div', { class: 'footnote', text: `EL TZY AEGIS-M ${APP_VERSION} · dibuat untuk dipakai, bukan untuk di-upload` }),

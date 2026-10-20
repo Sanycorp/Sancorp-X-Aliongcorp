@@ -1,6 +1,6 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.2.0**
+**Offline mecha audio forge — v8.2.1**
 
 Slowed + reverb, nightcore, 8D orbit, club masters. Semua diproses **di dalam perangkat**, nol upload, nol server, nol telemetry.
 
