@@ -115,7 +115,12 @@ jobs:
           head -c 400 /tmp/index.html; echo
           curl -sS -o /tmp/probe.bin -w 'probe.bin status:%{http_code} bytes:%{size_download}\n' "$URL/probe.bin" || true
           test -s /tmp/probe.bin && { echo "probe.bin hex:"; xxd /tmp/probe.bin | head -2; } || echo "no probe.bin at root"
-          test "$code" = "200"
+          if [ "$code" != "200" ]; then
+            echo "::error title=root-status::status=$code"
+            echo "::error title=root-body::$(head -c 160 /tmp/index.html | tr '\n' ' ' | tr -d '\r')"
+            echo "::error title=root-headers::$(grep -iE '^(server|x-vercel|www-authenticate|set-cookie|location):' /tmp/headers.txt | tr '\n' '|' | head -c 200)"
+            exit 1
+          fi
 
       - name: Assert security headers
         if: steps.target.outputs.skip == 'false'
