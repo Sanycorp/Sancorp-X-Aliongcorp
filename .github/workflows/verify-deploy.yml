@@ -1,0 +1,100 @@
+name: Verify deployment
+
+# Probes a deployed AEGIS-M URL from outside the sandbox: security headers,
+# shell assets, service worker, and SRI integrity of the main bundle.
+# Used after every Vercel deploy so "it is live" is a measured claim.
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Base URL to probe (no trailing slash)
+        required: true
+        default: https://sancorp-x-aliongcorp.vercel.app
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch head and headers
+        env:
+          URL: ${{ inputs.url }}
+        run: |
+          set -euo pipefail
+          echo "== $URL =="
+          code=$(curl -sS -o /tmp/index.html -D /tmp/headers.txt -w '%{http_code}' "$URL/")
+          echo "status: $code"
+          cat /tmp/headers.txt
+          test "$code" = "200" || { echo "root did not return 200"; exit 1; }
+
+      - name: Assert security headers
+        run: |
+          set -euo pipefail
+          h=/tmp/headers.txt
+          check() { grep -qi "^$1:" "$h" || { echo "missing header: $1"; exit 1; }; echo "ok: $1"; }
+          check "content-security-policy"
+          check "strict-transport-security"
+          check "cross-origin-opener-policy"
+          check "cross-origin-embedder-policy"
+          check "x-content-type-options"
+          check "referrer-policy"
+          check "permissions-policy"
+          grep -qi "require-trusted-types-for 'script'" "$h" || { echo "Trusted Types not enforced"; exit 1; }
+          grep -qi "frame-ancestors 'none'" "$h" || { echo "frame-ancestors missing"; exit 1; }
+          echo "CSP + isolation headers present"
+
+      - name: Assert shell assets
+        env:
+          URL: ${{ inputs.url }}
+        run: |
+          set -euo pipefail
+          for path in /sw.js /boot.css /manifest.webmanifest /.well-known/security.txt /icons/icon-512.png; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "$URL$path")
+            echo "$path -> $code"
+            test "$code" = "200" || exit 1
+          done
+
+      - name: Verify SRI signatures match the served bytes
+        env:
+          URL: ${{ inputs.url }}
+        run: |
+          set -euo pipefail
+          python3 - "$URL" <<'PY'
+          import base64, hashlib, re, subprocess, sys, urllib.parse
+
+          base = sys.argv[1]
+          html = open('/tmp/index.html', encoding='utf-8').read()
+          tags = re.findall(r'<(?:script|link)\b[^>]*>', html)
+          checked = 0
+          for tag in tags:
+              m = re.search(r'integrity="sha384-([^"]+)"', tag)
+              if not m:
+                  continue
+              ref = re.search(r'(?:src|href)="([^"]+)"', tag).group(1)
+              url = urllib.parse.urljoin(base + '/', ref)
+              out = subprocess.run(['curl', '-sS', '--compressed', url], capture_output=True, check=True).stdout
+              digest = base64.b64encode(hashlib.sha384(out).digest()).decode()
+              status = 'ok' if digest == m.group(1) else 'MISMATCH'
+              print(f'{status} {ref} ({len(out)} bytes)')
+              assert status == 'ok', f'integrity mismatch for {ref}'
+              checked += 1
+          assert checked >= 2, 'expected at least two signed assets'
+          print(f'{checked} assets verified')
+          PY
+
+      - name: Service worker cache policy
+        env:
+          URL: ${{ inputs.url }}
+        run: |
+          set -euo pipefail
+          ctl=$(curl -sS -I "$URL/sw.js" | tr -d '\r' | grep -i '^cache-control:' || true)
+          echo "$ctl"
+          echo "$ctl" | grep -qi 'no-store' || { echo "sw.js must not be cached"; exit 1; }
+          curl -sS "$URL/.well-known/security.txt" | grep -qi '^Contact:' || { echo "security.txt malformed"; exit 1; }
+          echo "cache + security.txt ok"
