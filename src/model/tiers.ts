@@ -6,9 +6,18 @@ import type { LoudnessTarget, OutputFormat } from './settings';
  * The free tier has to be genuinely useful — the DSP is the product, so it is
  * never crippled. What is paid is the *workflow*: the full preset arsenal, the
  * delivery formats professionals actually ask for, repair tools, the 8D engine,
- * A/B comparison and unlimited history. Export length is capped so a free key
+ * A/B comparison and a real history. Export length is capped so a free key
  * cannot be resold as a render farm.
+ *
+ * PRO is sold as a 30-day pass (Rp 5.000), not a subscription: there is no
+ * auto-renewal and no card on file. At that price the honest offer is "all of
+ * it, for a month" — a ladder of small upgrades would cost more in friction
+ * than it earns.
  */
+
+export const PRO_PASS_DAYS = 30;
+export const PRO_PRICE = 'Rp 5.000';
+export const PRO_CADENCE = '/ 30 hari';
 
 export type Tier = 'free' | 'pro' | 'admin';
 
@@ -88,8 +97,8 @@ export const PLANS: Record<Tier, Plan> = {
   pro: {
     id: 'pro',
     label: 'PRO',
-    price: 'Rp 79.000',
-    cadence: 'per tahun',
+    price: PRO_PRICE,
+    cadence: PRO_CADENCE,
     tagline: 'Seluruh arsenal, semua format, tanpa batas',
     perks: [
       '14 preset tervalidasi',
@@ -97,10 +106,11 @@ export const PLANS: Record<Tier, Plan> = {
       'Semua target −16…−9 LUFS',
       '8D orbit engine',
       'Repair: denoise + voice focus',
-      'A/B memory + riwayat penuh',
+      'A/B memory + riwayat 40 export',
       'Export tanpa batas durasi',
+      'Satu kunci untuk semua perangkatmu',
     ],
-    limits: { maxMinutes: Infinity, history: Infinity },
+    limits: { maxMinutes: Infinity, history: 40 },
     presets: ALL_PRESET_IDS,
     formats: ['mp3', 'wav16', 'wav24', 'wav32', 'flac'],
     targets: ['off', 'podcast', 'streaming', 'loud', 'club'],
@@ -161,6 +171,12 @@ export function targetAllowed(tier: Tier, target: LoudnessTarget): boolean {
 
 export function isPro(tier: Tier): boolean {
   return tier === 'pro' || tier === 'admin';
+}
+
+/** Calendar days left on the current session, rounded up. */
+export function daysLeft(exp: number | null): number | null {
+  if (!exp) return null;
+  return Math.max(0, Math.ceil((exp - Date.now()) / 86_400_000));
 }
 
 /** Human label for the paywall copy. */

@@ -164,7 +164,7 @@ describe('app shell', () => {
     const scrim = document.querySelector('.sheet-scrim');
     expect(scrim).not.toBeNull();
     expect(scrim!.hasAttribute('hidden')).toBe(false);
-    expect(document.querySelector('.sheet')!.textContent).toMatch(/AKTIFKAN AKSES|PRO|FREE/);
+    expect(document.querySelector('.sheet')!.textContent).toMatch(/AKTIFKAN PRO|BELI LEWAT TELEGRAM|FREE/);
     expect(document.body.classList.contains('sheet-open')).toBe(true);
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -184,7 +184,7 @@ describe('app shell', () => {
     locked!.click();
     await new Promise((r) => setTimeout(r, 20));
     expect(store.edit.activePreset).toBe(before);
-    expect(document.querySelector('.price-block__amount')?.textContent).toMatch(/79\.000/);
+    expect(document.querySelector('.price-block__amount')?.textContent).toMatch(/5\.000/);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await new Promise((r) => setTimeout(r, 260));
   });

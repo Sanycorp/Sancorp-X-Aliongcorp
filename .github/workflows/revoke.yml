@@ -1,0 +1,62 @@
+name: revoke
+
+# Operator action, no laptop required: revoke licence serials from the GitHub
+# app on a phone. The workflow rewrites the deny list, commits it and pushes;
+# the deployment that follows enforces it on the next request.
+#
+# Inputs are validated in tools/revoke.mjs. An empty run is a no-op.
+
+on:
+  workflow_dispatch:
+    inputs:
+      serials:
+        description: 'Serial 4 karakter, pisahkan dengan koma (mis. 7F3K,AB12)'
+        required: true
+      mode:
+        description: 'add = tambah · replace = ganti semua · clear = kosongkan'
+        type: choice
+        options: [add, replace, clear]
+        default: add
+
+concurrency:
+  group: revoke
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  revoke:
+    name: Rewrite deny list
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Rewrite the deny list
+        env:
+          SERIALS: ${{ inputs.serials }}
+          MODE: ${{ inputs.mode }}
+        run: node tools/revoke.mjs
+
+      - name: Commit and push
+        env:
+          MODE: ${{ inputs.mode }}
+          SERIALS: ${{ inputs.serials }}
+        run: |
+          if git diff --quiet -- api/_lib/revoked.js; then
+            echo "Tidak ada perubahan — serial sudah ada di daftar atau daftar kosong."
+            exit 0
+          fi
+          git config user.name "aegis-ops"
+          git config user.email "ops@users.noreply.github.com"
+          git add api/_lib/revoked.js
+          git commit -m "ops: revoke ${MODE} — ${SERIALS}"
+          git push

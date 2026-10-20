@@ -1,4 +1,4 @@
-import { PLANS } from '../model/tiers';
+import { PLANS, daysLeft } from '../model/tiers';
 import type { Plan, Tier } from '../model/tiers';
 
 /**
@@ -56,6 +56,15 @@ class SessionStore {
 
   get tier(): Tier {
     return this.state.tier;
+  }
+
+  /** Whole days remaining, or null for a session without an expiry. */
+  get daysLeft(): number | null {
+    return daysLeft(this.state.exp);
+  }
+
+  get signedIn(): boolean {
+    return this.state.status === 'ready' && this.state.tier !== 'free';
   }
 
   async refresh(): Promise<void> {
@@ -146,9 +155,10 @@ class SessionStore {
       if (res.status === 429) return 'Terlalu banyak percobaan. Tunggu satu menit.';
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (data.error === 'admin_disabled') return 'Konsol admin belum diaktifkan di server.';
-        if (body.admin) return 'Kata sandi admin salah.';
-        return 'Lisensi tidak valid atau sudah kedaluwarsa.';
+        if (data.error === 'admin_disabled') return 'Konsol operator belum diaktifkan di server.';
+        if (data.error === 'revoked') return 'Kunci ini sudah dicabut. Hubungi operator di Telegram.';
+        if (body.admin) return 'Kata sandi operator salah.';
+        return 'Kunci tidak dikenali atau sudah kedaluwarsa.';
       }
       const data = (await res.json()) as { tier?: Tier; exp?: number | null; subject?: string | null };
       this.state = {

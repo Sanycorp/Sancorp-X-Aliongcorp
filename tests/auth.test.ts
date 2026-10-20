@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   CLEAR_COOKIE,
   SESSION_DAYS,
+  extendLicense,
+  isRevoked,
   makeLicense,
+  REVOKED_SERIALS,
   parseCookies,
   rateLimit,
   readSession,
@@ -12,6 +15,7 @@ import {
   signSession,
   verifyLicense,
 } from '../api/_lib/auth.js';
+import { REVOKED } from '../api/_lib/revoked.js';
 
 const DAY = 86_400_000;
 
@@ -54,6 +58,32 @@ describe('license keys', () => {
     }
   });
 
+  it('renews without changing the serial (the account id)', () => {
+    const original = makeLicense('pro', 30);
+    const renewed = extendLicense(original.key, 30);
+    expect(renewed).not.toBeNull();
+    expect(renewed!.serial).toBe(original.serial);
+    expect(renewed!.tier).toBe('pro');
+    const stamp = (value: string) => value.split('-')[3];
+    expect(Number(stamp(renewed!.key))).toBeGreaterThanOrEqual(Number(stamp(original.key)));
+    expect(verifyLicense(renewed!.key)).not.toBeNull();
+  });
+
+  it('renews a key that already expired, so lapsed customers can come back', () => {
+    const dead = makeLicense('pro', -3);
+    expect(verifyLicense(dead.key)).toBeNull();
+    const revived = extendLicense(dead.key, 30);
+    expect(revived).not.toBeNull();
+    expect(verifyLicense(revived!.key)).not.toBeNull();
+  });
+
+  it('refuses to renew a forged key', () => {
+    const key = makeLicense('pro', 30);
+    const parts = key.key.split('-');
+    parts[4] = 'AAAAAA';
+    expect(extendLicense(parts.join('-'), 30)).toBeNull();
+  });
+
   it('does not mint free keys', () => {
     // The issuer only ever signs pro/admin; "free" is the absence of a session.
     const licence = makeLicense('pro', 7);
@@ -93,6 +123,20 @@ describe('sessions', () => {
     expect(cookie).toContain('Path=/');
     expect(CLEAR_COOKIE).toContain('Max-Age=0');
     expect(SESSION_DAYS).toBeGreaterThanOrEqual(1);
+  });
+
+  it('drops a session whose serial was revoked', () => {
+    // The signature and the date are still valid — only the deny list changed.
+    const token = signSession({ tier: 'pro', exp: Date.now() + DAY, subject: 'ZZ9Q' });
+    expect(readSession(token)).not.toBeNull();
+    REVOKED.push('ZZ9Q');
+    try {
+      expect(isRevoked('zz9q')).toBe(true);
+      expect(readSession(token)).toBeNull();
+    } finally {
+      REVOKED.pop();
+    }
+    expect(readSession(token)).not.toBeNull();
   });
 
   it('parses cookie headers safely', () => {

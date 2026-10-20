@@ -89,6 +89,7 @@ describe('operator console', () => {
           });
         }
         if (url.startsWith('/api/csp-report')) return jsonResponse({ count: 0, reports: [] });
+        if (url.startsWith('/api/license')) return jsonResponse({ ok: true, revoked: 0, adminEnabled: true, devSecret: false, days: [1, 7, 30] });
         return jsonResponse({}, 404);
       }),
     );
@@ -101,12 +102,17 @@ describe('operator console', () => {
     expect(screen.el.dataset.gate).toBe('open');
 
     const tabs = screen.el.querySelectorAll('.ctrl-tabs .segment button');
-    expect(Array.from(tabs).map((b) => b.textContent)).toEqual(['STATUS', 'SECURITY', 'LISENSI']);
+    expect(Array.from(tabs).map((b) => b.textContent)).toEqual(['LIVE', 'AKUN', 'TERBIT', 'KEAMANAN']);
 
+    // The desk mints on the server; the copy must say so.
     (tabs[2] as HTMLButtonElement).click();
-    expect(screen.el.querySelector('.ctrl-tabs')!.textContent).toContain('LISENSI');
-    expect(screen.el.textContent).toContain('GENERATOR LISENSI');
+    expect(screen.el.textContent).toContain('TERBITKAN KUNCI');
     expect(screen.el.textContent).toContain('HMAC-SHA256');
+
+    // And the ledger is the operator's own device, not a database.
+    (tabs[1] as HTMLButtonElement).click();
+    expect(screen.el.textContent).toContain('DAFTAR AKUN');
+    expect(screen.el.textContent).toContain('perangkat ini');
 
     screen.destroy?.();
     vi.unstubAllGlobals();

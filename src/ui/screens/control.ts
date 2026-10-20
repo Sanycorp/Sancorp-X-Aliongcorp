@@ -1,20 +1,22 @@
 import { el, button, sectionHead, segmented, toast } from '../elements';
 import { session } from '../../state/session';
+import { ledger, statusOf, dayCount } from '../../state/ops';
+import type { OpsAccount, OpsFilter } from '../../state/ops';
 import { installRipple } from '../motion';
 import type { Screen } from './deck';
 import { APP_VERSION } from '../../version';
+import { PRO_PRICE } from '../../model/tiers';
 
 /**
- * Control console — the paid-product operator view.
+ * AEGIS OPS — the operator app.
  *
- * Everything shown here is measured, not asserted:
- *  - /api/health answers from the same deployment that serves this page
- *  - header checks read the live response this document arrived with
- *  - the CSP feed reads what the collector actually received
- *  - license keys are signed by the server, never in the browser
+ * Two jobs, one screen:
+ *  - watch the live deployment (health, latency, headers, CSP reports);
+ *  - run the licence desk (issue, renew, inspect, revoke).
  *
- * It is intentionally not linked from the navigation. It only renders for a
- * session with tier "admin"; anything else gets the sign-in form.
+ * The desk writes to a ledger on this device and asks the server to sign keys;
+ * the signing secret never reaches the browser. Access gating is enforced by the
+ * server (`requireAdmin`), so hiding a tab only ever hides pixels.
  */
 
 interface HealthData {
@@ -27,6 +29,13 @@ interface HealthData {
   now: number;
 }
 
+interface DeskState {
+  revoked: number;
+  adminEnabled: boolean;
+  devSecret: boolean;
+  days: number[];
+}
+
 interface CspEntry {
   directive: string;
   blocked: string;
@@ -36,7 +45,16 @@ interface CspEntry {
   at: number;
 }
 
-const HEADER_CHECKS: { key: string; label: string; expect?: string }[] = [
+interface IssuedKey {
+  key: string;
+  tier: string;
+  serial: string;
+  expires: string;
+}
+
+type Tab = 'live' | 'accounts' | 'issue' | 'security';
+
+const HEADER_CHECKS: { key: string; label: string; expect: string }[] = [
   { key: 'content-security-policy', label: 'CSP', expect: "default-src 'none'" },
   { key: 'strict-transport-security', label: 'HSTS', expect: 'max-age' },
   { key: 'cross-origin-opener-policy', label: 'COOP', expect: 'same-origin' },
@@ -46,38 +64,62 @@ const HEADER_CHECKS: { key: string; label: string; expect?: string }[] = [
   { key: 'permissions-policy', label: 'PERMISSIONS', expect: 'camera=()' },
 ];
 
-function readHeaders(): { key: string; label: string; ok: boolean; value: string }[] {
-  // The headers of the document itself are not exposed to JS. Instead we ask
-  // the server for a HEAD and read what came back on that response.
-  return HEADER_CHECKS.map((check) => ({ key: check.key, label: check.label, ok: false, value: 'menunggu probe' }));
+const REVOKE_WORKFLOW =
+  'https://github.com/Sanycorp/Sancorp-X-Aliongcorp/actions/workflows/revoke.yml';
+
+function fmtDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function stateBadge(text: string, tone: 'ok' | 'warn' | 'bad'): HTMLElement {
-  return el('span', { class: `ctrl-badge ctrl-badge--${tone}`, text });
+function fmtTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function money(value: number): string {
+  return `Rp ${value.toLocaleString('id-ID')}`;
+}
+
+function copy(text: string, message: string): void {
+  void navigator.clipboard
+    ?.writeText(text)
+    .then(() => toast(message, 'ok', 1400))
+    .catch(() => toast('Papan klip ditolak browser', 'err', 1800));
 }
 
 export function createControl(): Screen {
+  let tab: Tab = 'live';
   let health: HealthData | null = null;
   let latency = 0;
   let lastProbe = 0;
-  const headers: { key: string; label: string; ok: boolean; value: string }[] = readHeaders();
+  let autoRefresh = false;
+  let autoTimer = 0;
+  let desk: DeskState | null = null;
   let csp: CspEntry[] = [];
   let cspError = '';
-  let generated: { key: string; tier: string; expires: string }[] = [];
+  let headers = HEADER_CHECKS.map((check) => ({ ...check, ok: false, value: 'belum dicek' }));
+
+  // desk form state
+  let query = '';
+  let filter: OpsFilter = 'all';
+  let showLink = false;
+  let linkKeyText = '';
+  let linkNameText = '';
+  let linkNoteText = '';
   let genTier: 'pro' | 'admin' = 'pro';
-  let genDays = '365';
+  let genDays = '30';
   let genCount = '1';
-  let busy = false;
-  let section: 'status' | 'security' | 'license' = 'status';
+  let genHandle = '';
+  let generated: IssuedKey[] = [];
+  let confirmClear = false;
 
   const gate = el('div', { class: 'ctrl-gate' });
+  const tabsHost = el('div', { class: 'ctrl-tabs' });
   const body = el('div', { class: 'ctrl-body' });
-  const tabHost = el('div', { class: 'ctrl-tabs' });
   const stamp = el('span', { class: 'ctrl-clock', text: '--:--:--' });
 
   const screen = el(
     'section',
-    { class: 'screen', id: 'screen-control', attrs: { 'aria-label': 'Konsol kontrol' } },
+    { class: 'screen', id: 'screen-control', attrs: { 'aria-label': 'Konsol operator' } },
     el(
       'div',
       { class: 'screen__intro' },
@@ -85,12 +127,12 @@ export function createControl(): Screen {
         'div',
         {},
         el('div', { class: 'screen__kicker', text: 'AEGIS-M / OPERATIONS' }),
-        el('h1', { class: 'screen__title', html: 'CONTROL <em>DECK</em>' }),
+        el('h1', { class: 'screen__title', html: 'AEGIS <em>OPS</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'ADMIN' })), stamp),
     ),
     gate,
-    tabHost,
+    tabsHost,
     body,
     el('div', { class: 'footnote', text: `Konsol operator · AEGIS-M ${APP_VERSION} · data dibaca live dari deployment ini` }),
   );
@@ -99,8 +141,7 @@ export function createControl(): Screen {
 
   // ------------------------------------------------------------------ probes
   async function ping(): Promise<void> {
-    busy = true;
-    render();
+    if (tab === 'live') render();
     const started = performance.now();
     try {
       const res = await fetch('/api/health', { cache: 'no-store', headers: { accept: 'application/json' } });
@@ -111,33 +152,37 @@ export function createControl(): Screen {
       latency = -1;
     }
     lastProbe = Date.now();
-    busy = false;
-    render();
+    if (tab === 'live') render();
+  }
+
+  async function loadDesk(): Promise<void> {
+    try {
+      const res = await fetch('/api/license', { cache: 'no-store', headers: { accept: 'application/json' } });
+      desk = res.ok ? ((await res.json()) as DeskState) : null;
+    } catch {
+      desk = null;
+    }
+    if (tab === 'security' || tab === 'live') render();
   }
 
   async function probeHeaders(): Promise<void> {
     try {
       const res = await fetch(`/?probe=${Date.now()}`, { cache: 'no-store', method: 'GET' });
-      for (const check of headers) {
+      headers = HEADER_CHECKS.map((check) => {
         const value = res.headers.get(check.key) ?? '';
-        const expect = HEADER_CHECKS.find((h) => h.key === check.key)?.expect ?? '';
-        check.value = value || 'tidak ada';
-        check.ok = value.toLowerCase().includes(expect.toLowerCase());
-      }
+        return { ...check, value: value || 'tidak ada', ok: value.toLowerCase().includes(check.expect) };
+      });
     } catch {
-      for (const check of headers) {
-        check.ok = false;
-        check.value = 'probe gagal';
-      }
+      headers = HEADER_CHECKS.map((check) => ({ ...check, value: 'probe gagal', ok: false }));
     }
-    render();
+    if (tab === 'security') render();
   }
 
   async function loadCsp(): Promise<void> {
     try {
       const res = await fetch('/api/csp-report', { cache: 'no-store', headers: { accept: 'application/json' } });
       if (!res.ok) {
-        cspError = res.status === 403 ? 'butuh sesi admin' : `HTTP ${res.status}`;
+        cspError = res.status === 403 ? 'butuh sesi operator' : `HTTP ${res.status}`;
         csp = [];
       } else {
         const data = (await res.json()) as { reports: CspEntry[] };
@@ -148,327 +193,679 @@ export function createControl(): Screen {
       cspError = 'server tidak terjangkau';
       csp = [];
     }
+    if (tab === 'security') render();
+  }
+
+  function setAuto(on: boolean): void {
+    autoRefresh = on;
+    window.clearInterval(autoTimer);
+    if (on) autoTimer = window.setInterval(() => void ping(), 15_000);
     render();
   }
 
+  // ------------------------------------------------------------------ desk ops
+  async function postDesk(payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+    try {
+      const res = await fetch('/api/license', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        const map: Record<string, string> = {
+          admin_required: 'Sesi operator berakhir — masuk ulang.',
+          invalid_license: 'Kunci tidak valid atau tanda tangannya rusak.',
+          too_many_requests: 'Terlalu cepat. Tunggu satu menit.',
+        };
+        toast(map[data.error ?? ''] ?? `Gagal (${res.status})`, 'err', 2200);
+        return null;
+      }
+      return (await res.json()) as Record<string, unknown>;
+    } catch {
+      toast('Server tidak terjangkau', 'err', 2000);
+      return null;
+    }
+  }
+
+  async function issueKeys(): Promise<void> {
+    const count = Math.min(20, Math.max(1, Number(genCount) || 1));
+    const data = await postDesk({ op: 'issue', tier: genTier, days: Number(genDays), count });
+    if (!data) return;
+    const keys = (data.keys as IssuedKey[]) ?? [];
+    generated = [...keys, ...generated].slice(0, 30);
+    for (const key of keys) {
+      ledger.add({
+        key: key.key,
+        handle: genHandle,
+        days: Number(genDays),
+        passes: Math.max(1, Math.round(Number(genDays) / 30)),
+      });
+      ledger.setNote(key.serial, 'diterbitkan dari konsol');
+    }
+    toast(`${keys.length} kunci siap — sudah masuk daftar akun`, 'ok', 2200);
+    render();
+  }
+
+  async function renew(account: OpsAccount): Promise<void> {
+    const data = await postDesk({ op: 'extend', key: account.key, days: 30 });
+    if (!data) return;
+    const renewed = ledger.renew(account.serial, String(data.key), 30);
+    toast(renewed ? `Diperpanjang 30 hari · ${account.serial}` : 'Kunci diperbarui', 'ok', 2200);
+    render();
+  }
+
+  async function saveLinkedKey(): Promise<void> {
+    const key = linkKeyText.trim().toUpperCase();
+    if (!key) {
+      toast('Tempel kunci dulu', 'info', 1600);
+      return;
+    }
+    const data = await postDesk({ op: 'inspect', key });
+    if (!data) return;
+    if (!data.valid && data.reason === 'signature') {
+      toast('Kunci tidak valid — cek ulang', 'err', 2200);
+      return;
+    }
+    const account = ledger.add({ key, handle: linkNameText, note: linkNoteText });
+    if (!account) {
+      toast('Format kunci tidak dikenali', 'err', 2200);
+      return;
+    }
+    if (data.revoked) ledger.setRevoked(account.serial, true);
+    toast(`${account.serial} masuk daftar akun`, 'ok', 1800);
+    showLink = false;
+    linkKeyText = '';
+    linkNameText = '';
+    linkNoteText = '';
+    render();
+  }
+
+  function download(name: string, mime: string, content: string): void {
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
+    const link = el('a', { attrs: { href: url, download: name } });
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   // ------------------------------------------------------------------ views
-  function renderStatus(): void {
+  function statCard(label: string, value: string, hint?: string): HTMLElement {
+    return el(
+      'div',
+      { class: 'ops-stat' },
+      el('span', { class: 'ops-stat__label', text: label }),
+      el('b', { class: 'ops-stat__value', text: value }),
+      hint ? el('span', { class: 'ops-stat__hint', text: hint }) : null,
+    );
+  }
+
+  function renderLive(): void {
     const ok = Boolean(health?.ok);
-    const tone: 'ok' | 'warn' | 'bad' = ok ? 'ok' : latency === -1 ? 'bad' : 'warn';
     body.append(
       el(
         'div',
-        { class: 'grid grid--lab' },
+        { class: 'ops-grid' },
+        statCard('DEPLOY', health?.commit ?? '—', health?.env ?? 'tidak terbaca'),
+        statCard('REGION', health?.region ?? '—', health?.ref?.split('/').pop() ?? ''),
+        statCard('UPTIME', health ? `${Math.floor(health.uptimeSec / 60)}m ${health.uptimeSec % 60}s` : '—', 'sejak instance hidup'),
+        statCard('LATENSI', latency >= 0 ? `${latency} ms` : 'gagal', lastProbe ? `cek ${fmtTime(lastProbe)}` : 'belum dicek'),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('01', 'KESEHATAN LAYANAN'),
         el(
           'div',
-          { class: 'plate ctrl-plate' },
-          sectionHead('01', 'KESEHATAN'),
-          el(
-            'div',
-            { class: 'ctrl-hero' },
-            el('div', { class: `ctrl-pulse ${ok ? 'is-ok' : 'is-bad'}` }, el('i'), el('i')),
-            el(
-              'div',
-              {},
-              el('div', { class: 'ctrl-hero__value', text: ok ? 'ONLINE' : latency === -1 ? 'TIDAK TERJANGKAU' : 'MENUNGGU' }),
-              el('div', {
-                class: 'ctrl-hero__sub',
-                text: latency >= 0 ? `${latency} ms round-trip` : 'tidak ada respons',
+          { class: 'ops-line' },
+          el('span', { class: `ops-dot ${ok ? 'is-ok' : 'is-bad'}` }),
+          el('b', { text: ok ? 'Origin menjawab' : 'Origin tidak menjawab' }),
+          el('span', { class: 'spacer' }),
+          button('CEK SEKARANG', { tone: 'ghost', size: 'sm', icon: 'reset', onClick: () => void ping() }),
+          button(autoRefresh ? 'AUTO: HIDUP' : 'AUTO: MATI', {
+            tone: autoRefresh ? 'primary' : 'ghost',
+            size: 'sm',
+            onClick: () => setAuto(!autoRefresh),
+          }),
+        ),
+        el(
+          'div',
+          { class: 'ctrl-kv' },
+          kv('ENDPOINT', '/api/health · /api/auth · /api/license · /api/csp-report'),
+          kv('JAM SERVER', health ? fmtTime(health.now) : '—'),
+          kv('JAM LOKAL', new Date().toLocaleTimeString('id-ID')),
+          kv('BIAYA', '4 fungsi serverless · region sin1'),
+        ),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('02', 'SESI OPERATOR'),
+        el(
+          'div',
+          { class: 'ctrl-kv' },
+          kv('TIER', session.state.tier.toUpperCase()),
+          kv('SUBJEK', session.state.subject ?? '—'),
+          kv('BERAKHIR', session.state.exp ? new Date(session.state.exp).toLocaleString('id-ID') : '—'),
+          kv('MODE', session.state.status === 'ready' ? 'server' : session.state.status),
+          kv('KATA SANDI', session.state.adminEnabled ? 'aktif' : 'belum disetel'),
+          kv('SECRET', session.state.devSecret ? 'DEV — ganti sebelum jualan' : 'production'),
+        ),
+        el(
+          'div',
+          { class: 'ctrl-actions' },
+          button('MUAT ULANG SESI', {
+            tone: 'ghost',
+            size: 'sm',
+            icon: 'reset',
+            onClick: () => void session.refresh().then(() => render()),
+          }),
+          button('KELUAR', {
+            tone: 'ghost',
+            size: 'sm',
+            onClick: () => {
+              void session.signOut().then(() => {
+                toast('Sesi operator ditutup', 'info', 1500);
+                render();
+              });
+            },
+          }),
+        ),
+      ),
+    );
+  }
+
+  /** Only the list is repainted while typing, so the caret never jumps. */
+  function paintRows(host: HTMLElement): void {
+    const rows = ledger.filter(query, filter);
+    host.replaceChildren();
+    if (rows.length === 0) {
+      host.append(
+        el('p', {
+          class: 'ctrl-empty',
+          text:
+            query || filter !== 'all'
+              ? 'Tidak ada akun yang cocok.'
+              : 'Belum ada akun. Terbitkan kunci atau tautkan kunci yang sudah ada.',
+        }),
+      );
+      return;
+    }
+    host.append(el('div', { class: 'ops-list' }, ...rows.map(renderAccount)));
+  }
+
+  function renderAccounts(): void {
+    const stats = ledger.stats();
+    const listHost = el('div');
+    paintRows(listHost);
+
+    body.append(
+      el(
+        'div',
+        { class: 'ops-grid ops-grid--tight' },
+        statCard('AKUN', String(stats.total), 'di perangkat ini'),
+        statCard('AKTIF', String(stats.active), `${stats.expiring} habis < 7 hari`),
+        statCard('DICABUT', String(stats.revoked + stats.expired), 'arsip'),
+        statCard('TERCATAT', money(stats.revenue), 'nilai pass terjual'),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('03', 'DAFTAR AKUN'),
+        el(
+          'div',
+          { class: 'ops-toolbar' },
+          el('input', {
+            class: 'input',
+            attrs: {
+              type: 'search',
+              placeholder: 'Cari nama, serial, atau catatan',
+              'aria-label': 'Cari akun',
+              value: query,
+            },
+            on: {
+              input: (ev) => {
+                query = (ev.target as HTMLInputElement).value;
+                paintRows(listHost);
+              },
+            },
+          }),
+          button(showLink ? 'TUTUP' : '+ TAUTKAN KUNCI', {
+            tone: showLink ? 'ghost' : 'primary',
+            size: 'sm',
+            onClick: () => {
+              showLink = !showLink;
+              render();
+            },
+          }),
+        ),
+        showLink ? renderLinkForm() : null,
+        segmented(
+          [
+            { value: 'all', label: 'SEMUA' },
+            { value: 'active', label: 'AKTIF' },
+            { value: 'expiring', label: 'SEGERA' },
+            { value: 'expired', label: 'HABIS' },
+            { value: 'revoked', label: 'CABUT' },
+          ],
+          filter,
+          (value) => {
+            filter = value as OpsFilter;
+            render();
+          },
+        ).wrap,
+        listHost,
+        el(
+          'div',
+          { class: 'ctrl-actions' },
+          button('UNDUH JSON', {
+            tone: 'ghost',
+            size: 'sm',
+            icon: 'download',
+            onClick: () => download(`aegis-akun-${Date.now()}.json`, 'application/json', ledger.exportJson()),
+          }),
+          button('UNDUH CSV', {
+            tone: 'ghost',
+            size: 'sm',
+            icon: 'download',
+            onClick: () => download(`aegis-akun-${Date.now()}.csv`, 'text/csv', ledger.toCsv()),
+          }),
+          labelImport(),
+          confirmClear
+            ? button('YAKIN? KOSONGKAN', {
+                tone: 'danger',
+                size: 'sm',
+                onClick: () => {
+                  ledger.clear();
+                  confirmClear = false;
+                  toast('Daftar akun dikosongkan', 'info', 1600);
+                  render();
+                },
+              })
+            : button('KOSONGKAN', {
+                tone: 'ghost',
+                size: 'sm',
+                onClick: () => {
+                  confirmClear = true;
+                  render();
+                },
               }),
-            ),
-            stateBadge(ok ? 'HEALTHY' : tone.toUpperCase(), tone),
+        ),
+        el('p', {
+          class: 'ops-hint',
+          text: 'Daftar ini hidup di perangkatmu, bukan di server. Ekspor JSON sebelum ganti HP. Yang menentukan akses tetap kunci bertanda tangan + daftar cabut di server.',
+        }),
+      ),
+    );
+  }
+
+  function renderLinkForm(): HTMLElement {
+    return el(
+      'div',
+      { class: 'ops-link' },
+      el(
+        'label',
+        { class: 'field' },
+        el('span', { class: 'label', text: 'KUNCI' }),
+        el('input', {
+          class: 'input input--key',
+          attrs: { type: 'text', placeholder: 'AEGIS-PRO-XXXX-XXXXXXXX-XXXXXX', 'aria-label': 'Kunci lisensi', value: linkKeyText },
+          on: {
+            input: (ev) => {
+              linkKeyText = (ev.target as HTMLInputElement).value.toUpperCase();
+            },
+          },
+        }),
+      ),
+      el(
+        'div',
+        { class: 'ops-link__row' },
+        el('input', {
+          class: 'input',
+          attrs: { type: 'text', placeholder: 'Nama / @telegram', 'aria-label': 'Nama pembeli', value: linkNameText },
+          on: {
+            input: (ev) => {
+              linkNameText = (ev.target as HTMLInputElement).value;
+            },
+          },
+        }),
+        el('input', {
+          class: 'input',
+          attrs: { type: 'text', placeholder: 'Catatan (opsional)', 'aria-label': 'Catatan', value: linkNoteText },
+          on: {
+            input: (ev) => {
+              linkNoteText = (ev.target as HTMLInputElement).value;
+            },
+          },
+        }),
+      ),
+      button('PERIKSA & SIMPAN', { tone: 'primary', size: 'sm', icon: 'check', onClick: () => void saveLinkedKey() }),
+    );
+  }
+
+  function labelImport(): HTMLElement {
+    const input = el('input', {
+      class: 'sr-only',
+      attrs: { type: 'file', accept: 'application/json,.json', 'aria-label': 'Impor daftar akun' },
+      on: {
+        change: (ev) => {
+          const file = (ev.target as HTMLInputElement).files?.[0];
+          if (!file) return;
+          void file.text().then((text) => {
+            const count = ledger.importJson(text);
+            toast(count > 0 ? `${count} akun diimpor` : 'File tidak berisi akun', count > 0 ? 'ok' : 'err', 2000);
+            render();
+          });
+        },
+      },
+    });
+    const id = `ops-import-${Math.random().toString(36).slice(2, 8)}`;
+    input.id = id;
+    return el(
+      'span',
+      { class: 'ops-import' },
+      input,
+      el(
+        'button',
+        {
+          class: 'btn btn--ghost btn--sm',
+          attrs: { type: 'button' },
+          on: { click: () => document.getElementById(id)?.click() },
+        },
+        el('span', { text: 'IMPOR' }),
+      ),
+    );
+  }
+
+  function renderAccount(account: OpsAccount): HTMLElement {
+    const status = statusOf(account);
+    const days = dayCount(account.expires);
+    const label =
+      status === 'revoked' ? 'DICABUT' : status === 'expired' ? 'HABIS' : status === 'expiring' ? `${days} HARI LAGI` : `${days} HARI`;
+    const tone = status === 'revoked' || status === 'expired' ? 'bad' : status === 'expiring' ? 'warn' : 'ok';
+
+    return el(
+      'div',
+      { class: 'ops-acct' },
+      el(
+        'div',
+        { class: 'ops-acct__head' },
+        el(
+          'div',
+          { class: 'ops-acct__id' },
+          el('b', { text: account.handle }),
+          el('span', { class: `ops-badge ops-badge--${account.tier === 'admin' ? 'admin' : 'pro'}`, text: account.tier.toUpperCase() }),
+          el('span', { class: `ops-badge ops-badge--${tone}`, text: label }),
+        ),
+        el('code', { class: 'ops-acct__serial', text: account.serial }),
+      ),
+      el('code', { class: 'ops-acct__key', text: account.key }),
+      el(
+        'div',
+        { class: 'ops-acct__meta' },
+        el('span', { text: `Mulai ${fmtDate(account.issued)}` }),
+        el('span', { text: `Berakhir ${fmtDate(account.expires)}` }),
+        account.passes > 1 ? el('span', { text: `${account.passes} pass` }) : null,
+      ),
+      account.note ? el('p', { class: 'ops-acct__note', text: account.note }) : null,
+      el(
+        'div',
+        { class: 'ops-acct__actions' },
+        button('+30 HARI', {
+          tone: 'primary',
+          size: 'sm',
+          icon: 'clock',
+          title: 'Terbitkan kunci baru dengan serial sama',
+          onClick: () => void renew(account),
+        }),
+        button('SALIN', {
+          tone: 'ghost',
+          size: 'sm',
+          icon: 'copy',
+          onClick: () => copy(account.key, 'Kunci disalin'),
+        }),
+        button(account.revoked ? 'PULIHKAN' : 'CABUT', {
+          tone: account.revoked ? 'ghost' : 'danger',
+          size: 'sm',
+          onClick: () => {
+            ledger.setRevoked(account.serial, !account.revoked);
+            if (!account.revoked) {
+              copy(account.serial, `Serial ${account.serial} disalin — tempel di workflow revoke`);
+            }
+            render();
+          },
+        }),
+        button('HAPUS', {
+          tone: 'ghost',
+          size: 'sm',
+          icon: 'trash',
+          onClick: () => {
+            ledger.remove(account.serial);
+            render();
+          },
+        }),
+      ),
+    );
+  }
+
+  function renderIssue(): void {
+    body.append(
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('04', 'TERBITKAN KUNCI'),
+        el('p', {
+          class: 'lab-group__note',
+          style: 'margin-top:0',
+          text: 'Kunci ditandatangani HMAC-SHA256 oleh server; rahasianya tidak pernah menyentuh browser. Satu kunci bisa dipakai di semua perangkat pemiliknya.',
+        }),
+        el(
+          'div',
+          { class: 'ctrl-form' },
+          el(
+            'div',
+            { class: 'field' },
+            el('span', { class: 'label', text: 'PAKET' }),
+            segmented(
+              [
+                { value: 'pro', label: 'PRO', sub: PRO_PRICE },
+                { value: 'admin', label: 'ADMIN', sub: 'internal' },
+              ],
+              genTier,
+              (value) => {
+                genTier = value as 'pro' | 'admin';
+              },
+            ).wrap,
           ),
           el(
             'div',
-            { class: 'ctrl-kv' },
-            kv('COMMIT', health?.commit ?? '—'),
-            kv('BRANCH', health?.ref ?? '—'),
-            kv('ENV', health?.env ?? '—'),
-            kv('REGION', health?.region ?? '—'),
-            kv('UPTIME', health ? `${Math.floor(health.uptimeSec / 60)} mnt` : '—'),
-            kv('LAST PROBE', lastProbe ? new Date(lastProbe).toLocaleTimeString('id-ID') : '—'),
+            { class: 'field' },
+            el('span', { class: 'label', text: 'MASA AKTIF' }),
+            segmented(
+              [
+                { value: '1', label: '1H', sub: 'trial' },
+                { value: '7', label: '7H' },
+                { value: '30', label: '30H', sub: 'pass' },
+                { value: '90', label: '90H' },
+                { value: '365', label: '1TH' },
+              ],
+              genDays,
+              (value) => {
+                genDays = value;
+              },
+            ).wrap,
           ),
           el(
-            'div',
-            { class: 'ctrl-actions' },
-            button(busy ? 'MENGUKUR…' : 'PING ULANG', {
-              tone: 'primary',
-              size: 'sm',
-              icon: 'reset',
-              onClick: () => void ping(),
+            'label',
+            { class: 'field' },
+            el('span', { class: 'label', text: 'NAMA PEMBELI' }),
+            el('input', {
+              class: 'input',
+              attrs: { type: 'text', placeholder: 'mis. @budi — opsional', 'aria-label': 'Nama pembeli', value: genHandle },
+              on: {
+                input: (ev) => {
+                  genHandle = (ev.target as HTMLInputElement).value;
+                },
+              },
             }),
-            button('SALIN LAPORAN', {
-              tone: 'ghost',
-              size: 'sm',
-              icon: 'copy',
-              onClick: () => {
-                const report = JSON.stringify({ health, latency, generatedAt: new Date().toISOString() }, null, 2);
-                void navigator.clipboard?.writeText(report).then(
-                  () => toast('Laporan disalin', 'ok', 1400),
-                  () => toast('Clipboard diblokir browser', 'err', 1800),
-                );
+          ),
+          el(
+            'label',
+            { class: 'field' },
+            el('span', { class: 'label', text: 'JUMLAH (1–20)' }),
+            el('input', {
+              class: 'input',
+              attrs: { type: 'number', min: 1, max: 20, value: genCount, 'aria-label': 'Jumlah kunci' },
+              on: {
+                change: (ev) => {
+                  genCount = (ev.target as HTMLInputElement).value;
+                },
               },
             }),
           ),
         ),
         el(
           'div',
-          { class: 'plate ctrl-plate' },
-          sectionHead('02', 'DEPLOY'),
-          el(
-            'div',
-            { class: 'ctrl-kv' },
-            kv('VERSI APP', APP_VERSION),
-            kv('BUNDLE', document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.src.split('/').pop() ?? '—'),
-            kv('SRI', `${document.querySelectorAll('[integrity]').length} aset ditandatangani`),
-            kv('SERVICE WORKER', navigator.serviceWorker?.controller ? 'aktif' : 'belum aktif'),
-            kv('PROTOKOL', location.protocol.replace(':', '')),
-            kv('ORIGIN', location.host),
-          ),
-          el(
-            'div',
-            { class: 'ctrl-actions' },
-            button('BUKA DI VERCEL', {
-              tone: 'ghost',
-              size: 'sm',
-              onClick: () => window.open('https://vercel.com/sancorp/sancorp-x-aliongcorp', '_blank', 'noopener'),
-            }),
-            button('BUKA GITHUB ACTIONS', {
-              tone: 'ghost',
-              size: 'sm',
-              onClick: () =>
-                window.open('https://github.com/Sanycorp/Sancorp-X-Aliongcorp/actions', '_blank', 'noopener'),
-            }),
-          ),
+          { class: 'ctrl-actions' },
+          button('BUAT KUNCI', { tone: 'primary', size: 'sm', icon: 'bolt', onClick: () => void issueKeys() }),
+          generated.length > 0
+            ? button('SALIN SEMUA', {
+                tone: 'ghost',
+                size: 'sm',
+                icon: 'copy',
+                onClick: () => copy(generated.map((g) => g.key).join('\n'), 'Semua kunci disalin'),
+              })
+            : null,
         ),
+        generated.length > 0
+          ? el(
+              'div',
+              { class: 'key-list' },
+              ...generated.map((g) =>
+                el(
+                  'div',
+                  { class: 'key-row' },
+                  el('code', { text: g.key }),
+                  el('span', { class: 'key-row__meta', text: `${g.tier.toUpperCase()} · ${g.expires}` }),
+                  el('button', {
+                    class: 'icon-btn',
+                    attrs: { type: 'button', 'aria-label': 'Salin kunci' },
+                    on: { click: () => copy(g.key, 'Kunci disalin') },
+                  }),
+                ),
+              ),
+            )
+          : el('p', { class: 'ctrl-empty', text: 'Belum ada kunci dibuat di sesi ini.' }),
+        el('p', {
+          class: 'ops-hint',
+          text: `Harga PRO ${PRO_PRICE} per 30 hari. Kunci 30 hari yang dijual manual: kirim lewat chat, jangan lewat komentar publik.`,
+        }),
       ),
     );
   }
 
   function renderSecurity(): void {
-    const passing = headers.filter((h) => h.ok).length;
+    const revoked = ledger.revokedSerials();
     body.append(
       el(
         'div',
-        { class: 'grid grid--lab' },
+        { class: 'plate ctrl-plate' },
+        sectionHead('05', 'HEADER LIVE'),
         el(
-          'div',
-          { class: 'plate ctrl-plate' },
-          el(
-            'div',
-            { class: 'row', style: 'align-items:center;gap:10px' },
-            el('div', { style: 'flex:1;min-width:0' }, sectionHead('03', 'HEADER RESPONS')),
-            stateBadge(`${passing}/${headers.length}`, passing === headers.length ? 'ok' : 'warn'),
-          ),
-          el(
-            'div',
-            { class: 'ctrl-checks' },
-            ...headers.map((h) =>
-              el(
-                'div',
-                { class: 'ctrl-check', dataset: { ok: String(h.ok) } },
-                el('span', { class: 'ctrl-check__dot' }),
-                el('b', { text: h.label }),
-                el('span', { class: 'ctrl-check__value', text: h.value.slice(0, 46) + (h.value.length > 46 ? '…' : '') }),
-              ),
+          'ul',
+          { class: 'ctrl-checks' },
+          ...headers.map((check) =>
+            el(
+              'li',
+              { class: `ctrl-check ${check.ok ? 'is-ok' : 'is-bad'}` },
+              el('span', { class: 'ctrl-check__dot' }),
+              el('b', { text: check.label }),
+              el('span', { class: 'ctrl-check__value', text: check.value.slice(0, 68) }),
             ),
-          ),
-          el(
-            'div',
-            { class: 'ctrl-actions' },
-            button('PROBE HEADER', { tone: 'primary', size: 'sm', icon: 'bolt', onClick: () => void probeHeaders() }),
           ),
         ),
         el(
           'div',
-          { class: 'plate ctrl-plate' },
-          el(
-            'div',
-            { class: 'row', style: 'align-items:center;gap:10px' },
-            el('div', { style: 'flex:1;min-width:0' }, sectionHead('04', 'CSP FEED')),
-            stateBadge(cspError ? 'ERROR' : `${csp.length} LAPORAN`, cspError ? 'bad' : csp.length > 0 ? 'warn' : 'ok'),
-          ),
-          el('p', {
-            class: 'lab-group__note',
-            style: 'margin-top:0',
-            text: 'Laporan pelanggaran CSP yang benar-benar diterima endpoint. Query string sudah dibuang server sebelum disimpan.',
-          }),
-          cspError
-            ? el('p', { class: 'form-error', text: cspError })
-            : csp.length === 0
-              ? el('p', { class: 'ctrl-empty', text: 'Tidak ada pelanggaran. Itu hasil yang benar.' })
-              : el(
-                  'div',
-                  { class: 'ctrl-feed' },
-                  ...csp.slice(0, 12).map((entry) =>
-                    el(
-                      'div',
-                      { class: 'ctrl-feed__row' },
-                      el('b', { text: entry.directive }),
-                      el('span', { text: entry.blocked || '(inline)' }),
-                      el('time', { text: new Date(entry.at).toLocaleTimeString('id-ID') }),
-                    ),
-                  ),
-                ),
-          el(
-            'div',
-            { class: 'ctrl-actions' },
-            button('MUAT ULANG FEED', { tone: 'ghost', size: 'sm', icon: 'reset', onClick: () => void loadCsp() }),
-          ),
+          { class: 'ctrl-actions' },
+          button('PROBE ULANG', { tone: 'ghost', size: 'sm', icon: 'reset', onClick: () => void probeHeaders() }),
         ),
       ),
-    );
-  }
-
-  function renderLicense(): void {
-    body.append(
       el(
         'div',
-        { class: 'grid grid--lab' },
-        el(
-          'div',
-          { class: 'plate ctrl-plate' },
-          sectionHead('05', 'GENERATOR LISENSI'),
-          el('p', {
-            class: 'lab-group__note',
-            style: 'margin-top:0',
-            text: 'Kunci ditandatangani HMAC-SHA256 oleh server. Tidak ada database: lisensi adalah string yang bisa diverifikasi sendiri, dan sesi adalah cookie httpOnly.',
-          }),
-          el(
-            'div',
-            { class: 'ctrl-form' },
-            el(
-              'div',
-              { class: 'field' },
-              el('span', { class: 'label', text: 'TIER' }),
-              segmented(
-                [
-                  { value: 'pro', label: 'PRO' },
-                  { value: 'admin', label: 'ADMIN' },
-                ],
-                genTier,
-                (v) => {
-                  genTier = v as 'pro' | 'admin';
-                },
-              ).wrap,
-            ),
-            el(
-              'div',
-              { class: 'field' },
-              el('span', { class: 'label', text: 'MASA AKTIF' }),
-              segmented(
-                [
-                  { value: '30', label: '30H' },
-                  { value: '90', label: '90H' },
-                  { value: '365', label: '1TH' },
-                  { value: '3650', label: '10TH' },
-                ],
-                genDays,
-                (v) => {
-                  genDays = v;
-                },
-              ).wrap,
-            ),
-            el(
-              'label',
-              { class: 'field' },
-              el('span', { class: 'label', text: 'JUMLAH (1–10)' }),
-              el('input', {
-                class: 'input',
-                attrs: { type: 'number', min: 1, max: 10, value: genCount, 'aria-label': 'Jumlah kunci' },
-                on: {
-                  change: (ev) => {
-                    genCount = (ev.target as HTMLInputElement).value;
-                  },
-                },
-              }),
-            ),
-          ),
-          el(
-            'div',
-            { class: 'ctrl-actions' },
-            button('BUAT KUNCI', {
-              tone: 'primary',
-              size: 'sm',
-              icon: 'bolt',
-              onClick: () => void issue(),
-            }),
-            generated.length > 0
-              ? button('SALIN SEMUA', {
-                  tone: 'ghost',
-                  size: 'sm',
-                  icon: 'copy',
-                  onClick: () => {
-                    void navigator.clipboard
-                      ?.writeText(generated.map((g) => g.key).join('\n'))
-                      .then(() => toast('Semua kunci disalin', 'ok', 1400));
-                  },
-                })
-              : null,
-          ),
-          generated.length > 0
-            ? el(
+        { class: 'plate ctrl-plate' },
+        sectionHead('06', 'LAPORAN CSP'),
+        el('p', {
+          class: 'lab-group__note',
+          style: 'margin-top:0',
+          text: 'Hanya pelanggaran yang benar-benar dilaporkan browser. Kosong berarti tidak ada yang diblokir.',
+        }),
+        cspError
+          ? el('p', { class: 'ctrl-empty', text: cspError })
+          : csp.length === 0
+            ? el('p', { class: 'ctrl-empty', text: 'Tidak ada laporan masuk.' })
+            : el(
                 'div',
-                { class: 'key-list' },
-                ...generated.map((g) =>
+                { class: 'ctrl-feed' },
+                ...csp.slice(0, 12).map((entry) =>
                   el(
                     'div',
-                    { class: 'key-row' },
-                    el('code', { text: g.key }),
-                    el('span', { class: 'key-row__meta', text: `${g.tier.toUpperCase()} · ${g.expires}` }),
-                    el('button', {
-                      class: 'icon-btn',
-                      attrs: { type: 'button', 'aria-label': 'Salin kunci' },
-                      on: {
-                        click: () => {
-                          void navigator.clipboard
-                            ?.writeText(g.key)
-                            .then(() => toast('Kunci disalin', 'ok', 1200));
-                        },
-                      },
-                    }),
+                    { class: 'ctrl-feed__row' },
+                    el('b', { text: entry.directive }),
+                    el('span', { text: entry.blocked || '(inline)' }),
+                    el('time', { text: fmtTime(entry.at) }),
                   ),
                 ),
-              )
-            : el('p', { class: 'ctrl-empty', text: 'Belum ada kunci dibuat di sesi ini.' }),
-        ),
+              ),
         el(
           'div',
-          { class: 'plate ctrl-plate' },
-          sectionHead('06', 'SESI SAAT INI'),
-          el(
-            'div',
-            { class: 'ctrl-kv' },
-            kv('TIER', session.state.tier.toUpperCase()),
-            kv('SUBJEK', session.state.subject ?? '—'),
-            kv(
-              'KEDALUWARSA',
-              session.state.exp ? new Date(session.state.exp).toLocaleString('id-ID') : '—',
-            ),
-            kv('MODE', session.state.status === 'ready' ? 'server' : session.state.status),
-            kv('ADMIN AKTIF', session.state.adminEnabled ? 'ya' : 'tidak'),
-            kv('SECRET', session.state.devSecret ? 'DEV (ganti!)' : 'production'),
-          ),
-          el(
-            'div',
-            { class: 'ctrl-actions' },
-            button('KELUAR', {
-              tone: 'ghost',
-              size: 'sm',
-              onClick: () => {
-                void session.signOut().then(() => {
-                  toast('Sesi dihapus', 'info', 1500);
-                  render();
-                });
-              },
-            }),
-            button('MUAT ULANG SESI', {
-              tone: 'ghost',
-              size: 'sm',
-              icon: 'reset',
-              onClick: () => void session.refresh().then(render),
-            }),
-          ),
+          { class: 'ctrl-actions' },
+          button('MUAT ULANG FEED', { tone: 'ghost', size: 'sm', icon: 'reset', onClick: () => void loadCsp() }),
+        ),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('07', 'PENCABUTAN'),
+        el(
+          'div',
+          { class: 'ctrl-kv' },
+          kv('DAFTAR SERVER', desk ? `${desk.revoked} serial` : '—'),
+          kv('DI PERANGKAT', `${revoked.length} ditandai`),
+          kv('SECRET', desk?.devSecret ? 'DEV' : 'production'),
+          kv('KATA SANDI', desk?.adminEnabled ? 'aktif' : 'belum disetel'),
+        ),
+        el('p', {
+          class: 'lab-group__note',
+          text: 'Cabut dari daftar akun, lalu buka workflow dan tempel serialnya. Daftar itu ikut ke build berikutnya — sekitar satu menit. Sesi yang sedang berjalan ikut mati pada permintaan berikutnya.',
+        }),
+        el(
+          'div',
+          { class: 'ctrl-actions' },
+          revoked.length > 0
+            ? button('SALIN SERIAL DICABUT', {
+                tone: 'primary',
+                size: 'sm',
+                icon: 'copy',
+                onClick: () => copy(revoked.join(','), `${revoked.length} serial disalin`),
+              })
+            : null,
+          el('a', {
+            class: 'btn btn--ghost btn--sm',
+            attrs: { href: REVOKE_WORKFLOW, target: '_blank', rel: 'noopener noreferrer' },
+            text: 'BUKA WORKFLOW',
+          }),
+          button('MATIKAN SEMUA SESI', {
+            tone: 'ghost',
+            size: 'sm',
+            icon: 'bolt',
+            onClick: () =>
+              copy(
+                'Ganti AEGIS_SECRET di Vercel lalu deploy ulang: semua sesi dan kunci lama langsung mati.',
+                'Instruksi disalin',
+              ),
+          }),
         ),
       ),
     );
@@ -478,36 +875,14 @@ export function createControl(): Screen {
     return el('div', { class: 'ctrl-kv__row' }, el('span', { text: label }), el('b', { text: value }));
   }
 
-  async function issue(): Promise<void> {
-    const count = Math.min(10, Math.max(1, Number(genCount) || 1));
-    try {
-      const res = await fetch('/api/license', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ tier: genTier, days: Number(genDays), count }),
-      });
-      if (!res.ok) {
-        toast(res.status === 403 ? 'Sesi admin diperlukan' : `Gagal (${res.status})`, 'err', 2000);
-        return;
-      }
-      const data = (await res.json()) as { keys: { key: string; tier: string; expires: string }[] };
-      generated = [...data.keys, ...generated].slice(0, 20);
-      toast(`${data.keys.length} kunci dibuat`, 'ok', 1800);
-      render();
-    } catch {
-      toast('Server tidak terjangkau', 'err', 2000);
-    }
-  }
-
   // ------------------------------------------------------------------ gate
   function renderGate(): void {
     const adminInput = el('input', {
       class: 'input',
-      attrs: { type: 'password', autocomplete: 'current-password', 'aria-label': 'Kata sandi admin' },
+      attrs: { type: 'password', autocomplete: 'current-password', 'aria-label': 'Kata sandi operator' },
     });
     const error = el('p', { class: 'form-error', attrs: { role: 'alert' } });
-    const submit = button('MASUK KONSOL', { tone: 'primary', block: true, icon: 'system' });
+    const submit = button('MASUK OPS', { tone: 'primary', block: true, icon: 'system' });
 
     const run = async (): Promise<void> => {
       if (!adminInput.value) {
@@ -518,7 +893,7 @@ export function createControl(): Screen {
       submit.textContent = 'MEMERIKSA…';
       const problem = await session.signInAdmin(adminInput.value);
       submit.disabled = false;
-      submit.textContent = 'MASUK KONSOL';
+      submit.textContent = 'MASUK OPS';
       if (problem) {
         error.textContent = problem;
         return;
@@ -541,8 +916,8 @@ export function createControl(): Screen {
         el('p', {
           class: 'lab-group__note',
           text: session.state.adminEnabled
-            ? 'Halaman ini tidak ditautkan dari navigasi. Masuk dengan kata sandi admin untuk membuka telemetri.'
-            : 'Kata sandi admin belum disetel di server. Tambahkan AEGIS_ADMIN_PASSWORD lalu deploy ulang.',
+            ? 'Halaman ini tidak ditautkan dari navigasi. Masuk dengan kata sandi operator untuk membuka pemantauan dan meja lisensi.'
+            : 'Kata sandi operator belum disetel di server. Tambahkan AEGIS_ADMIN_PASSWORD lalu deploy ulang.',
         }),
         el('div', { class: 'field' }, el('span', { class: 'label', text: 'KATA SANDI' }), adminInput),
         error,
@@ -563,7 +938,7 @@ export function createControl(): Screen {
     const isAdmin = session.state.tier === 'admin';
 
     gate.replaceChildren();
-    tabHost.replaceChildren();
+    tabsHost.replaceChildren();
     body.replaceChildren();
 
     if (!isAdmin) {
@@ -573,24 +948,32 @@ export function createControl(): Screen {
     }
     screen.dataset.gate = 'open';
 
-    tabHost.append(
+    tabsHost.append(
       segmented(
         [
-          { value: 'status', label: 'STATUS' },
-          { value: 'security', label: 'SECURITY' },
-          { value: 'license', label: 'LISENSI' },
+          { value: 'live', label: 'LIVE' },
+          { value: 'accounts', label: 'AKUN' },
+          { value: 'issue', label: 'TERBIT' },
+          { value: 'security', label: 'KEAMANAN' },
         ],
-        section,
-        (v) => {
-          section = v as typeof section;
+        tab,
+        (value) => {
+          tab = value as Tab;
           render();
+          if (tab === 'security') {
+            void probeHeaders();
+            void loadCsp();
+            void loadDesk();
+          }
+          if (tab === 'accounts') void loadDesk();
         },
       ).wrap,
     );
 
-    if (section === 'status') renderStatus();
-    else if (section === 'security') renderSecurity();
-    else renderLicense();
+    if (tab === 'live') renderLive();
+    else if (tab === 'accounts') renderAccounts();
+    else if (tab === 'issue') renderIssue();
+    else renderSecurity();
   }
 
   session.subscribe(render);
@@ -606,9 +989,12 @@ export function createControl(): Screen {
     onEnter: () => {
       if (session.state.tier === 'admin') {
         void ping();
-        void probeHeaders();
+        void loadDesk();
       }
     },
-    destroy: () => window.clearInterval(clock),
+    destroy: () => {
+      window.clearInterval(clock);
+      window.clearInterval(autoTimer);
+    },
   };
 }

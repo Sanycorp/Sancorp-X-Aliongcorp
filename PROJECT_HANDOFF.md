@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — EL TZY AEGIS-M v8.5.0
+# PROJECT HANDOFF — EL TZY AEGIS-M v8.6.0
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -7,7 +7,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | | |
 | --- | --- |
 | Produk | EL TZY AEGIS-M |
-| Versi | 8.5.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.6.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -17,7 +17,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **154 test lulus** (12 file: dsp 27, engine 29, security 19, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 14, control 3)
+- `npx vitest run` → **166 test lulus** (13 file: dsp 27, engine 29, security 18, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 18, control 3, ops 8)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -32,7 +32,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-m-v8.5.0
+  sw.js                    # cache shell, versi aegis-m-v8.6.0
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 tools/make-icons.mjs       # generator PNG tanpa dependency + mipmap Android
 .github/workflows/android.yml
@@ -63,6 +63,17 @@ src/
     store.ts        observabel + localStorage
     forge.ts        loadSource, renderPreview, forgeExport, shareLast, fingerprint
     renderClient.ts worker pool 1 job; fallback sinkron
+    session.ts      tier dari /api/auth, fallback FREE saat offline
+    ops.ts          ledger operator: tambah/perpanjang/cabut, filter, JSON/CSV
+  model/
+    contact.ts      Telegram t.me/ElTzyy8, kode pesanan AEG-XXXX
+  api/ (root)
+    _lib/auth.js    HMAC, cookie, rate limit, deny list, extendLicense
+    _lib/revoked.js serial dicabut (ditulis tools/revoke.mjs)
+    auth.js         GET/POST/DELETE sesi
+    license.js      GET meja + POST issue/extend/inspect
+    health.js, csp-report.js
+  .github/workflows/revoke.yml  ubah deny list dari HP → commit → deploy
   workers/render.worker.ts
   version.ts      APP_VERSION tunggal
   ui/
@@ -78,7 +89,6 @@ src/
     tiers.ts      PLANS free/pro/admin, ALL_PRESET_IDS, can/presetAllowed/
                   formatAllowed/targetAllowed, upgradeHint
   state/
-    session.ts    tier dari /api/auth, fallback FREE saat offline
   security/
     sanitize.ts   setHtml() + Trusted Types policy `aegis` (DOMPurify allowlist)
     posture.ts    pembacaan header/probe (dipakai konsol, bukan UI publik)
@@ -122,7 +132,8 @@ src/
 3. **Limiter selalu terakhir**, ceiling −1.2 dBTP, deteksi 4× Catmull (sama dengan meter).
 4. **Fade before reverb** supaya ekor reverb tidak ikut terpotong.
 5. **Output selalu stereo 48 kHz.**
-6. **Tidak ada upload.** Audio tidak pernah dikirim. Satu-satunya `fetch` adalah `/api/auth` (sesi) dan, di konsol, `/api/health`, `/api/license`, `/api/csp-report`.
+6. **Tidak ada upload.** Audio tidak pernah dikirim. Satu-satunya `fetch` adalah `/api/auth` (sesi) dan, di konsol, `/api/health`, `/api/license`, `/api/csp-report`. Tidak ada SDK analitik, tidak ada font eksternal.
+7. **Harga dan kanal jual ada di satu tempat:** `PRO_PRICE`/`PRO_PASS_DAYS` di `src/model/tiers.ts`, Telegram di `src/model/contact.ts`. Jangan menulis "Rp 5.000" lepas di komponen.
 7. **Clamp** selalu dari `buffer.ts`, jangan `Math.min/max` manual di DSP.
 8. `resampleByStep(step)` — `step < 1` = **lebih lambat/lebih panjang/pitch turun**. Jangan dibalik.
 9. FLAC = verbatim 24-bit. Jika nanti diganti encoder terkompresi, perbarui README + test parser.
@@ -154,6 +165,9 @@ Worker mengembalikan buffer hasil dengan transfer; `renderClient` mempertahankan
 - **security.test.ts** — header Vercel (CSP/TT/HSTS/COOP/COEP/Permissions/SRI), guard service worker, `security.txt`, endpoint CSP report (405/415/400/204 + redaksi query string), sanitizer (buang script/onerror/javascript:), pembaca posture.
 - **motion.test.ts** — tween selesai + `onDone`, retarget `animateValue`, decode `scramble`, ripple muncul/hilang, `kineticTitle` tidak double-wrap, spark canvas tunggal, dan semua jalur instan saat Reduce Motion.
 - **probe.test.ts** — angka referensi (bukan assertion ketat) untuk debugging.
+- **auth.test.ts** — 18 tes: round-trip kunci, tanda tangan diubah, tier diubah, kedaluwarsa, perpanjangan (serial tetap, kunci mati bisa dihidupkan), pencabutan sesi, cookie, rate limit.
+- **ops.test.ts** — 8 tes ledger: parsing kunci, dedupe serial, perpanjangan, filter status, nilai pass, ekspor/impor JSON+CSV.
+- **control.test.ts** — 3 tes konsol: terkunci tanpa sesi, empat tab + copy meja lisensi, offline tidak pernah memberi tier.
 
 ## 8. Yang belum ada / kandidat lanjutan
 
@@ -163,6 +177,8 @@ Worker mengembalikan buffer hasil dengan transfer; `renderClient` mempertahankan
 - Splash screen native (sekarang memakai boot splash web + background Capacitor).
 - Riwayat export menyimpan metadata saja, bukan file audio (file ada di Documents/Downloads).
 - Belum ada preset cloud/import-export JSON; `EditSettings` sudah serializable kalau mau ditambah.
+- Ledger operator belum disinkron antar perangkat (ekspor/impor manual). Kalau nanti butuh multi-operator, baru pertimbangkan KV.
+- Belum ada webhook pembayaran; pencocokan pembayaran masih manual lewat kode pesanan Telegram.
 
 ## 9. Cara verifikasi ulang cepat
 
@@ -195,7 +211,7 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sancorp-x-aliongcorp` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_5wnMuwHHTHc32oxkjMZnUNix2yd6` (commit `602116f`, v8.5.0) |
+| Deployment aktif | `dpl_8XhXi8od6p35T8b4DB8w4yrYCLzq` (commit `a0200c3`, v8.5.0) — digantikan build v8.6.0 pada commit berikutnya |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
@@ -236,4 +252,6 @@ Verifikasi selalu lewat job `probe` (target dari `.vercel-url`); jangan menganda
 
 - Tim `aegis-m-eltzy` (`team_MWFOZvHuvKThmyhWF8a2LqpP`) dibuat saat uji coba lepas dari default protection. Token connector tidak berizin menghapusnya — silakan hapus manual di dashboard, tidak dipakai.
 - Empat fungsi serverless: `auth`, `license`, `health`, `csp-report`. Semuanya berbagi `api/_lib/auth.js`. Kalau feed CSP membanjir, itu tanda ada aset yang melanggar direktif.
+- Pencabutan: `api/_lib/revoked.js` dibaca setiap `readSession`, jadi sesi mati pada permintaan berikutnya setelah deploy. Untuk darurat tanpa deploy, isi `AEGIS_REVOKED` (dipisah koma) — nilainya dibaca saat cold start.
+- `license.js` sekarang punya tiga operasi: `issue`, `extend` (serial tetap), `inspect` (validitas kunci tanpa membocorkan rahasia). `GET` hanya mengembalikan jumlah serial dicabut, bukan daftarnya.
 

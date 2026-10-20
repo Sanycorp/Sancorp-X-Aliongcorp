@@ -4,6 +4,9 @@ name: probe
 # demand. No secrets required: everything here is what an anonymous visitor —
 # or an attacker — can already see.
 #
+# A red run opens (or bumps) a labelled issue, so a broken deploy surfaces as a
+# notification instead of a log nobody opens.
+#
 #   gh workflow run probe.yml
 
 on:
@@ -22,6 +25,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   probe:
@@ -50,6 +54,29 @@ jobs:
 
       - name: Probe
         run: node tools/probe-prod.mjs "${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}"
+
+      - name: Raise an alert issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORIGIN: ${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}
+          SHA: ${{ github.sha }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title='Production probe failing'
+          body=$(printf '%s\n\n**Origin:** %s\n**Commit:** `%.7s`\n**Run:** %s\n' \
+            'The anonymous probe of the live origin failed. The run summary lists every check and its detail.' \
+            "$ORIGIN" "$SHA" "$RUN")
+
+          gh label create monitor --color B60205 --description 'Automated production checks' --force >/dev/null 2>&1 || true
+
+          existing=$(gh issue list --label monitor --state open --limit 1 --json number --jq '.[0].number // empty' || true)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body" --label monitor
+          fi
 
       - name: Summary
         if: always()

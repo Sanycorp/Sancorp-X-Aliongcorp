@@ -15,7 +15,7 @@ import {
 } from '../elements';
 import { clearSession } from '../../io/storage';
 import { session } from '../../state/session';
-import { planFor } from '../../model/tiers';
+import { PRO_PASS_DAYS, PRO_PRICE, planFor } from '../../model/tiers';
 import { openAccount } from '../account';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
@@ -179,7 +179,7 @@ export function createSystem(): Screen {
     accountChip.textContent = plan.label;
     accountLine.textContent =
       tier === 'free'
-        ? 'Kamu di paket FREE: 4 preset, MP3/WAV 16, export sampai 12 menit. Lisensi PRO membuka seluruh arsenal dan format lossless.'
+        ? `Kamu di paket FREE: 4 preset, MP3/WAV 16, export sampai 12 menit. PRO ${PRO_PRICE} per ${PRO_PASS_DAYS} hari membuka seluruh arsenal, format lossless, dan export tanpa batas.`
         : `Aktif sampai ${session.state.exp ? new Date(session.state.exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'tanpa batas'} · serial ${session.state.subject ?? '—'}`;
 
     accountCta.replaceChildren(
@@ -191,7 +191,7 @@ export function createSystem(): Screen {
         onClick: () => openAccount(),
       }),
       tier === 'admin'
-        ? button('BUKA KONSOL KONTROL', {
+        ? button('BUKA AEGIS OPS', {
             tone: 'ghost',
             size: 'sm',
             block: true,

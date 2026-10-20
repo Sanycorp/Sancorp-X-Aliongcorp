@@ -76,9 +76,12 @@ if (entry) {
   const bundle = await get(entry);
   check('entry bundle served', bundle.res.status === 200, entry.split('/').pop());
   const version = bundle.body.match(/["'`](8\.\d+\.\d+)["'`]/)?.[1] ?? 'unknown';
-  check('version 8.5.x', /^8\.5\./.test(version), version);
-  check('console shipped', bundle.body.includes('AKSES OPERATOR'));
-  check('account sheet shipped', bundle.body.includes('AKTIFKAN AKSES'));
+  check('version 8.6.x', /^8\.6\./.test(version), version);
+  check('operator app shipped', bundle.body.includes('AKSES OPERATOR') && bundle.body.includes('AEGIS OPS'));
+  check('ledger shipped', bundle.body.includes('DAFTAR AKUN'));
+  check('account sheet shipped', bundle.body.includes('AKTIFKAN PRO'));
+  check('shop channel shipped', bundle.body.includes('ElTzyy8'));
+  check('price shipped', bundle.body.includes('Rp 5.000'));
   check('locked preset copy shipped', bundle.body.includes('arsenal PRO'));
   check('bundle immutable', (bundle.res.headers.get('cache-control') || '').includes('immutable'));
 } else {
@@ -110,6 +113,9 @@ const license = await get('/api/license', {
   body: JSON.stringify({ tier: 'pro', days: 365, count: 1 }),
 });
 check('license refuses anonymous', license.res.status === 403, `HTTP ${license.res.status}`);
+
+const desk = await get('/api/license');
+check('licence desk refuses anonymous', desk.res.status === 403, `HTTP ${desk.res.status}`);
 
 const feed = await get('/api/csp-report');
 check('csp feed refuses anonymous', feed.res.status === 403, `HTTP ${feed.res.status}`);

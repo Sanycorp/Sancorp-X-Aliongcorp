@@ -75,15 +75,18 @@ closed instead of silently becoming an XSS vector.
 
 ## C. License and session model
 
-Deliberately database-free. The cost is that a key cannot be revoked
-individually; the benefit is that there is no user table to leak.
+Deliberately database-free. Individual revocation is handled by a signed
+deny-list file instead of a row update; the benefit is that there is no user
+table to leak.
 
 | Layer | Control |
 | --- | --- |
 | License format | `AEGIS-<TIER>-<SERIAL4>-<YYYYMMDD>-<SIG6>`, `SIG6` = first 6 alphanumerics of `HMAC-SHA256(secret, "tier\|serial\|expires")` |
 | Verification | Constant-time compare; tier, serial and date re-derived from the signature, so editing any field invalidates the key |
 | Session | Cookie `aegis_sess`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, payload + HMAC signature, expiry inside the signed payload |
-| Revocation | Rotate `AEGIS_SECRET` — every session and every issued key dies at once |
+| Revocation (one key) | Serial added to `api/_lib/revoked.js` (via the `revoke` workflow) or to `AEGIS_REVOKED`; checked on every session read, so access stops on the next request |
+| Revocation (all keys) | Rotate `AEGIS_SECRET` — every session and every issued key dies at once |
+| Renewal | `POST /api/license { op:'extend' }` re-signs the same serial with a later date; the old key keeps working until it expires |
 | Admin | Separate tier, only reachable by posting the password from `AEGIS_ADMIN_PASSWORD`; equal-length constant-time compare |
 | Abuse | Sliding-window rate limit per IP on login and on key issuance; 10 keys per request, 30 requests per minute |
 | Console | `#/control` is not linked in the navigation, requires an admin session, and every `/api/license` or `GET /api/csp-report` call is re-authorised server-side |

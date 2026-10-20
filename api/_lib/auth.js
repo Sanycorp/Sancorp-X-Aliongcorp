@@ -7,6 +7,7 @@
  * ever stored — the same promise the audio engine makes.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { REVOKED } from './revoked.js';
 
 export const COOKIE = 'aegis_sess';
 export const SESSION_DAYS = 30;
@@ -17,6 +18,35 @@ export const ADMIN_PASSWORD = process.env.AEGIS_ADMIN_PASSWORD || '';
 export const IS_DEV_SECRET = SECRET === DEV_SECRET;
 
 export const TIERS = ['free', 'pro', 'admin'];
+
+/**
+ * Serials that must stop working before their expiry date.
+ *
+ * Two sources, because they answer different questions:
+ *  - `revoked.js` ships with the deployment, so the list is auditable in git
+ *    and can be updated from a phone through the `revoke` workflow.
+ *  - `AEGIS_REVOKED` lets the operator hot-fix a leak without a commit.
+ * The union is checked on every session read, so a revoked serial loses access
+ * on the next request, not at the next expiry.
+ */
+const ENV_REVOKED = String(process.env.AEGIS_REVOKED || '')
+  .split(/[,\s]+/)
+  .map((s) => s.trim().toUpperCase())
+  .filter(Boolean);
+
+export const REVOKED_SERIALS = new Set([
+  ...REVOKED.map((s) => String(s).trim().toUpperCase()),
+  ...ENV_REVOKED,
+]);
+
+export function isRevoked(serial) {
+  const value = String(serial ?? '').toUpperCase();
+  if (!value) return false;
+  if (REVOKED_SERIALS.has(value)) return true;
+  // Read the shipped array live as well, so a hot edit (or a test) takes effect
+  // without rebuilding the Set.
+  return REVOKED.some((entry) => String(entry).toUpperCase() === value);
+}
 
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 const unb64url = (str) => Buffer.from(str, 'base64url').toString('utf8');
@@ -55,7 +85,11 @@ export function readSession(token) {
   }
   if (!TIERS.includes(data?.t)) return null;
   if (typeof data.e !== 'number' || data.e < Date.now()) return null;
-  return { tier: data.t, exp: data.e, subject: String(data.s ?? '') };
+  const subject = String(data.s ?? '');
+  // A revoked licence must stop working immediately, even though its signature
+  // and date are still valid.
+  if (data.t !== 'admin' && isRevoked(subject)) return null;
+  return { tier: data.t, exp: data.e, subject };
 }
 
 export function sessionCookie(session) {
@@ -112,20 +146,35 @@ export function licenseSignature(tier, serial, expires) {
   return hmac(`${tier}|${serial}|${expires}`).replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase();
 }
 
-/** `AEGIS-PRO-7F3K-20271120-9K2M4Q` */
-export function makeLicense(tier, days) {
-  const serial = randomSerial(4);
-  const expires = new Date(Date.now() + days * 86400_000).toISOString().slice(0, 10).replace(/-/g, '');
-  const sig = licenseSignature(tier, serial, expires);
+/** Stamp a serial + date into the wire format. */
+export function formatLicense(tier, serial, expires) {
   return {
-    key: `AEGIS-${tier.toUpperCase()}-${serial}-${expires}-${sig}`,
+    key: `AEGIS-${tier.toUpperCase()}-${serial}-${expires}-${licenseSignature(tier, serial, expires)}`,
     tier,
     serial,
     expires,
   };
 }
 
-export function verifyLicense(raw) {
+const dateStamp = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
+
+/** `AEGIS-PRO-7F3K-20271120-9K2M4Q` */
+export function makeLicense(tier, days) {
+  return formatLicense(tier, randomSerial(4), dateStamp(Date.now() + days * 86400_000));
+}
+
+/**
+ * Renewal keeps the serial, so the operator's ledger and the customer's key
+ * still point at the same account. The new key simply expires later.
+ */
+export function extendLicense(raw, days) {
+  const current = verifyLicense(raw, { allowExpired: true });
+  if (!current) return null;
+  const base = Math.max(Date.now(), current.exp);
+  return formatLicense(current.tier, current.serial, dateStamp(base + days * 86400_000));
+}
+
+export function verifyLicense(raw, options = {}) {
   const key = String(raw ?? '').trim().toUpperCase();
   const parts = key.split('-');
   if (parts.length !== 5 || parts[0] !== 'AEGIS') return null;
@@ -138,7 +187,9 @@ export function verifyLicense(raw) {
   if (!safeEqual(sig, expected)) return null;
 
   const exp = Date.parse(`${expires.slice(0, 4)}-${expires.slice(4, 6)}-${expires.slice(6, 8)}T23:59:59Z`);
-  if (!Number.isFinite(exp) || exp < Date.now()) return null;
+  if (!Number.isFinite(exp)) return null;
+  if (!options.allowExpired && exp < Date.now()) return null;
+  if (isRevoked(serial)) return null;
   return { tier, serial, exp };
 }
 

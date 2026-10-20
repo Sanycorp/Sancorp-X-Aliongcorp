@@ -1,6 +1,6 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.5.0**
+**Offline mecha audio forge — v8.6.0**
 
 > Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
 > sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.
@@ -100,9 +100,10 @@ src/
 └─ styles/         # design system mecha (tokens, primitives, controls, layout)
 
 api/               # Vercel functions (Node, ESM) — tanpa database
-├─ _lib/auth.js    # HMAC sesi & lisensi, cookie httpOnly, rate limit
-├─ auth.js         # GET/POST/DELETE sesi  (kunci lisensi atau kata sandi admin)
-├─ license.js      # POST generator kunci    (admin only)
+├─ _lib/auth.js    # HMAC sesi & lisensi, cookie httpOnly, rate limit, deny list
+├─ _lib/revoked.js # serial yang dicabut — diubah oleh workflow `revoke`
+├─ auth.js         # GET/POST/DELETE sesi  (kunci lisensi atau kata sandi operator)
+├─ license.js      # GET state meja + POST issue / extend / inspect (admin only)
 ├─ health.js       # GET probe publik        (commit, region, uptime)
 └─ csp-report.js   # POST kolektor CSP + GET admin (ring buffer 50)
 ```
@@ -147,33 +148,51 @@ AEGIS-PRO-7F3K-20271120-9K2M4Q
       └ tier (pro / admin)
 ```
 
-| | **FREE** | **PRO** — Rp 79.000 / tahun | **ADMIN** |
+| | **FREE** | **PRO — Rp 5.000 / 30 hari** | **ADMIN** |
 | --- | --- | --- | --- |
 | Preset | 4 dari 14 | 14 tervalidasi | 14 |
 | Format | MP3 320, WAV 16 | + WAV 24/32, FLAC | semua |
 | Target | Bypass, −14 LUFS | −16…−9 LUFS | semua |
 | Panjang export | ≤ 12 menit | tanpa batas | tanpa batas |
-| Riwayat | 3 export | penuh | penuh |
+| Riwayat | 3 export | 40 export | 40 export |
 | 8D orbit | — | ✓ | ✓ |
 | Repair & voice focus | — | ✓ | ✓ |
 | A/B memory | — | ✓ | ✓ |
-| Konsol `#/control` | — | — | ✓ |
+| Jumlah perangkat | bebas | bebas (satu kunci) | bebas |
+| AEGIS OPS `#/control` | — | — | ✓ |
 
 Yang dibatasi sengaja adalah **alur kerja**, bukan kualitas: rantai DSP penuh,
 limiter, dan semua fader tetap bisa dipakai di FREE. Tidak ada watermark, tidak
 ada output yang diperkecil, dan tidak ada data yang dikirim ke mana pun.
 
-**Konsol operator** ada di `#/control` — tidak pernah muncul di navigasi, dan
-terkunci kata sandi admin. Isinya: kesehatan deployment (commit, region,
-uptime), probe header respons, feed pelanggaran CSP, dan generator kunci.
+PRO dijual sebagai **pass 30 hari**, bukan langganan: sekali bayar, tanpa
+perpanjangan otomatis, tanpa kartu tersimpan. Satu kunci berlaku di semua
+perangkat pembeli.
+
+**AEGIS OPS** ada di `#/control` — tidak pernah muncul di navigasi dan terkunci
+kata sandi operator. Empat tab:
+
+- **LIVE** — commit, region, uptime, latensi, auto-refresh 15 detik.
+- **AKUN** — daftar pembeli (nama, serial, mulai, berakhir, catatan), perpanjang
+  +30 hari, cabut, ekspor JSON/CSV, impor.
+- **TERBIT** — buat kunci PRO/ADMIN untuk 1–20 pembeli sekaligus.
+- **KEAMANAN** — probe header live, feed CSP, status secret, dan pencabutan.
+
+Daftar akun hidup di perangkat operator (localStorage), bukan di server: tidak
+ada basis data pelanggan untuk bocor. Yang menentukan akses tetap kunci
+bertanda tangan + daftar cabut di server.
 
 ### Mendapatkan kunci
 
-Kunci diterbitkan manual dari konsol `#/control` → tab LISENSI, lalu dikirim ke
-pembeli. Tombol **CARA DAPAT KUNCI** di aplikasi membuka satu URL yang bisa
-diganti kapan saja di `src/model/contact.ts` (default: issue GitHub dengan
-template pesanan). Tidak ada payment gateway di dalam bundle — kalau nanti ada,
-cukup ganti satu konstanta itu.
+Pembeli membuka **BELI LEWAT TELEGRAM** di lembar akun. Aplikasi menampilkan
+kode pesanan (`AEG-XXXX`) dan membuka chat `t.me/ElTzyy8` dengan pesan yang
+sudah terisi. Setelah pembayaran dicek, operator menerbitkan kunci dari
+`#/control` → **TERBIT** dan mengirimnya di chat yang sama.
+
+Pencabutan: tombol **CABUT** di tab AKUN menyalin serialnya; tempel di workflow
+**Actions → revoke** (bisa dari HP), dan deploy berikutnya menolak sesi itu pada
+permintaan berikutnya. Serial juga bisa dipasang langsung lewat
+`AEGIS_REVOKED` tanpa commit.
 
 ### Variabel lingkungan
 
@@ -181,6 +200,7 @@ cukup ganti satu konstanta itu.
 | --- | --- | --- |
 | `AEGIS_SECRET` | produksi | Kunci HMAC untuk lisensi dan cookie sesi. Ganti = cabut semua sesi. |
 | `AEGIS_ADMIN_PASSWORD` | untuk konsol | Kata sandi masuk `#/control`. Kosong = konsol terkunci permanen. |
+| `AEGIS_REVOKED` | opsional | Daftar serial dicabut, dipisah koma (`7F3K,AB12`). Pelengkap `api/_lib/revoked.js`. |
 
 Tanpa keduanya aplikasi tetap jalan penuh di tier FREE; yang hilang hanya
 kemampuan menerbitkan kunci. Salin `.env.example` untuk pengembangan lokal dan

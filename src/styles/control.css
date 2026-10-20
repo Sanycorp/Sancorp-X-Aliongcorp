@@ -394,3 +394,272 @@
   animation: none;
 }
 
+
+/* ==========================================================================
+   AEGIS OPS — operator app
+   ========================================================================== */
+
+/* `.ops-badge--ok` etc. reuse the monospace badge language of `.ctrl-badge`
+   so a status never depends on colour alone. */
+
+.ops-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+  margin-bottom: 12px;
+}
+
+.ops-grid--tight {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.ops-stat {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--ink) 4%, transparent), transparent 70%),
+    var(--panel);
+}
+
+.ops-stat::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--signal), transparent);
+  opacity: 0.7;
+}
+
+.ops-stat__label {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.ops-stat__value {
+  font-family: 'Chakra Petch', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(17px, 4.4vw, 21px);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.ops-stat__hint {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.ops-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+}
+
+.ops-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--muted) 18%, transparent);
+}
+
+.ops-dot.is-ok {
+  background: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 22%, transparent);
+  animation: opsPulse 2.4s ease-in-out infinite;
+}
+
+.ops-dot.is-bad {
+  background: var(--crimson);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--crimson) 22%, transparent);
+}
+
+@keyframes opsPulse {
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--signal) 8%, transparent);
+  }
+}
+
+/* ---------------------------------------------------------------- accounts */
+
+.ops-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ops-toolbar .input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.ops-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ops-acct {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.ops-acct:hover {
+  border-color: color-mix(in srgb, var(--ink) 26%, var(--line));
+}
+
+.ops-acct__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ops-acct__id {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ops-acct__id b {
+  font-size: var(--fs-sm, 0.95rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46vw;
+}
+
+.ops-acct__serial {
+  margin-left: auto;
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.ops-acct__key {
+  display: block;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  border: 1px solid var(--line);
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.ops-acct__meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.ops-acct__note {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  border-left: 2px solid var(--line);
+  padding-left: 8px;
+}
+
+.ops-acct__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ops-badge {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid currentcolor;
+  line-height: 1.4;
+}
+
+.ops-badge--pro {
+  color: var(--amber);
+}
+
+.ops-badge--admin {
+  color: var(--crimson);
+}
+
+.ops-badge--ok {
+  color: var(--signal);
+}
+
+.ops-badge--warn {
+  color: var(--amber);
+}
+
+.ops-badge--bad {
+  color: var(--muted);
+}
+
+.ops-hint {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.6;
+  color: var(--muted);
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+.ops-link {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+
+.ops-link__row {
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 560px) {
+  .ops-link__row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ops-import {
+  display: inline-flex;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-dot.is-ok {
+    animation: none;
+  }
+}

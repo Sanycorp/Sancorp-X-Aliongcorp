@@ -1,16 +1,20 @@
-import { el, icon, button, toast } from './elements';
-import { PLANS } from '../model/tiers';
+import { append, el, icon, button, toast } from './elements';
+import { PLANS, PRO_PASS_DAYS, PRO_PRICE, daysLeft } from '../model/tiers';
 import type { Feature, Tier } from '../model/tiers';
 import { session } from '../state/session';
 import { Haptics } from './haptics';
-import { PURCHASE_NOTE, openPurchase } from '../model/contact';
+import { CONTACT_HANDLE, PURCHASE_NOTE, TELEGRAM_HANDLE, openPurchase, openRenew, orderCode } from '../model/contact';
 
 /**
  * Account sheet + paywall.
  *
- * One overlay component, mounted once, opened from the header chip or from any
- * locked control. It owns focus trapping, Escape, and the "return to what you
- * were doing" behaviour, so screens never have to know it exists.
+ * One overlay, mounted once, opened from the header chip or from any locked
+ * control. It owns focus trapping, Escape and the "return to what you were
+ * doing" behaviour, so screens never have to know it exists.
+ *
+ * The account is the licence key: no email, no password, no profile. A key is
+ * signed by the server, stored in an httpOnly cookie and shared by every device
+ * the buyer owns.
  */
 
 let sheet: HTMLElement | null = null;
@@ -114,44 +118,84 @@ function tierBadge(tier: Tier): HTMLElement {
   );
 }
 
+function orderLine(): HTMLElement {
+  const code = orderCode();
+  return el(
+    'div',
+    { class: 'order-code' },
+    el('span', { text: 'KODE PESANAN' }),
+    el('b', { text: code }),
+    el(
+      'button',
+      {
+        class: 'icon-btn',
+        attrs: { type: 'button', 'aria-label': 'Salin kode pesanan' },
+        on: {
+          click: () => {
+            void navigator.clipboard
+              ?.writeText(code)
+              .then(() => toast('Kode disalin — sertakan saat chat', 'ok', 1600))
+              .catch(() => toast('Papan klip ditolak browser', 'err', 1600));
+          },
+        },
+      },
+      icon('copy', 14),
+    ),
+  );
+}
+
 function renderSignedIn(host: HTMLElement): void {
   const state = session.state;
   const plan = session.plan;
+  const left = daysLeft(state.exp);
   const expires = state.exp
     ? new Date(state.exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
+  const total = Math.max(PRO_PASS_DAYS, left ?? PRO_PASS_DAYS);
+  const ratio = left === null ? 1 : Math.max(0.02, Math.min(1, left / total));
 
-  host.append(
+  append(host, [
     el(
       'div',
       { class: 'sheet__head' },
-      el('div', {}, el('div', { class: 'sheet__kicker', text: 'AKUN' }), el('h2', { id: 'sheet-title', class: 'sheet__title', text: plan.label })),
+      el(
+        'div',
+        {},
+        el('div', { class: 'sheet__kicker', text: 'AKUN' }),
+        el('h2', { id: 'sheet-title', class: 'sheet__title', text: plan.label }),
+      ),
       tierBadge(state.tier),
     ),
     el(
       'div',
       { class: 'account-card' },
       el('div', { class: 'account-card__row' }, el('span', { text: 'Status' }), el('b', { text: plan.tagline })),
-      el('div', { class: 'account-card__row' }, el('span', { text: 'Serial lisensi' }), el('b', { text: state.subject ?? '—' })),
-      el(
-        'div',
-        { class: 'account-card__row' },
-        el('span', { text: 'Berlaku sampai' }),
-        el('b', { text: expires ?? 'tanpa batas' }),
-      ),
+      el('div', { class: 'account-card__row' }, el('span', { text: 'Serial' }), el('b', { text: state.subject ?? '—' })),
+      el('div', { class: 'account-card__row' }, el('span', { text: 'Berlaku sampai' }), el('b', { text: expires ?? 'tanpa batas' })),
+      left !== null
+        ? el('div', { class: 'account-card__row' }, el('span', { text: 'Sisa' }), el('b', { text: `${left} hari` }))
+        : null,
     ),
+    left !== null
+      ? el(
+          'div',
+          { class: `session-meter ${left <= 7 ? 'is-low' : ''}`, attrs: { role: 'presentation' } },
+          el('i', { style: `width:${Math.round(ratio * 100)}%` }),
+        )
+      : null,
+    left !== null && left <= 7
+      ? el('p', { class: 'sheet__warn', text: `Sisa ${left} hari. Perpanjang sekarang supaya arsenal tidak terkunci.` })
+      : null,
     el(
       'ul',
       { class: 'perk-list' },
-      ...plan.perks.map((perk) =>
-        el('li', {}, el('span', { class: 'perk-check', html: '' }), el('span', { text: perk })),
-      ),
+      ...plan.perks.map((perk) => el('li', {}, el('span', { class: 'perk-check', html: '' }), el('span', { text: perk }))),
     ),
     el(
       'div',
       { class: 'sheet__actions' },
       state.tier === 'admin'
-        ? button('BUKA KONSOL', {
+        ? button('BUKA OPS', {
             tone: 'primary',
             block: true,
             icon: 'system',
@@ -160,17 +204,23 @@ function renderSignedIn(host: HTMLElement): void {
               location.hash = '#/control';
             },
           })
-        : button('GANTI KUNCI', {
-            tone: 'ghost',
+        : button(`PERPANJANG — ${PRO_PRICE}`, {
+            tone: 'primary',
             block: true,
-            icon: 'reset',
-            onClick: () => {
-              if (!panel) return;
-              panel.replaceChildren();
-              renderSignedOut(panel, { switching: true });
-              appendClose(panel);
-            },
+            icon: 'bolt',
+            onClick: () => openRenew(state.subject ?? ''),
           }),
+      button('GANTI KUNCI', {
+        tone: 'ghost',
+        block: true,
+        icon: 'reset',
+        onClick: () => {
+          if (!panel) return;
+          panel.replaceChildren();
+          renderSignedOut(panel, { switching: true });
+          appendClose(panel);
+        },
+      }),
       button('KELUAR', {
         tone: 'ghost',
         block: true,
@@ -182,7 +232,11 @@ function renderSignedIn(host: HTMLElement): void {
         },
       }),
     ),
-  );
+    el('p', {
+      class: 'sheet__note',
+      text: `Satu kunci untuk semua perangkatmu. Perpanjangan dilayani lewat Telegram ${CONTACT_HANDLE}.`,
+    }),
+  ]);
 }
 
 function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}): void {
@@ -192,14 +246,22 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
       type: 'text',
       inputmode: 'text',
       autocomplete: 'one-time-code',
+      autocapitalize: 'characters',
       spellcheck: 'false',
       placeholder: 'AEGIS-PRO-XXXX-XXXXXXXX-XXXXXX',
       'aria-label': 'Kunci lisensi',
     },
+    on: {
+      input: () => {
+        const caret = input.selectionStart;
+        input.value = input.value.toUpperCase();
+        if (caret !== null) input.setSelectionRange(caret, caret);
+      },
+    },
   });
 
   const error = el('p', { class: 'form-error', attrs: { role: 'alert' } });
-  const submit = button('AKTIFKAN', { tone: 'primary', block: true, icon: 'check' });
+  const submit = button('MASUK', { tone: 'primary', block: true, icon: 'check' });
 
   const run = async (): Promise<void> => {
     const key = input.value.trim();
@@ -212,7 +274,7 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
     submit.textContent = 'MEMERIKSA…';
     const problem = await session.signIn(key);
     submit.disabled = false;
-    submit.textContent = 'AKTIFKAN';
+    submit.textContent = 'MASUK';
     if (problem) {
       error.textContent = problem;
       input.select();
@@ -220,7 +282,7 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
     }
     error.textContent = '';
     Haptics.success();
-    toast(`Lisensi aktif — ${session.plan.label}`, 'ok', 2200);
+    toast(`Masuk — ${session.plan.label} aktif`, 'ok', 2200);
     render();
   };
 
@@ -229,7 +291,7 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
     if (ev.key === 'Enter') void run();
   });
 
-  host.append(
+  append(host, [
     el(
       'div',
       { class: 'sheet__head' },
@@ -237,7 +299,7 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
         'div',
         {},
         el('div', { class: 'sheet__kicker', text: 'MASUK' }),
-        el('h2', { id: 'sheet-title', class: 'sheet__title', text: opts.switching ? 'GANTI KUNCI' : 'AKTIFKAN AKSES' }),
+        el('h2', { id: 'sheet-title', class: 'sheet__title', text: opts.switching ? 'GANTI KUNCI' : 'AKTIFKAN PRO' }),
       ),
       tierBadge('free'),
     ),
@@ -245,42 +307,69 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
       class: 'sheet__lede',
       text: opts.switching
         ? 'Tempel kunci lain untuk menggantikan sesi yang sedang aktif.'
-        : 'Tempel kunci lisensi yang kamu terima. Kunci disimpan sebagai sesi aman di cookie httpOnly — tanpa kata sandi, tanpa data pribadi.',
+        : 'Kunci lisensi adalah akunmu. Tanpa email, tanpa kata sandi, tanpa data pribadi.',
     }),
+    opts.switching
+      ? null
+      : el(
+          'div',
+          { class: 'price-hero' },
+          el(
+            'div',
+            {},
+            el('span', { class: 'price-hero__amount', text: PRO_PRICE }),
+            el('span', { class: 'price-hero__cadence', text: `/ ${PRO_PASS_DAYS} hari` }),
+          ),
+          el('p', { class: 'price-hero__note', text: 'Sekali bayar. Tanpa langganan otomatis.' }),
+        ),
     el('div', { class: 'field' }, el('span', { class: 'label', text: 'KUNCI LISENSI' }), input),
     error,
     submit,
-    opts.switching ? el('div') : el(
-      'div',
-      { class: 'plan-compare' },
-      ...(['free', 'pro'] as Tier[]).map((id) => {
-        const plan = PLANS[id];
-        return el(
-          'div',
-          { class: `plan-card ${id === 'pro' ? 'plan-card--pro' : ''}` },
-          el(
-            'div',
-            { class: 'plan-card__head' },
-            el('b', { text: plan.label }),
-            el('span', { class: 'plan-card__price', text: plan.price }),
-            el('span', { class: 'plan-card__cadence', text: plan.cadence }),
-          ),
-          el('ul', { class: 'perk-list' }, ...plan.perks.slice(0, 5).map((p) => el('li', {}, el('span', { text: p })))),
-        );
-      }),
-    ),
     opts.switching
       ? button('BATAL', { tone: 'ghost', block: true, onClick: () => render() })
       : el(
           'div',
           {},
-          button('CARA DAPAT KUNCI', { tone: 'ghost', block: true, icon: 'bolt', onClick: () => openPurchase() }),
+          el(
+            'div',
+            { class: 'sheet__actions' },
+            button('BELI LEWAT TELEGRAM', {
+              tone: 'primary',
+              block: true,
+              icon: 'bolt',
+              onClick: () => openPurchase(),
+            }),
+          ),
+          orderLine(),
           el('p', {
             class: 'sheet__note',
-            text: `Lisensi PRO membuka 14 preset, FLAC/WAV 24–32, 8D, repair, dan export tanpa batas. ${PURCHASE_NOTE}`,
+            text: `Chat langsung dengan ${CONTACT_HANDLE} di Telegram. ${PURCHASE_NOTE}`,
+          }),
+          el(
+            'div',
+            { class: 'plan-compare' },
+            ...(['free', 'pro'] as Tier[]).map((id) => {
+              const plan = PLANS[id];
+              return el(
+                'div',
+                { class: `plan-card ${id === 'pro' ? 'plan-card--pro' : ''}` },
+                el(
+                  'div',
+                  { class: 'plan-card__head' },
+                  el('b', { text: plan.label }),
+                  el('span', { class: 'plan-card__price', text: plan.price }),
+                  el('span', { class: 'plan-card__cadence', text: plan.cadence }),
+                ),
+                el('ul', { class: 'perk-list' }, ...plan.perks.slice(0, 5).map((p) => el('li', {}, el('span', { text: p })))),
+              );
+            }),
+          ),
+          el('p', {
+            class: 'sheet__note',
+            text: `Operator tidak pernah meminta kata sandi atau kode OTP. Pembelian hanya lewat t.me/${TELEGRAM_HANDLE}.`,
           }),
         ),
-  );
+  ]);
 }
 
 function render(): void {
@@ -357,7 +446,7 @@ export function openPaywall(reason: string, feature?: Feature, trigger?: HTMLEle
     el(
       'div',
       { class: 'sheet__actions' },
-      button('AMBIL LISENSI PRO', {
+      button('BELI LEWAT TELEGRAM', {
         tone: 'primary',
         block: true,
         icon: 'bolt',
@@ -369,8 +458,8 @@ export function openPaywall(reason: string, feature?: Feature, trigger?: HTMLEle
         icon: 'check',
         onClick: () => {
           render();
-          const input = panel?.querySelector<HTMLInputElement>('.input--key');
-          input?.focus();
+          const field = panel?.querySelector<HTMLInputElement>('.input--key');
+          field?.focus();
         },
       }),
       button('NANTI', { tone: 'ghost', block: true, onClick: close }),
