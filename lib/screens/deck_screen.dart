@@ -396,18 +396,24 @@ class _LoadedSource extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Container(
-              width: 32,
-              height: 32,
-              margin: const EdgeInsets.only(right: 10, top: 2),
-              decoration: BoxDecoration(
-                color: c.cobalt,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                playing ? Icons.pause : Icons.play_arrow,
-                size: 19,
-                color: c.isDark ? const Color(0xFF02101F) : Colors.white,
+            GestureDetector(
+              onTap: () {
+                Haptics.tap();
+                forge.togglePlay();
+              },
+              child: Container(
+                width: 32,
+                height: 32,
+                margin: const EdgeInsets.only(right: 10, top: 2),
+                decoration: BoxDecoration(
+                  color: c.cobalt,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  playing ? Icons.pause : Icons.play_arrow,
+                  size: 19,
+                  color: c.isDark ? const Color(0xFF02101F) : Colors.white,
+                ),
               ),
             ),
             Expanded(

@@ -121,7 +121,7 @@ class ForgeController extends ChangeNotifier {
       final List<double> loaded = await WaveformService.load(path);
       if (!_disposed) {
         peaks = loaded;
-        waveformReady = loaded.isNotEmpty;
+        waveformReady = true;
         notifyListeners();
       }
     } catch (error) {

@@ -103,6 +103,20 @@ Bila target `OFF`, trim hanya dibatasi ceiling dan tidak pernah > 1.0.
 5. Folder SAF kustom: `copyToTree` mengembalikan URI dokumen, bukan path filesystem.
    Riwayat menyimpan `saf://<label>/<nama>` sehingga tombol share dinonaktifkan.
 
+### 4b. Guards that ship with the repo
+
+`test/graph_builder_test.dart` (pure Dart, no plugins) locks in the rules above:
+`[0:a:0]` input, `[aout]` output, no `loudnorm`/`acompressor`/`afir`, limiter
+`limit=0.89 level=false latency=true`, 48 kHz + triangular dither, fades before the
+reverb send, 8D `level_out` compensation, retro vs modern speed, trim math
+(including the −1 dBFS ceiling and the sane 0.2–4.0 range) and preset integrity.
+
+Run with `flutter test`. It is the fastest way to catch a DSP regression without
+a device.
+
+Note: every FFmpeg command that reports progress is executed with `-stats`
+injected, because stderr is a pipe and FFmpeg otherwise suppresses progress lines.
+
 ---
 
 ## 5. Design system

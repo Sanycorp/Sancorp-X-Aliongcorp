@@ -76,8 +76,14 @@ class AudioEngine {
     final StringBuffer buffer = StringBuffer();
     final Completer<RunResult> completer = Completer<RunResult>();
 
+    // `-stats` guarantees the statistics callback fires even though stderr is
+    // a pipe; without it FFmpeg suppresses the progress lines.
+    final String full = onProgress == null
+        ? command
+        : command.replaceFirst('-hide_banner', '-hide_banner -stats');
+
     FFmpegKit.executeAsync(
-      command,
+      full,
       (session) async {
         final rc = await session.getReturnCode();
         _activeSessionId = null;
