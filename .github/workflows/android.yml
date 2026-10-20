@@ -78,3 +78,83 @@ jobs:
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
+
+  probe:
+    name: Probe deployed web build
+    # Runs only when the repository variable AEGIS_PROBE_URL is set, so normal
+    # pushes stay lean. Set it with: gh variable set AEGIS_PROBE_URL -b <url>
+    if: vars.AEGIS_PROBE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch head and headers
+        env:
+          URL: ${{ vars.AEGIS_PROBE_URL }}
+        run: |
+          set -euo pipefail
+          echo "== $URL =="
+          code=$(curl -sS -o /tmp/index.html -D /tmp/headers.txt -w '%{http_code}' "$URL/")
+          echo "status: $code"
+          cat /tmp/headers.txt
+          test "$code" = "200"
+
+      - name: Assert security headers
+        run: |
+          set -euo pipefail
+          h=/tmp/headers.txt
+          for key in content-security-policy strict-transport-security cross-origin-opener-policy cross-origin-embedder-policy x-content-type-options referrer-policy permissions-policy; do
+            grep -qi "^$key:" "$h" || { echo "missing: $key"; exit 1; }
+            echo "ok: $key"
+          done
+          grep -qi "require-trusted-types-for 'script'" "$h"
+          grep -qi "frame-ancestors 'none'" "$h"
+          echo "CSP ok"
+
+      - name: Assert shell assets
+        env:
+          URL: ${{ vars.AEGIS_PROBE_URL }}
+        run: |
+          set -euo pipefail
+          for path in /sw.js /boot.css /manifest.webmanifest /.well-known/security.txt /icons/icon-512.png; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "$URL$path")
+            echo "$path -> $code"
+            test "$code" = "200"
+          done
+
+      - name: Verify SRI against served bytes
+        env:
+          URL: ${{ vars.AEGIS_PROBE_URL }}
+        run: |
+          set -euo pipefail
+          python3 - "$URL" <<'PY'
+          import base64, hashlib, re, subprocess, sys, urllib.parse
+
+          base = sys.argv[1]
+          html = open('/tmp/index.html', encoding='utf-8').read()
+          checked = 0
+          for tag in re.findall(r'<(?:script|link)\b[^>]*>', html):
+              m = re.search(r'integrity="sha384-([^"]+)"', tag)
+              if not m:
+                  continue
+              ref = re.search(r'(?:src|href)="([^"]+)"', tag).group(1)
+              url = urllib.parse.urljoin(base + '/', ref)
+              out = subprocess.run(['curl', '-sS', '--compressed', url], capture_output=True, check=True).stdout
+              digest = base64.b64encode(hashlib.sha384(out).digest()).decode()
+              ok = digest == m.group(1)
+              print(('ok ' if ok else 'MISMATCH ') + ref + f' ({len(out)} bytes)')
+              assert ok, ref
+              checked += 1
+          assert checked >= 2
+          print(f'{checked} assets verified')
+          PY
+
+      - name: Cache + security.txt policy
+        env:
+          URL: ${{ vars.AEGIS_PROBE_URL }}
+        run: |
+          set -euo pipefail
+          ctl=$(curl -sS -I "$URL/sw.js" | tr -d '\r' | grep -i '^cache-control:' || true)
+          echo "$ctl"
+          echo "$ctl" | grep -qi 'no-store'
+          curl -sS "$URL/.well-known/security.txt" | grep -qi '^Contact:'
+          echo "ok"
