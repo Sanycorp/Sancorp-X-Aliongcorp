@@ -75,7 +75,7 @@ const entry = rawEntry ? `/${rawEntry.replace(/^\.?\//, '')}` : null;
 if (entry) {
   const bundle = await get(entry);
   check('entry bundle served', bundle.res.status === 200, entry.split('/').pop());
-  const version = bundle.body.match(/["'](8\.\d+\.\d+)["']/)?.[1] ?? 'unknown';
+  const version = bundle.body.match(/["'`](8\.\d+\.\d+)["'`]/)?.[1] ?? 'unknown';
   check('version 8.5.x', /^8\.5\./.test(version), version);
   check('console shipped', bundle.body.includes('AKSES OPERATOR'));
   check('account sheet shipped', bundle.body.includes('AKTIFKAN AKSES'));
