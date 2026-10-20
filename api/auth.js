@@ -21,6 +21,8 @@ import {
   sessionCookie,
   verifyLicense,
 } from './_lib/auth.js';
+import { authorizeUrl, exchangeCode, googleConfigured, googleSession, makeState, readState } from './_lib/google.js';
+import { premiumFor } from './_lib/premium.js';
 
 export default async function handler(req, res) {
   res.setHeader('Vary', 'Cookie');

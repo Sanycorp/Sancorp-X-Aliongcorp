@@ -108,3 +108,42 @@ describe('sheet can never swallow the page', () => {
     expect(css).toMatch(/\.sheet-scrim\.is-open\s*\{[^}]*pointer-events:\s*auto/);
   });
 });
+
+
+describe('the auth endpoint still answers', () => {
+  /** Minimal req/res: the real failure this catches is a missing import, which
+   *  ships as a 500 for every visitor and is invisible to a unit test that only
+   *  exercises modules. */
+  function fake() {
+    const res = {
+      statusCode: 200,
+      headers: {} as Record<string, string>,
+      body: '',
+      setHeader(key: string, value: string) {
+        this.headers[key.toLowerCase()] = value;
+      },
+      end(body?: string) {
+        this.body = String(body ?? '');
+      },
+    };
+    return res;
+  }
+
+  it('GET /api/auth returns the session shape instead of throwing', async () => {
+    const handler = (await import('../api/auth.js')).default;
+    const res = fake();
+    await handler({ method: 'GET', url: '/api/auth', headers: { host: 'example.test' } }, res as never);
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body).toMatchObject({ tier: 'free', signedIn: false });
+    expect(body).toHaveProperty('google');
+    expect(body).toHaveProperty('adminEnabled');
+  });
+
+  it('refuses the account desk to anonymous callers', async () => {
+    const handler = (await import('../api/accounts.js')).default;
+    const res = fake();
+    await handler({ method: 'GET', url: '/api/accounts', headers: { host: 'example.test' } }, res as never);
+    expect(res.statusCode).toBe(403);
+  });
+});
