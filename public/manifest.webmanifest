@@ -1,0 +1,56 @@
+{
+  "id": "/",
+  "name": "EL TZY AEGIS-M",
+  "short_name": "AEGIS-M",
+  "description": "Offline mecha audio forge — slowed, nightcore, 8D, reverb, mastering. Semua proses di perangkat, nol upload.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#e8ecf3",
+  "theme_color": "#e8ecf3",
+  "categories": ["music", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Forge Deck",
+      "short_name": "Deck",
+      "url": "./#/deck",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Tuning Lab",
+      "short_name": "Lab",
+      "url": "./#/lab",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Preset Arsenal",
+      "short_name": "Arsenal",
+      "url": "./#/arsenal",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

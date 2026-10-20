@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="id" data-finish="armor" data-motion="full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5"
+    />
+    <meta name="theme-color" content="#e8ecf3" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="EL TZY AEGIS-M — forge audio offline: slowed, nightcore, 8D, reverb, mastering. Semua diproses di perangkat, nol upload."
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AEGIS-M" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <title>EL TZY AEGIS-M</title>
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon-64.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #e8ecf3;
+        color: #0a0d12;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 18px;
+        background:
+          radial-gradient(120% 80% at 50% 0%, rgba(11, 79, 214, 0.12), transparent 60%),
+          #e8ecf3;
+        font-family: 'Chakra Petch', system-ui, sans-serif;
+        transition: opacity 0.45s ease, visibility 0.45s ease;
+      }
+      #boot.is-gone {
+        opacity: 0;
+        visibility: hidden;
+      }
+      #boot .shield {
+        width: 74px;
+        height: 84px;
+        clip-path: polygon(50% 0, 100% 18%, 100% 62%, 50% 100%, 0 62%, 0 18%);
+        background: #0a0d12;
+        display: grid;
+        place-items: center;
+        position: relative;
+        animation: shieldIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+      #boot .shield::before {
+        content: '';
+        position: absolute;
+        inset: 3px;
+        clip-path: inherit;
+        border: 1px solid rgba(232, 236, 243, 0.3);
+      }
+      #boot .shield span {
+        color: #e8ecf3;
+        font-size: 20px;
+        letter-spacing: 1px;
+        font-weight: 700;
+      }
+      #boot .name {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 6px;
+        text-transform: uppercase;
+        animation: fadeIn 0.8s 0.15s ease both;
+      }
+      #boot .sub {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 3px;
+        color: #8b97a8;
+        text-transform: uppercase;
+        animation: fadeIn 0.8s 0.3s ease both;
+      }
+      #boot .bar {
+        width: 148px;
+        height: 2px;
+        background: #c9d2e0;
+        overflow: hidden;
+        animation: fadeIn 0.8s 0.4s ease both;
+      }
+      #boot .bar i {
+        display: block;
+        width: 42%;
+        height: 100%;
+        background: #0b4fd6;
+        animation: slide 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+      @keyframes slide {
+        from {
+          transform: translateX(-110%);
+        }
+        to {
+          transform: translateX(340%);
+        }
+      }
+      @keyframes shieldIn {
+        from {
+          transform: translateY(10px) scale(0.92);
+          opacity: 0;
+        }
+        to {
+          transform: none;
+          opacity: 1;
+        }
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="boot" role="status" aria-label="Memuat AEGIS-M">
+      <div class="shield"><span>E/T</span></div>
+      <div class="name">AEGIS-M</div>
+      <div class="sub">Offline audio forge · v8</div>
+      <div class="bar"><i></i></div>
+    </div>
+
+    <noscript>
+      <p style="padding: 24px; font-family: sans-serif">
+        AEGIS-M membutuhkan JavaScript untuk menjalankan DSP secara lokal.
+      </p>
+    </noscript>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

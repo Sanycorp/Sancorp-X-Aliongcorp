@@ -1,0 +1,307 @@
+import { APP_DEFAULTS, FORMAT_META, TARGET_META } from '../../model/settings';
+import type { LoudnessTarget, OutputFormat } from '../../model/settings';
+import { store } from '../../state/store';
+import { Haptics } from '../haptics';
+import {
+  button,
+  el,
+  iconButton,
+  sectionHead,
+  segmented,
+  select,
+  toast,
+  toggle,
+} from '../elements';
+import { clearSession } from '../../io/storage';
+import { formatBytes, formatDuration } from '../../io/audioFile';
+import type { Screen } from './deck';
+
+export const APP_VERSION = '8.0.0';
+const REPO = 'https://github.com/Sanycorp/Sancorp-X-Aliongcorp';
+const ACTIONS = `${REPO}/actions/workflows/android.yml`;
+
+export function createSystem(): Screen {
+  // ------------------------------------------------------------- finish
+  const finishSeg = segmented(
+    [
+      { value: 'armor', label: 'ARMOR', sub: 'WHITE' },
+      { value: 'cockpit', label: 'COCKPIT', sub: 'BLACK' },
+    ],
+    store.settings.finish,
+    (v) => {
+      store.patchSettings({ finish: v as 'armor' | 'cockpit' });
+      Haptics.tap();
+    },
+  );
+
+  const motionToggle = toggle('REDUCE MOTION', store.settings.reduceMotion, (v) => {
+    store.patchSettings({ reduceMotion: v });
+  });
+  const hapticToggle = toggle('HAPTICS', store.settings.haptics, (v) => {
+    store.patchSettings({ haptics: v });
+    if (v) Haptics.medium();
+  });
+
+  const uiGroup = el(
+    'div',
+    { class: 'plate settings-group' },
+    sectionHead('01', 'INTERFACE'),
+    el('div', { class: 'label', text: 'FINISH', style: 'margin-bottom:6px' }),
+    finishSeg.wrap,
+    el('div', { style: 'height:10px' }),
+    motionToggle.wrap,
+    hapticToggle.wrap,
+  );
+
+  // ------------------------------------------------------------- output
+  const formatKeys = Object.keys(FORMAT_META) as OutputFormat[];
+  const formatSelect = select(
+    'FORMAT DEFAULT',
+    formatKeys.map((k) => ({ value: k, label: `${FORMAT_META[k].label} · ${FORMAT_META[k].spec}` })),
+    store.settings.format,
+    (v) => {
+      store.patchSettings({ format: v as OutputFormat });
+      store.patchEdit({ format: v as OutputFormat });
+      Haptics.tap();
+      updateNote();
+    },
+  );
+
+  const bitrateSeg = segmented(
+    [128, 192, 256, 320].map((b) => ({ value: String(b), label: `${b}`, sub: 'KBPS' })),
+    String(store.settings.bitrate),
+    (v) => {
+      store.patchSettings({ bitrate: Number(v) });
+      store.patchEdit({ bitrate: Number(v) });
+    },
+  );
+
+  const targetSelect = select(
+    'TARGET LOUDNESS',
+    (Object.keys(TARGET_META) as LoudnessTarget[]).map((k) => ({
+      value: k,
+      label: `${TARGET_META[k].label} · ${TARGET_META[k].hint}`,
+    })),
+    store.settings.target,
+    (v) => {
+      store.patchSettings({ target: v as LoudnessTarget });
+      store.patchEdit({ target: v as LoudnessTarget });
+      Haptics.tap();
+      updateNote();
+    },
+  );
+
+  const noteEl = el('div', { class: 'lab-group__note' });
+  const updateNote = (): void => {
+    const meta = FORMAT_META[store.settings.format];
+    noteEl.textContent = `${meta.label}: ${meta.note} ${meta.lossy ? `Bitrate ${store.settings.bitrate} kbps.` : 'Lossless — bitrate tidak berlaku.'}`;
+  };
+  updateNote();
+
+  const shareToggle = toggle('SHARE SHEET SETELAH EXPORT', store.settings.shareAfterExport, (v) => {
+    store.patchSettings({ shareAfterExport: v });
+  });
+  const historyToggle = toggle('SIMPAN RIWAYAT', store.settings.keepHistory, (v) => {
+    store.patchSettings({ keepHistory: v });
+  });
+
+  const outputGroup = el(
+    'div',
+    { class: 'plate settings-group' },
+    sectionHead('02', 'OUTPUT'),
+    formatSelect.wrap,
+    el('div', { class: 'label', text: 'BITRATE (LOSSY)', style: 'margin-bottom:6px' }),
+    bitrateSeg.wrap,
+    el('div', { style: 'height:10px' }),
+    targetSelect.wrap,
+    noteEl,
+    el('div', { style: 'height:10px' }),
+    shareToggle.wrap,
+    historyToggle.wrap,
+  );
+
+  // ------------------------------------------------------------- history
+  const historyList = el('div', { class: 'history-list' });
+  const emptyHistory = el('div', {
+    class: 'lab-group__note',
+    text: 'Belum ada export di perangkat ini. Hasil render akan muncul di sini beserta LUFS dan true peak-nya.',
+  });
+
+  const clearBtn = button('HAPUS SEMUA', {
+    tone: 'ghost',
+    size: 'sm',
+    icon: 'trash',
+    onClick: () => {
+      store.clearHistory();
+      toast('Riwayat dihapus', 'info', 1500);
+    },
+  });
+
+  const historyGroup = el(
+    'div',
+    { class: 'plate settings-group' },
+    el(
+      'div',
+      { class: 'row', style: 'align-items:center' },
+      el('div', { style: 'flex:1;min-width:0' }, sectionHead('03', 'RIWAYAT EXPORT')),
+      clearBtn,
+    ),
+    emptyHistory,
+    historyList,
+  );
+
+  // ------------------------------------------------------------- apk
+  const apkGroup = el(
+    'div',
+    { class: 'plate settings-group' },
+    sectionHead('04', 'ANDROID APK'),
+    el('p', {
+      class: 'lab-group__note',
+      style: 'margin-top:0',
+      text: 'Build APK dibuat otomatis oleh GitHub Actions. Setiap push ke main menghasilkan artifact debug APK yang bisa langsung di-install — tanpa bot, tanpa ZIP.',
+    }),
+    el(
+      'div',
+      { class: 'about-grid', style: 'margin:10px 0' },
+      infoCell('WORKFLOW', 'android.yml'),
+      infoCell('ENGINE', 'Node 22 · JDK 21'),
+      infoCell('GRADLE', './gradlew assembleDebug'),
+      infoCell('ARTIFACT', 'aegis-m-debug-apk'),
+    ),
+    el(
+      'div',
+      { style: 'display:grid; gap:8px' },
+      anchorButton('BUKA GITHUB ACTIONS', ACTIONS, 'primary'),
+      anchorButton('SOURCE REPOSITORY', REPO, 'ghost'),
+    ),
+    el('div', {
+      class: 'footnote',
+      style: 'text-align:left',
+      text: 'APK butuh signing key sendiri untuk rilis Play Store. Build debug sudah bisa di-sideload.',
+    }),
+  );
+
+  // ------------------------------------------------------------- about
+  const aboutGroup = el(
+    'div',
+    { class: 'plate settings-group' },
+    sectionHead('05', 'TENTANG'),
+    el(
+      'div',
+      { class: 'about-grid' },
+      infoCell('APP', 'EL TZY AEGIS-M'),
+      infoCell('VERSI', APP_VERSION),
+      infoCell('ENGINE', 'TS 7 · Vite 8'),
+      infoCell('DSP', 'WebAudio-free · 32-bit'),
+      infoCell('SHELL', 'Capacitor 8'),
+      infoCell('OUTPUT', '48 kHz stereo'),
+    ),
+    el('p', {
+      class: 'lab-group__note',
+      text: 'Seluruh pemrosesan berjalan lokal di perangkat. Tidak ada upload, tidak ada server, tidak ada telemetry. Loudness memakai BS.1770-4 dengan true peak 4× oversampling.',
+    }),
+    el(
+      'div',
+      { style: 'display:grid; gap:8px; margin-top:10px' },
+      button('RESET SETELAN UI', {
+        tone: 'ghost',
+        size: 'sm',
+        onClick: () => {
+          store.patchSettings({ ...APP_DEFAULTS });
+          toast('Setelan UI dikembalikan ke default', 'ok', 1600);
+        },
+      }),
+      button('HAPUS SESI TERSIMPAN', {
+        tone: 'ghost',
+        size: 'sm',
+        icon: 'trash',
+        onClick: () => {
+          clearSession();
+          store.wipeSession();
+          toast('Sesi dibersihkan — chain kembali netral', 'info', 2000);
+        },
+      }),
+    ),
+  );
+
+  function infoCell(label: string, value: string): HTMLElement {
+    return el('div', {}, el('span', { text: label }), el('b', { text: value }));
+  }
+
+  function anchorButton(label: string, href: string, tone: 'primary' | 'ghost'): HTMLElement {
+    const a = el('a', {
+      class: `btn btn--${tone} btn--block`,
+      attrs: { href, target: '_blank', rel: 'noopener noreferrer' },
+      style: 'text-decoration:none',
+    });
+    a.appendChild(el('span', { text: label }));
+    return a;
+  }
+
+  const screen = el(
+    'section',
+    { class: 'screen', id: 'screen-system', attrs: { 'aria-label': 'System settings' } },
+    el(
+      'div',
+      { class: 'screen__intro' },
+      el(
+        'div',
+        {},
+        el('div', { class: 'screen__kicker', text: 'AEGIS-M / CONTROL ROOM' }),
+        el('h1', { class: 'screen__title', html: 'SYSTEM <em>CONTROL</em>' }),
+      ),
+      el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'OFFLINE' }))),
+    ),
+    el(
+      'div',
+      { class: 'grid grid--lab' },
+      uiGroup,
+      outputGroup,
+      historyGroup,
+      apkGroup,
+      aboutGroup,
+    ),
+    el('div', { class: 'footnote', text: `EL TZY AEGIS-M ${APP_VERSION} · dibuat untuk dipakai, bukan untuk di-upload` }),
+  );
+
+  function renderHistory(): void {
+    historyList.replaceChildren();
+    const has = store.history.length > 0 && store.settings.keepHistory;
+    emptyHistory.classList.toggle('hidden', has);
+    historyList.classList.toggle('hidden', !has);
+    if (!has) return;
+    const rows = store.history.slice(0, 12).map((rec) => {
+      const date = new Date(rec.createdAt);
+      const stamp = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+      return el(
+        'div',
+        { class: 'history-row' },
+        el('div', { class: 'history-row__name', text: rec.name }),
+        iconButton('trash', 'Hapus entri', () => store.removeHistory(rec.id)),
+        el('div', {
+          class: 'history-row__meta',
+          text: `${stamp} · ${rec.format} · ${formatDuration(rec.duration, true)} · ${formatBytes(rec.bytes)} · ${rec.lufs == null ? '—' : `${rec.lufs.toFixed(1)} LUFS`} · TP ${rec.truePeak.toFixed(1)}`,
+        }),
+      );
+    });
+    historyList.append(...rows);
+  }
+
+  function update(): void {
+    finishSeg.set(store.settings.finish);
+    motionToggle.set(store.settings.reduceMotion);
+    hapticToggle.set(store.settings.haptics);
+    shareToggle.set(store.settings.shareAfterExport);
+    historyToggle.set(store.settings.keepHistory);
+    formatSelect.select.value = store.settings.format;
+    bitrateSeg.set(String(store.settings.bitrate));
+    targetSelect.select.value = store.settings.target;
+    updateNote();
+    renderHistory();
+  }
+
+  store.subscribe(update);
+  update();
+
+  return { el: screen, update };
+}

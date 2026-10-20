@@ -1,176 +1,131 @@
-# EL TZY — AEGIS-M
+# EL TZY · AEGIS-M
 
-> Mecha audio forge untuk Android. Slowed + reverb, 8D orbit, bass forge, repair,
-> dan mastering loudness — **100% offline di HP**. FFmpeg 8 di dalam, tanpa upload,
-> tanpa akun, tanpa tracking.
+**Offline mecha audio forge — v8.0.0**
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.27%2B-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.6%2B-0175C2?logo=dart&logoColor=white)](https://dart.dev)
-[![Android](https://img.shields.io/badge/Android-24%E2%80%9336-3DDC84?logo=android&logoColor=white)](#)
-[![FFmpeg](https://img.shields.io/badge/FFmpeg-8.x-007800?logo=ffmpeg&logoColor=white)](#)
+Slowed + reverb, nightcore, 8D orbit, club masters. Semua diproses **di dalam perangkat**, nol upload, nol server, nol telemetry.
 
-![AEGIS-M deck](store/preview-deck.png)
-
-<p align="center"><em>Armor White &nbsp;·&nbsp; Cockpit Black — rendered from the production design tokens.</em></p>
+<p align="center">
+  <img src="store/icon-512.png" width="132" alt="AEGIS-M icon" />
+</p>
 
 ---
 
-## Kenapa versi ini berbeda
+## Kenapa v8?
 
-Versi lama adalah aplikasi Material 3 bertema teal gelap dengan preset generik dan
-rantai DSP yang menumpuk kompresor. Versi **7.0.0 "AEGIS-M"** adalah penulisan ulang
-total:
+Versi sebelumnya dibangun di Flutter. v8 dibangun ulang total di atas stack web modern supaya satu basis kode yang sama bisa jalan sebagai:
 
-| | v6 (lama) | v7 AEGIS-M |
-|---|---|---|
-| Bahasa | Dart + widget default | Dart 3.6, arsitektur `models → audio → state → screens` |
-| UI | Material 3 teal, kartu membulat | Mecha cockpit: pelat chamfer, HUD grid, tipografi Chakra Petch + Share Tech Mono, **Armor White** & **Cockpit Black** |
-| Preset | 8 preset tanpa kurasi | **14 preset terukur** — tiap preset diuji LUFS/true-peak |
-| Loudness | `loudnorm` (pump) | **satu gain statis** hasil pengukuran dua tahap |
-| Reverb | `aecho` acak | reverb matriks 10–20 tap, decorrelated L/R, per-ruang (hall/plate/chamber/cathedral) |
-| 8D | `apulsator` tanpa kompensasi | kompensasi level dari filter (`level_out`), bukan volume eksternal |
-| Export | 1 format | MP3/OGG/M4A/OPUS/FLAC/ALAC/WAV16/24/32, 48 kHz stereo, dither triangular |
-| Metadata | tidak ada | provenance SHA-256 + preset + target + trim di tag audio |
-| Rahasia | — | **interactive prototype** di `preview/` (buka di browser) |
+- **PWA** yang bisa di-install di Android/iOS/desktop,
+- **APK Android** native (Capacitor 8) yang dibangun otomatis oleh GitHub Actions,
+- dan tetap 100% offline — DSP-nya ditulis sendiri dalam TypeScript, bukan shell ke FFmpeg.
+
+Tidak ada lagi ZIP, tidak ada bot build, tidak ada upload ke server.
 
 ---
 
 ## Fitur
 
-### Deck
-- **Source Bay** — file picker SAF (tanpa izin storage), probe otomatis, waveform
-  interaktif dengan bracket trim dan playhead.
-- **14 Signature Presets** — dari *Night Shift* sampai *Mecha Protocol*.
-- **Master Bay** — tiga macro knob (Speed / Gain / Space), readout durasi target.
-- **A/B snapshot** — simpan dan recall dua setelan.
-- **Audition** — render 20 detik melalui rantai yang sama persis dengan export
-  (bukan preview kasar), MP3 192 kbps.
+| Area | Detail |
+| --- | --- |
+| **Time** | 0.50×–2.00×. Mode **RETRO** mengikat pitch ke tempo (tape), mode **MODERN** memakai WSOLA sehingga pitch tetap. |
+| **Space** | Reverb FDN 8-line (hall / plate / chamber / cathedral), pre-delay, RT60 sampai 6 detik, damping. |
+| **Orbit** | 8D rotation 0.02–0.50 Hz dengan kompensasi level dan width control. |
+| **Tone** | Bass shelf, sub 55 Hz, clarity cut 680 Hz, presence 2.8 kHz, air 8 kHz, low-pass. |
+| **Dynamics** | Saturasi tape, mono bass <120 Hz, de-esser, fade in/out. |
+| **Repair** | Denoise STFT (1024/256, Wiener mask) dan Voice Focus. |
+| **Master** | Target −16 / −14 / −11 / −9 LUFS atau bypass, trim gain **statis**, limiter true-peak −1.2 dBTP. |
+| **Export** | MP3 128–320 kbps, WAV 16/24/32-float, FLAC 24-bit lossless. |
+| **Preset** | 14 loadout tervalidasi (lihat di bawah). |
+| **UI** | Dua finish: **ARMOR** (putih) dan **COCKPIT** (hitam), aksen cobalt/crimson/amber. |
 
-### Laboratory (6 modul collapsible)
-1. **TIME** — trim, fade in/out, speed 0.5–1.5×, mode `RETRO` (pitch ikut) / `MODERN` (pitch tetap).
-2. **SPACE** — reverb 4 ruang (level/room/damp) + 8D orbit (rate/depth/width).
-3. **TONE** — bass, bass freq, sub, clarity, presence, air, low-pass.
-4. **CHARACTER** — warmth (tanh saturation), de-esser, mono bass, oversample 96 kHz.
-5. **REPAIR** — spectral denoise (afftdn) dan voice isolation (RNNoise) dengan
-   peringatan khusus musik.
-6. **OUTPUT** — format, bitrate, loudness target, normalize input, turbo analysis.
+### Preset
 
-### Archive
-Riwayat ekspor on-device: format, durasi, ukuran, LUFS, hash, share, hapus.
+`night_shift` · `neon_nightcore` · `deep_orbit` · `void_drift` · `bass_forge` · `orbit_8d` · `phonk_protocol` · `liquid_drum` · `submerged` · `glass_cathedral` · `tape_memory` · `signal_clean` · `club_ready` · `mecha_protocol`
 
-### System
-Finish (Armor/Cockpit), reduce motion, haptics, default format/loudness, turbo,
-save destination (app vault / device / SAF folder), dan info build.
+Setiap preset diuji: mendarat di target loudness ±1.2 LU, true peak ≤ −1.0 dBFS, tanpa NaN/Inf, dan tidak pernah menyentuh 0 dBFS.
 
 ---
 
 ## Arsitektur
 
 ```
-lib/
-├─ main.dart                 # boot, tema, root
-├─ app/
-│  ├─ app_state.dart         # AppState (ChangeNotifier) + AppScope
-│  └─ root_shell.dart        # 4 tab + ForgeScope
-├─ core/
-│  ├─ palette.dart           # MechaColors, Corners, chamferPath, ChamferClipper
-│  ├─ typography.dart        # T.hero/title/label/body/metric
-│  ├─ theme.dart             # ThemeData tanpa Material default
-│  └─ format.dart            # fmtTime / fmtBytes / fmtDb / fmtLufs / fmtRate
-├─ models/
-│  ├─ edit_settings.dart     # 40+ parameter render + enum berlabel
-│  ├─ preset.dart            # 14 preset kurasi
-│  └─ app_settings.dart      # preferensi persisten
-├─ audio/
-│  ├─ graph_builder.dart     # filtergraph builder (1:1 port engine.py)
-│  ├─ audio_engine.dart      # probe, measure, export, preview, waveform PCM
-│  └─ waveform_service.dart  # peak buckets + cache
-├─ state/
-│  ├─ forge_controller.dart  # source → audition → export → history
-│  └─ forge_scope.dart
-├─ services/
-│  ├─ storage_service.dart   # SAF bridge, save, share
-│  ├─ history_service.dart   # JSON export log
-│  └─ prefs.dart             # SharedPreferences
-├─ screens/                  # deck, lab, archive, system
-└─ widgets/                  # panel, rack, knob, slider, meter, waveform, HUD…
+src/
+├─ dsp/            # engine murni, tanpa DOM. Semua fungsi (Stereo) => Stereo @48 kHz
+│  ├─ buffer.ts    # Stereo { left, right, sampleRate }, gain, concat, sanitize
+│  ├─ biquad.ts    # RBJ biquad, direct-form I, state per kanal
+│  ├─ resample.ts  # Catmull-Rom varispeed + WSOLA time-stretch
+│  ├─ fft.ts       # radix-2 complex FFT untuk denoise
+│  ├─ denoise.ts   # STFT Wiener mask + voice focus
+│  ├─ reverb.ts    # FDN 8-line, Hadamard feedback, RT60 → gain
+│  ├─ dynamics.ts  # saturasi, width, mono bass, de-ess, fade, 8D
+│  ├─ limiter.ts   # look-ahead brickwall + true-peak 4× Catmull
+│  ├─ loudness.ts  # BS.1770-4 (K-weighting, gating) + true peak
+│  └─ engine.ts    # render(): satu-satunya pipeline yang dipakai preview & export
+├─ model/          # EditSettings, AppSettings, 14 preset
+├─ io/             # decode, encode (WAV/FLAC/MP3), storage, WebAudio player
+├─ state/          # store observabel + forge (preview/export) + renderClient
+├─ workers/        # render di Web Worker supaya UI tidak freeze
+├─ ui/             # 4 layar + komponen (elemen, waveform, scope, haptics)
+└─ styles/         # design system mecha (tokens, primitives, controls, layout)
 ```
 
-### Rantai sinyal (urutan wajib)
+**Kontrak inti:** preview dan export memakai `engine.render()` yang sama. Preview hanya memotong 24 detik pertama (dengan trim yang sama), jadi yang kamu dengar adalah hasil final, bukan simulasi.
+
+**Urutan DSP:**
 
 ```
-[0:a:0]
- → aresample (12 kHz saat turbo / rate sumber)
- → highpass 24 Hz
- → denoise (arnndn bila voiceMode, else afftdn)   ← lihat catatan di bawah
- → oversample 96 kHz (soxr)
- → atrim + asetpts
- → normalize input ke −0.5 dBFS (opsional)
- → speed  (retro: asetrate+soxr · modern: atempo)
- → fade in/out (di domain waktu setelah speed)
- → bass → sub → clarity (680 Hz) → presence (2.8 kHz) → air (8 kHz) → low-pass
- → extrastereo (width) → apulsator (8D, dengan level_out)
- → reverb send (dry/wet constant gain) atau anull
- → warmth parallel (asoftclip tanh)
- → mono bass (split 120 Hz)
- → de-esser (sidechain compress 6 kHz)
- → volume = trim statis
- → alimiter(0.89, latency, level=false)
- → aresample 48 kHz soxr precision 28 + triangular dither
- → aformat stereo
+HP 24 Hz → repair → trim → normalise −0.5 dBFS → speed → fade
+→ tone (bass/sub/clarity/presence/air/LP) → width → 8D → reverb
+→ warmth → mono bass → de-ess → gain statis → limiter (−1.2 dBTP)
 ```
 
-**Aturan yang tidak boleh diregresi** (semua sudah diuji terhadap FFmpeg 7/8 asli):
-
-- Jangan pakai `loudnorm`, `asc=1`, atau glue `acompressor` — pecah di materi panas.
-- `afir` rusak di FFmpeg 7/8 → reverb memakai `aecho` multi-tap.
-- `asoftclip` hanya punya opsi `type=`.
-- Output selalu **48 kHz stereo**, limiter **−1 dBFS true peak**.
-- Pengukuran dijalankan **tanpa limiter** agar trim statis jujur.
-- **RNNoise (`arnndn`) mematikan musik** (turun ~27 dB). Hanya untuk speech.
-- Fade berada **sebelum** reverb, jadi ekor reverb tetap alami.
-- `alac` ditulis ke `.m4a`, input selalu `[0:a:0]`, tanpa `adeclick`, tanpa `apad`.
+Tidak ada loudness normalisation dinamis. Selisih 12 dB antara bagian keras dan pelan tetap 12 dB setelah render.
 
 ---
 
-## Build
-
-Prasyarat: Flutter **3.27+** (Dart 3.6+), Android SDK dengan compileSdk 36, JDK 17.
+## Menjalankan
 
 ```bash
-flutter pub get
-flutter build apk --release --split-per-abi
-# output: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+npm install
+npm run dev        # http://localhost:5173
+npm test           # 72 tes: DSP, engine, encoder, UI (jsdom)
+npm run typecheck
+npm run build      # bundle produksi di dist/
+npm run icons      # regenerate ikon PWA + Android mipmaps
 ```
 
-Untuk bot ZIP→APK: arsipkan **isi repo** sehingga `pubspec.yaml` berada di **root ZIP**.
+### APK Android
 
-Konfigurasi Android: minSdk 24, targetSdk 36, AGP 8.11.1, Gradle 8.13, Kotlin 2.2.0,
-`ffmpeg_kit_flutter_new_audio`, FileProvider `com.eltzy.app.fileprovider`,
-`android:requestLegacyExternalStorage` aktif untuk perangkat lama.
+APK dibangun oleh GitHub Actions (`.github/workflows/android.yml`) setiap push:
+
+1. checkout → Node 22 → JDK 21
+2. `npm ci` → typecheck → test → build
+3. `cap add android` (sekali) → `cap sync android`
+4. `./gradlew assembleDebug`
+5. artifact **aegis-m-debug-apk**
+
+Unduh dari tab **Actions**, lalu sideload APK-nya. Untuk Play Store, tambahkan keystore sendiri dan pakai `assembleRelease`/bundle.
 
 ---
 
-## Preview UI (tanpa kompilasi)
+## Kualitas & batasan (jujur)
 
-`preview/index.html` adalah prototipe interaktif dari seluruh design system —
-bisa dibuka langsung di browser, tanpa Flutter:
+**Sudah terverifikasi:**
 
-```bash
-python3 -m http.server 4173 --directory preview
-# http://localhost:4173
-```
+- Loudness meter cocok dengan referensi BS.1770: sine 997 Hz @ −20 dBFS → **−23.01 LUFS**.
+- Limiter menahan true peak di **−1.2 dBTP** termasuk inter-sample peak (4× oversampling).
+- 14 preset → target loudness, tanpa clipping.
+- FLAC yang dihasilkan **didekode bersih oleh FFmpeg 7.0.2** (48 kHz, stereo, 24-bit, tag terbaca).
+- 72 tes otomatis + build produksi 99 kB (main) + 163 kB (MP3 codec, dimuat saat butuh).
 
-Semua warna, tipografi, chamfer, knob, export console, dan animasi di prototipe
-mengikuti implementasi Dart di `lib/`.
+**Batasan yang disengaja:**
+
+- **FLAC di sini lossless tapi tidak terkompresi** (verbatim subframes). Ukurannya mirip WAV; encoder FLAC terkompresi butuh ~200 kB wasm dan belum dipakai.
+- **Target −9 LUFS** hanya tercapai pada materi yang crest factor-nya rendah (master klub memang begitu). Materi dinamis akan berhenti di level yang masih aman; engine tidak akan clipping untuk memaksa angka.
+- Tidak ada codec neural, Demucs, Atmos/MPEG-H, atau HRTF. Ini forge, bukan DAW.
+- Preview memakai WebAudio; di WebView lama yang tidak punya `decodeAudioData` untuk format tertentu, konversi dulu ke WAV/MP3.
 
 ---
 
-## Lisensi & kredit
+## Lisensi aset
 
-- Kode: lihat `LICENSE` bila tersedia di repo.
-- Font: Chakra Petch & Share Tech Mono — SIL Open Font License 1.1.
-- Model RNNoise: `assets/rnnoise/sh.rnnn` (BSD-3-Clause, Xiph.Org).
-- FFmpeg: LGPL/GPL sesuai build `ffmpeg_kit_flutter_new_audio`.
-
-Dibuat untuk produksi offline: **tidak ada upload, tidak ada akun, tidak ada tracking.**
+Font **Chakra Petch** dan **Share Tech Mono** dipakai di bawah SIL Open Font License; teks lisensi ada di `src/assets/fonts/`.

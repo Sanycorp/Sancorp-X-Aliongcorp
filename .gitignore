@@ -1,32 +1,37 @@
-# ---- Flutter / Dart ----
-.dart_tool/
-.packages
-.flutter-plugins
-.flutter-plugins-dependencies
-build/
-*.iml
-.idea/
-.vscode/
+# ---- Node / Vite ----
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
 
-# ---- Android ----
+# ---- Capacitor / Android ----
 android/local.properties
 android/.gradle/
 android/.cxx/
+android/build/
+android/app/build/
 android/app/release/
 android/key.properties
+android/.idea/
 *.jks
 *.keystore
+*.apk
+*.aab
 
-# ---- Tooling / scratch ----
+# ---- Tests / coverage ----
+coverage/
+.nyc_output/
+
+# ---- Scratch ----
 tool/.dart_tool/
 google_drive/
 _source_unzip/
 *.log
-
-# ---- Website prototype ----
-preview/node_modules/
-preview/dist/
-
-# ---- OS noise ----
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+*.iml

@@ -1,0 +1,479 @@
+/* ==========================================================================
+   Controls: faders, toggles, segmented switches, buttons.
+   Every control is built from a native input so keyboard + a11y come free.
+   ========================================================================== */
+
+/* Fader ------------------------------------------------------------------- */
+
+.fader {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  padding: 9px 10px 8px;
+  border: 1px solid transparent;
+  transition: background-color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+
+.fader:hover {
+  background: var(--panel-alt);
+  border-color: var(--line);
+}
+
+.fader.is-active {
+  border-color: color-mix(in srgb, var(--cobalt) 45%, var(--line));
+  background: color-mix(in srgb, var(--cobalt) 5%, var(--panel));
+}
+
+.fader__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.fader__name {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.fader.is-active .fader__name {
+  color: var(--ink);
+}
+
+.fader__value {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.fader.is-active .fader__value {
+  color: var(--cobalt);
+}
+
+.fader input[type='range'] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: ew-resize;
+  --fill: 0%;
+}
+
+.fader input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  background:
+    repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 100%),
+    var(--inset);
+  background-size: calc(100% / 20) 100%, auto;
+  border: 1px solid var(--line);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 3px) 100%, 3px 100%);
+  box-shadow: inset 0 0 0 1px transparent;
+}
+
+.fader input[type='range']::-webkit-slider-runnable-track {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0 var(--fill, 0%),
+      var(--cobalt) var(--fill, 0%) var(--fill-to, 0%),
+      transparent var(--fill-to, 0%) 100%
+    ),
+    repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 100%),
+    linear-gradient(var(--inset), var(--inset));
+  background-size: 100% 100%, calc(100% / 20) 100%, 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.fader--bipolar input[type='range']::-webkit-slider-runnable-track {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0 var(--fill, 50%),
+      var(--cobalt) var(--fill, 50%) var(--fill-to, 50%),
+      transparent var(--fill-to, 50%) 100%
+    ),
+    repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 100%),
+    linear-gradient(var(--inset), var(--inset));
+}
+
+.fader--bipolar .fader__head::after {
+  display: none;
+}
+
+.fader {
+  position: relative;
+}
+
+.fader input[type='range']::-moz-range-track {
+  height: 6px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+}
+
+.fader input[type='range']::-moz-range-progress {
+  height: 6px;
+  background: var(--cobalt);
+}
+
+.fader input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 10px;
+  height: 18px;
+  margin-top: -7px;
+  background: var(--panel);
+  border: 2px solid var(--cobalt);
+  box-shadow: 0 2px 6px rgba(10, 13, 18, 0.25);
+  clip-path: polygon(0 4px, 50% 0, 100% 4px, 100% 100%, 0 100%);
+  transition: transform 0.12s var(--ease), border-color 0.12s var(--ease);
+}
+
+.fader input[type='range']:active::-webkit-slider-thumb {
+  transform: scaleY(1.08);
+  border-color: var(--crimson);
+}
+
+.fader input[type='range']::-moz-range-thumb {
+  width: 10px;
+  height: 18px;
+  border-radius: 0;
+  background: var(--panel);
+  border: 2px solid var(--cobalt);
+}
+
+.fader__hint {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.4px;
+  line-height: 1.4;
+}
+
+/* Toggle ------------------------------------------------------------------ */
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  transition: border-color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+
+.toggle:hover {
+  border-color: var(--line-strong);
+}
+
+.toggle__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggle__track {
+  margin-left: auto;
+  position: relative;
+  width: 38px;
+  height: 18px;
+  background: var(--inset);
+  border: 1px solid var(--line-strong);
+  clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+  transition: background-color 0.22s var(--ease), border-color 0.22s var(--ease);
+}
+
+.toggle__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: var(--line-strong);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transition: transform 0.22s var(--ease), background-color 0.22s var(--ease);
+}
+
+.toggle input:checked + .toggle__track {
+  background: color-mix(in srgb, var(--cobalt) 16%, var(--panel));
+  border-color: var(--cobalt);
+}
+
+.toggle input:checked + .toggle__track::after {
+  transform: translateX(18px);
+  background: var(--cobalt);
+}
+
+.toggle input:focus-visible + .toggle__track {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+.toggle__state {
+  min-width: 22px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+}
+
+.toggle input:checked ~ .toggle__state {
+  color: var(--cobalt);
+}
+
+/* Segmented --------------------------------------------------------------- */
+
+.segment {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+}
+
+.segment button {
+  padding: 7px 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border: 1px solid transparent;
+  transition: color 0.18s var(--ease), background-color 0.18s var(--ease), border-color 0.18s var(--ease);
+  clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+  white-space: nowrap;
+}
+
+.segment button:hover {
+  color: var(--ink-soft);
+}
+
+.segment button[aria-pressed='true'] {
+  color: var(--on-accent);
+  background: var(--cobalt);
+  border-color: var(--cobalt-deep);
+}
+
+.segment button em {
+  display: block;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  opacity: 0.7;
+  letter-spacing: 0.4px;
+}
+
+/* Buttons ----------------------------------------------------------------- */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  transition: transform 0.14s var(--ease), background-color 0.18s var(--ease), color 0.18s var(--ease),
+    border-color 0.18s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.btn:hover {
+  border-color: var(--ink-soft);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.995);
+}
+
+.btn--primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cobalt) 92%, #fff), var(--cobalt));
+  border-color: var(--cobalt-deep);
+  color: #fff;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--cobalt) 28%, transparent);
+}
+
+.btn--primary:hover {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cobalt) 100%, #fff 6%), var(--cobalt-deep));
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--cobalt) 36%, transparent);
+}
+
+.btn--danger {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--crimson) 94%, #fff), var(--crimson));
+  border-color: color-mix(in srgb, var(--crimson) 70%, #000);
+  color: #fff;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--crimson) 26%, transparent);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
+
+.btn--ghost:hover {
+  border-color: var(--cobalt);
+  color: var(--cobalt);
+}
+
+.btn--sm {
+  padding: 8px 12px;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn[disabled] {
+  opacity: 0.42;
+  pointer-events: none;
+  filter: grayscale(0.4);
+}
+
+.btn .kbd {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+  opacity: 0.5;
+  letter-spacing: 0;
+}
+
+/* Icon button ------------------------------------------------------------- */
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-soft);
+  transition: color 0.16s var(--ease), border-color 0.16s var(--ease), background-color 0.16s var(--ease);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+}
+
+.icon-btn:hover {
+  color: var(--cobalt);
+  border-color: var(--cobalt);
+  background: color-mix(in srgb, var(--cobalt) 6%, var(--panel));
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: square;
+}
+
+/* Select ------------------------------------------------------------------ */
+
+.select-wrap {
+  position: relative;
+  display: block;
+}
+
+.select-wrap select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 10px 30px 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ink);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  cursor: pointer;
+}
+
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--cobalt);
+  border-bottom: 1.5px solid var(--cobalt);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+/* Progress / meter -------------------------------------------------------- */
+
+.meter {
+  position: relative;
+  height: 6px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.meter__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: linear-gradient(90deg, var(--cobalt), color-mix(in srgb, var(--cobalt) 60%, var(--signal)));
+  transition: width 0.28s var(--ease);
+}
+
+.meter__fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--panel) 55%, transparent) 5px 6px
+  );
+}
+
+.meter--hot .meter__fill {
+  background: linear-gradient(90deg, var(--amber), var(--crimson));
+}
+
+/* Scale ticks ------------------------------------------------------------- */
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--ink-faint);
+  letter-spacing: 0.5px;
+}
