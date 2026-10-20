@@ -225,7 +225,7 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sanayacorp-aegismusic` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` (nama project diganti 2026-10-20; ID tetap) |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_EPU9e5mHrC4fa6uTLDJM1DxAE2rr` (commit `8240645`, v8.9.2) — `READY`/`PROMOTED`, satu-satunya domain project: `sanayacorp-aegismusic.vercel.app`; `/api/health` melaporkan `commit:"8240645"`, `/api/auth` → `adminEnabled:true` |
+| Deployment aktif | `dpl_GNCoV4Woqf7UTFWPVnQeSXowk9Aw` (commit `f061112`, v8.9.3) — `READY`/`PROMOTED`, satu-satunya domain project: `sanayacorp-aegismusic.vercel.app`; `/api/health` melaporkan `commit:"f061112"`, `/api/auth` → `adminEnabled:true` |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
@@ -253,7 +253,7 @@ walaupun log job tidak bisa diunduh dari sandbox.
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang tersisa: **satu**, `dpl_EPU9e5mHrC4fa6uTLDJM1DxAE2rr` (`8240645`, v8.9.2 — kunci operator hasil generate; probe `39434681187` hijau). 19 deployment lama dihapus 2026-10-20 atas permintaan pemilik, jadi URL per-deployment yang beredar (`sancorp-x-aliongcorp-*.vercel.app`, `sanayacorp-aegismusic-*.vercel.app`) sekarang menjawab `404 DEPLOYMENT_NOT_FOUND`.
+- Deploy yang tersisa: **satu**, `dpl_GNCoV4Woqf7UTFWPVnQeSXowk9Aw` (`f061112`, v8.9.3 — id akun premium dari CSPRNG; probe `39436060694` hijau). 19 deployment lama dihapus 2026-10-20 atas permintaan pemilik, jadi URL per-deployment yang beredar (`sancorp-x-aliongcorp-*.vercel.app`, `sanayacorp-aegismusic-*.vercel.app`) sekarang menjawab `404 DEPLOYMENT_NOT_FOUND`.
 - Riwayat rilis tetap terbaca dari git, bukan dari Vercel: `07e09e4` (ikon + brand Sanayacorp), `9067373` (probe race), `f76335d` (rating), `a0200c3` (a11y), `cedbdee` (v8.6.0 pass 30 hari), `5457339` (probe per-sha), `5c39de9` (shortcut OPS), `54aebc5` (rename 8.9.0), `c3ce769`, `8dc378f`, `f984f5e`.
 - Karena hanya satu deployment tersisa, **tidak ada sasaran rollback** di Vercel. Rollback berarti push ulang commit lama lalu buat deployment baru.
 
