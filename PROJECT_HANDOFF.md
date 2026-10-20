@@ -253,7 +253,7 @@ walaupun log job tidak bisa diunduh dari sandbox.
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang tersisa: **satu**, `dpl_DVHJR6FipM4EuDAVvnAT2Ry83P9B` (`0a02b61`, v8.9.4 — login Google + pagar tier; probe `39446730080` hijau). 19 deployment lama dihapus 2026-10-20 atas permintaan pemilik, jadi URL per-deployment yang beredar (`sancorp-x-aliongcorp-*.vercel.app`, `sanayacorp-aegismusic-*.vercel.app`) sekarang menjawab `404 DEPLOYMENT_NOT_FOUND`.
+- Deploy yang tersisa: **satu**, `dpl_DVHJR6FipM4EuDAVvnAT2Ry83P9B` (`0a02b61`, v8.9.4 — login Google + pagar tier; probe `39446730080` hijau). Commit `3d7895d` sesudahnya hanya mengubah dokumen ini, jadi tidak dideploy: seluruh kode yang berjalan di produksi sudah ada di `0a02b61`. 19 deployment lama dihapus 2026-10-20 atas permintaan pemilik, jadi URL per-deployment yang beredar (`sancorp-x-aliongcorp-*.vercel.app`, `sanayacorp-aegismusic-*.vercel.app`) sekarang menjawab `404 DEPLOYMENT_NOT_FOUND`.
 - Riwayat rilis tetap terbaca dari git, bukan dari Vercel: `07e09e4` (ikon + brand Sanayacorp), `9067373` (probe race), `f76335d` (rating), `a0200c3` (a11y), `cedbdee` (v8.6.0 pass 30 hari), `5457339` (probe per-sha), `5c39de9` (shortcut OPS), `54aebc5` (rename 8.9.0), `c3ce769`, `8dc378f`, `f984f5e`.
 - Karena hanya satu deployment tersisa, **tidak ada sasaran rollback** di Vercel. Rollback berarti push ulang commit lama lalu buat deployment baru.
 
