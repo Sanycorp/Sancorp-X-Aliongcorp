@@ -40,16 +40,22 @@ jobs:
         with:
           node-version: 22
 
-      - name: Wait for the deployment to settle
+      - name: Wait for this commit to be live
+        env:
+          SHA: ${{ github.sha }}
         run: |
           origin="${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}"
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$origin/api/health" || true)
-            echo "attempt $attempt → HTTP $code"
-            [ "$code" = "200" ] && exit 0
-            sleep 12
+          short=$(printf '%.7s' "$SHA")
+          echo "waiting for $short on $origin"
+          for attempt in $(seq 1 24); do
+            body=$(curl -s "$origin/api/health" || true)
+            echo "attempt $attempt → $body"
+            case "$body" in
+              *"\"commit\":\"$short\""*) echo "live: $short"; exit 0 ;;
+            esac
+            sleep 10
           done
-          echo "deployment did not answer in time" >&2
+          echo "deployment for $short did not answer in time" >&2
           exit 1
 
       - name: Probe
