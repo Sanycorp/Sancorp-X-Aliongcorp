@@ -478,3 +478,156 @@
   color: var(--ink-faint);
   letter-spacing: 0.5px;
 }
+
+/* ==========================================================================
+   v8.1 — touch ergonomics + fluid sizing
+   ========================================================================== */
+
+.fader {
+  padding: clamp(7px, 1.3vw, 10px);
+  gap: 3px 10px;
+}
+
+.fader__name {
+  font-size: var(--fs-2xs);
+  letter-spacing: clamp(1px, 0.3vw, 1.5px);
+}
+
+.fader__value {
+  font-size: var(--fs-2xs);
+}
+
+.fader input[type='range'] {
+  height: 30px;
+}
+
+.fader input[type='range']::-webkit-slider-thumb {
+  width: 14px;
+  height: 22px;
+  margin-top: -9px;
+}
+
+.fader input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 22px;
+}
+
+.fader__hint {
+  font-size: var(--fs-2xs);
+}
+
+.toggle {
+  min-height: 44px;
+  padding: 7px 10px;
+}
+
+.toggle__label {
+  font-size: var(--fs-2xs);
+  letter-spacing: 1.2px;
+}
+
+.toggle__track {
+  width: clamp(34px, 9vw, 40px);
+  height: 19px;
+}
+
+.toggle__track::after {
+  width: 13px;
+  height: 13px;
+}
+
+.toggle input:checked + .toggle__track::after {
+  transform: translateX(clamp(15px, 4.6vw, 19px));
+}
+
+.toggle__state {
+  font-size: var(--fs-2xs);
+}
+
+.segment button {
+  min-height: 38px;
+  padding: 6px 3px;
+  font-size: var(--fs-2xs);
+  letter-spacing: 1px;
+}
+
+.segment button em {
+  font-size: 7.5px;
+}
+
+.btn {
+  min-height: 44px;
+  padding: 12px clamp(12px, 2.4vw, 20px);
+  font-size: var(--fs-xs);
+  letter-spacing: clamp(1.2px, 0.35vw, 2px);
+}
+
+.btn--sm {
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: var(--fs-2xs);
+}
+
+.icon-btn {
+  width: 42px;
+  height: 42px;
+}
+
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.select-wrap select {
+  min-height: 44px;
+  font-size: var(--fs-xs);
+}
+
+.meter {
+  height: clamp(5px, 1vw, 7px);
+}
+
+.stages {
+  gap: 3px;
+}
+
+/* Preset rail: momentum scrolling + snap on touch */
+.rail {
+  gap: var(--sp-2);
+  padding: 2px 1px var(--sp-3);
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.preset-chip {
+  scroll-snap-align: center;
+}
+
+/* Cards ------------------------------------------------------------------- */
+
+.preset-card {
+  padding: var(--sp-3);
+  gap: 7px;
+}
+
+.preset-card__name {
+  font-size: var(--fs-sm);
+  letter-spacing: 1.1px;
+}
+
+.preset-card__detail {
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+}
+
+.preset-card__foot {
+  font-size: var(--fs-2xs);
+}
+
+/* Ab slots ---------------------------------------------------------------- */
+
+.ab-slot {
+  min-height: 58px;
+}

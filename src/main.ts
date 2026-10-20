@@ -4,6 +4,7 @@ import './styles/controls.css';
 import './styles/app.css';
 
 import { store } from './state/store';
+import { resolveFinish } from './model/settings';
 import { Haptics } from './ui/haptics';
 import { createDeck } from './ui/screens/deck';
 import { createLab } from './ui/screens/lab';
@@ -41,7 +42,16 @@ function boot(): void {
       'button',
       {
         class: 'nav__btn',
-        attrs: { type: 'button', role: 'tab', 'aria-selected': 'false', 'data-route': route.id },
+        id: `nav-${route.id}`,
+        attrs: {
+          type: 'button',
+          role: 'tab',
+          'aria-selected': 'false',
+          'aria-controls': `screen-${route.id}`,
+          'aria-label': route.label,
+          title: route.label,
+          'data-route': route.id,
+        },
         on: {
           click: () => {
             if (location.hash === `#/${route.id}`) return;
@@ -67,13 +77,19 @@ function boot(): void {
       attrs: { type: 'button', title: 'Ganti finish' },
       on: {
         click: () => {
-          store.patchSettings({ finish: store.settings.finish === 'armor' ? 'cockpit' : 'armor' });
+          const next =
+            store.settings.finish === 'auto'
+              ? 'armor'
+              : store.settings.finish === 'armor'
+                ? 'cockpit'
+                : 'auto';
+          store.patchSettings({ finish: next });
           Haptics.tap();
         },
       },
     },
     el('span', { text: 'FINISH' }),
-    el('b', { text: store.settings.finish === 'armor' ? 'ARMOR' : 'COCKPIT' }),
+    el('b', { text: store.settings.finish.toUpperCase() }),
   );
 
   const header = el(
@@ -83,30 +99,75 @@ function boot(): void {
     el('div', { class: 'header__meta' }, headerStatus, starBtn),
   );
 
-  const shell = el('div', { class: 'shell' }, header);
+  const aurora = el('div', { class: 'aurora', attrs: { 'aria-hidden': 'true' } }, el('i'), el('i'));
+  const shell = el('div', { class: 'shell' }, aurora, header);
   const main = el('main', { style: 'flex:1;display:flex;flex-direction:column;position:relative;z-index:1' });
-  for (const route of ROUTES) main.appendChild(screens[route.id].el);
+  for (const route of ROUTES) {
+    const node = screens[route.id].el;
+    node.setAttribute('role', 'tabpanel');
+    node.setAttribute('aria-labelledby', `nav-${route.id}`);
+    main.appendChild(node);
+  }
+  main.id = 'main-content';
+  main.tabIndex = -1;
   shell.appendChild(main);
+  for (const route of ROUTES) {
+    const overlay = screens[route.id].overlay;
+    if (overlay) shell.appendChild(overlay);
+  }
 
   const nav = el('nav', { class: 'nav', attrs: { role: 'tablist', 'aria-label': 'Navigasi utama' } }, navButtons);
-  app.replaceChildren(shell, nav, el('div', { id: 'toast-host' }));
+  const skipLink = el('a', {
+    class: 'skip-link',
+    text: 'LEWATI KE KONTEN',
+    attrs: { href: '#main-content' },
+    on: {
+      click: (ev) => {
+        ev.preventDefault();
+        main.focus();
+        main.scrollIntoView({ block: 'start' });
+      },
+    },
+  });
+  const routeAnnouncer = el('div', {
+    class: 'sr-only',
+    attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+  });
+
+  app.replaceChildren(skipLink, shell, nav, routeAnnouncer, el('div', { id: 'toast-host' }));
 
   // ------------------------------------------------------------------ theme
+  let resolvedFinish = resolveFinish(store.settings.finish);
+
   const applyTheme = (): void => {
-    document.documentElement.dataset.finish = store.settings.finish;
+    resolvedFinish = resolveFinish(store.settings.finish);
+    document.documentElement.dataset.finish = resolvedFinish;
+    document.documentElement.dataset.finishMode = store.settings.finish;
     document.documentElement.dataset.motion = store.settings.reduceMotion ? 'reduced' : 'full';
-    starBtn.querySelector('b')!.textContent = store.settings.finish === 'armor' ? 'ARMOR' : 'COCKPIT';
+    starBtn.querySelector('b')!.textContent = store.settings.finish.toUpperCase();
+    starBtn.title =
+      store.settings.finish === 'auto'
+        ? `Auto — mengikuti sistem (sekarang ${resolvedFinish})`
+        : `Finish ${resolvedFinish}`;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', store.settings.finish === 'armor' ? '#e8ecf3' : '#070a0f');
+    if (meta) meta.setAttribute('content', resolvedFinish === 'armor' ? '#e8ecf3' : '#070a0f');
     void syncStatusBar();
   };
+
+  // Follow the OS theme live while the user keeps `auto`.
+  if (typeof window.matchMedia === 'function') {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener?.('change', () => {
+      if (store.settings.finish === 'auto') applyTheme();
+    });
+  }
 
   async function syncStatusBar(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
     try {
-      await StatusBar.setStyle({ style: store.settings.finish === 'armor' ? Style.Light : Style.Dark });
+      await StatusBar.setStyle({ style: resolvedFinish === 'armor' ? Style.Light : Style.Dark });
       await StatusBar.setBackgroundColor({
-        color: store.settings.finish === 'armor' ? '#e8ecf3' : '#070a0f',
+        color: resolvedFinish === 'armor' ? '#e8ecf3' : '#070a0f',
       });
     } catch {
       // StatusBar is optional on some devices
@@ -114,30 +175,66 @@ function boot(): void {
   }
 
   // ------------------------------------------------------------------ router
-  const setRoute = (id: RouteId, animate = true): void => {
+  let activeRoute: RouteId = 'deck';
+
+  const commitRoute = (id: RouteId): void => {
+    activeRoute = id;
     for (const route of ROUTES) {
       const screen = screens[route.id];
       screen.el.classList.toggle('is-active', route.id === id);
       if (route.id === id) {
-        if (animate) {
-          screen.el.classList.remove('fade-up');
-          void screen.el.offsetWidth;
-        }
+        screen.el.removeAttribute('aria-hidden');
         screen.onEnter?.();
+      } else {
+        screen.el.setAttribute('aria-hidden', 'true');
       }
     }
     for (const btn of navButtons) {
       btn.setAttribute('aria-selected', String(btn.dataset.route === id));
     }
+    document.documentElement.dataset.route = id;
     document.title = `EL TZY AEGIS-M · ${id.toUpperCase()}`;
-    window.scrollTo({ top: 0, behavior: store.settings.reduceMotion ? 'auto' : 'smooth' });
+    routeAnnouncer.textContent = `Layar ${ROUTES.find((r) => r.id === id)?.label ?? id}`;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    revealVisible();
+  };
+
+  const setRoute = (id: RouteId, animate = true): void => {
+    const reduce = store.settings.reduceMotion;
+    const vt = (
+      document as unknown as {
+        startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+      }
+    ).startViewTransition;
+    if (animate && !reduce && typeof vt === 'function') {
+      document.documentElement.dataset.vt = '1';
+      const transition = vt.call(document, () => commitRoute(id));
+      void transition.finished.finally(() => {
+        delete document.documentElement.dataset.vt;
+      });
+    } else {
+      commitRoute(id);
+    }
   };
 
   const parseHash = (): RouteId => {
     const raw = location.hash.replace(/^#\/?/, '').split('?')[0];
+    if (!raw) return activeRoute;
     const found = ROUTES.find((r) => r.id === raw);
-    return found ? found.id : 'deck';
+    // Unknown hashes (skip links, deep links from older versions) keep the
+    // current screen instead of yanking the user back to the deck.
+    return found ? found.id : activeRoute;
   };
+
+  nav.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft') return;
+    ev.preventDefault();
+    const index = ROUTES.findIndex((r) => r.id === activeRoute);
+    const next = (index + (ev.key === 'ArrowRight' ? 1 : ROUTES.length - 1)) % ROUTES.length;
+    location.hash = `#/${ROUTES[next].id}`;
+    navButtons[next].focus();
+    Haptics.tap();
+  });
 
   window.addEventListener('hashchange', () => setRoute(parseHash()));
   setRoute(parseHash(), false);
@@ -193,6 +290,48 @@ function boot(): void {
     }
   });
 
+  // ------------------------------------------------------------------ reveal on scroll
+  setupReveal();
+  revealVisible();
+
+  // ------------------------------------------------------------------ swipe between screens
+  let touchStart: { x: number; y: number; at: number; ignore: boolean } | null = null;
+
+  window.addEventListener(
+    'touchstart',
+    (ev) => {
+      const t = ev.touches[0];
+      if (!t) return;
+      const target = ev.target as HTMLElement | null;
+      const ignore = !!target?.closest(
+        'input, textarea, select, canvas, .rail, .wave, .transport, .nav, .dock, .segment',
+      );
+      touchStart = { x: t.clientX, y: t.clientY, at: performance.now(), ignore };
+    },
+    { passive: true },
+  );
+
+  window.addEventListener(
+    'touchend',
+    (ev) => {
+      const start = touchStart;
+      touchStart = null;
+      if (!start || start.ignore) return;
+      const t = ev.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      const dt = performance.now() - start.at;
+      if (dt > 650 || Math.abs(dx) < 64 || Math.abs(dy) > 52) return;
+      const index = ROUTES.findIndex((r) => r.id === activeRoute);
+      const next = dx < 0 ? index + 1 : index - 1;
+      if (next < 0 || next >= ROUTES.length) return;
+      location.hash = `#/${ROUTES[next].id}`;
+      Haptics.tap();
+    },
+    { passive: true },
+  );
+
   // ------------------------------------------------------------------ native shell
   void initNative();
 
@@ -211,6 +350,43 @@ function boot(): void {
       setTimeout(() => splash.remove(), 520);
     });
   }
+}
+
+let revealIO: IntersectionObserver | null = null;
+
+/** Scroll-reveal for plates and cards; degrades to "always visible". */
+function setupReveal(): void {
+  const nodes = Array.from(
+    document.querySelectorAll<HTMLElement>('.screen .plate, .preset-card, .ab-slot'),
+  );
+  if (typeof IntersectionObserver === 'undefined') {
+    nodes.forEach((n) => n.classList.add('reveal', 'is-in'));
+    return;
+  }
+  revealIO = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.add('is-in');
+        revealIO?.unobserve(entry.target);
+      }
+    },
+    { rootMargin: '0px 0px -6% 0px', threshold: 0.03 },
+  );
+  nodes.forEach((node) => {
+    node.classList.add('reveal');
+    revealIO!.observe(node);
+  });
+}
+
+/** Paints the first visible cards immediately so the first frame is never blank. */
+function revealVisible(): void {
+  const active = document.querySelector('.screen.is-active');
+  if (!active) return;
+  const pending = active.querySelectorAll<HTMLElement>('.reveal:not(.is-in)');
+  pending.forEach((node, i) => {
+    if (i < 3) node.classList.add('is-in');
+  });
 }
 
 async function initNative(): Promise<void> {

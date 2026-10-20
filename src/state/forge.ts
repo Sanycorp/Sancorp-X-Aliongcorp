@@ -8,10 +8,17 @@ import { saveExport, shareExport } from '../io/storage';
 import type { EditSettings, SourceInfo } from '../model/settings';
 import { effectiveEnd } from '../model/settings';
 import { presetById } from '../model/presets';
+import { APP_VERSION } from '../version';
 import type { ExportRecord } from './store';
 import { store } from './store';
 
 let previewAudio: Stereo | null = null;
+let previewStats: { lufs: number | null; truePeak: number } | null = null;
+
+/** Loudness/peak of the current preview render — drives the deck meter. */
+export function getPreviewStats(): { lufs: number | null; truePeak: number } | null {
+  return previewStats;
+}
 
 export function getPreview(): Stereo | null {
   return previewAudio;
@@ -55,6 +62,7 @@ export async function loadSource(file: File): Promise<void> {
   store.setStatus({ error: null, stage: 'DECODE', progress: 0, active: false });
   try {
     const decoded = await decodeFile(file);
+    previewStats = null;
     store.setSource(decoded.audio, decoded.info);
     store.setStatus({ stage: 'READY', progress: 0 });
     Haptics.tap();
@@ -98,6 +106,7 @@ export async function renderPreview(): Promise<Stereo | null> {
     const previewEdit: EditSettings = { ...store.edit, trimStart: 0, trimEnd: 0 };
     const result = await renderOffThread(windowAudio, previewEdit, windowSource);
     previewAudio = result.audio;
+    previewStats = { lufs: result.lufs, truePeak: result.truePeak };
     store.previewReady = true;
     return previewAudio;
   } catch (err) {
@@ -149,7 +158,7 @@ export async function forgeExport(): Promise<void> {
       album: 'AEGIS-M',
       title: `ELTZY ${safeName(source.name)}`,
       comment: `AEGIS-M v8|preset=${presetName}|target=${edit.target}|trim=${result.trimDb.toFixed(2)}dB|hash=${hash}`,
-      software: 'EL TZY AEGIS-M 8.0.0',
+      software: `EL TZY AEGIS-M ${APP_VERSION}`,
     };
     const encoded = await encode(result.audio, edit.format, edit.bitrate, meta);
     const name = outputName(edit, source, encoded.ext);
@@ -217,6 +226,7 @@ export async function shareLast(): Promise<boolean> {
 
 export function resetPreview(): void {
   previewAudio = null;
+  previewStats = null;
   store.previewReady = false;
   store.emit();
 }

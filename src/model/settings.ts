@@ -2,6 +2,9 @@ export type SpeedMode = 'retro' | 'modern';
 export type ReverbType = 'hall' | 'plate' | 'chamber' | 'cathedral';
 export type LoudnessTarget = 'off' | 'podcast' | 'streaming' | 'loud' | 'club';
 export type OutputFormat = 'mp3' | 'wav16' | 'wav24' | 'wav32' | 'flac';
+/** UI finish. `auto` follows the OS light/dark preference live. */
+export type FinishMode = 'auto' | 'armor' | 'cockpit';
+export type Finish = 'armor' | 'cockpit';
 
 export interface EditSettings {
   speed: number;
@@ -95,7 +98,7 @@ export interface SourceInfo {
 }
 
 export interface AppSettings {
-  finish: 'armor' | 'cockpit';
+  finish: FinishMode;
   reduceMotion: boolean;
   haptics: boolean;
   format: OutputFormat;
@@ -107,7 +110,7 @@ export interface AppSettings {
 }
 
 export const APP_DEFAULTS: AppSettings = {
-  finish: 'armor',
+  finish: 'auto',
   reduceMotion: false,
   haptics: true,
   format: 'mp3',
@@ -173,6 +176,24 @@ export const TARGET_META: Record<
   streaming: { label: '-14', hint: 'Spotify / Apple / YouTube reference.', lufs: -14 },
   loud: { label: '-11', hint: 'Louder master, still true-peak safe.', lufs: -11 },
   club: { label: '-9', hint: 'Maximum competitive level for clubs.', lufs: -9 },
+};
+
+/**
+ * Resolves `auto` against the operating system. Safe in Node/jsdom where
+ * `matchMedia` may be missing — the armor finish is the fallback.
+ */
+export function resolveFinish(mode: FinishMode): Finish {
+  if (mode !== 'auto') return mode;
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'cockpit' : 'armor';
+  }
+  return 'armor';
+}
+
+export const FINISH_META: Record<FinishMode, { label: string; hint: string }> = {
+  auto: { label: 'AUTO', hint: 'Mengikuti tema gelap/terang perangkat.' },
+  armor: { label: 'ARMOR', hint: 'Panel putih bersih, seperti pelat armor.' },
+  cockpit: { label: 'COCKPIT', hint: 'Mode gelap kokpit untuk malam hari.' },
 };
 
 export const SPEED_MODE_META: Record<SpeedMode, { label: string; hint: string }> = {

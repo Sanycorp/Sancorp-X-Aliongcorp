@@ -1,5 +1,5 @@
 /* EL TZY AEGIS-M service worker — app shell cache, no audio leaves the device. */
-const VERSION = 'aegis-m-v8.0.1';
+const VERSION = 'aegis-m-v8.1.0';
 const SHELL = [
   './',
   './index.html',

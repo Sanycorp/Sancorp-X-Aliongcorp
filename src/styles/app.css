@@ -293,7 +293,7 @@
 #toast-host {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--nav-h) + 22px + env(safe-area-inset-bottom));
+  bottom: calc(var(--nav-h) + 22px + var(--safe-bottom));
   transform: translateX(-50%);
   z-index: 60;
   display: flex;
@@ -1213,4 +1213,656 @@
   color: var(--ink);
   text-align: right;
   font-size: 9px;
+}
+
+/* ==========================================================================
+   v8.1 — responsive layer
+   Mobile-first: 320 px phones → foldables → tablets → desktop.
+   ========================================================================== */
+
+/* Header ------------------------------------------------------------------ */
+
+.app-header {
+  height: calc(var(--header-h) + var(--safe-top));
+  padding-top: var(--safe-top);
+  padding-left: max(var(--gutter), var(--safe-left));
+  padding-right: max(var(--gutter), var(--safe-right));
+  gap: var(--sp-3);
+}
+
+.brand {
+  gap: clamp(7px, 1.2vw, 10px);
+}
+
+.brand__mark {
+  width: clamp(26px, 4.6vw, 32px);
+  height: clamp(26px, 4.6vw, 32px);
+}
+
+.brand__mark span {
+  font-size: clamp(9px, 1.4vw, 11px);
+}
+
+.brand__name {
+  font-size: clamp(11px, 1.5vw, 14px);
+  letter-spacing: clamp(1.6px, 0.4vw, 2.8px);
+}
+
+.brand__sub {
+  font-size: var(--fs-2xs);
+  letter-spacing: clamp(1px, 0.3vw, 1.8px);
+}
+
+.header__meta {
+  gap: var(--sp-2);
+}
+
+.chip {
+  padding: 4px clamp(6px, 1vw, 8px);
+  font-size: var(--fs-2xs);
+}
+
+/* Screen ------------------------------------------------------------------ */
+
+.screen {
+  padding: var(--sp-4) var(--gutter) calc(var(--nav-h) + var(--safe-bottom) + 28px);
+  padding-left: max(var(--gutter), var(--safe-left));
+  padding-right: max(var(--gutter), var(--safe-right));
+  max-width: 1240px;
+  outline: none;
+}
+
+.screen__intro {
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.screen__title {
+  font-size: var(--fs-display);
+  letter-spacing: -0.5px;
+}
+
+.screen__kicker {
+  font-size: var(--fs-2xs);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.screen__desc {
+  font-size: var(--fs-sm);
+  max-width: 58ch;
+}
+
+.grid {
+  gap: var(--sp-3);
+}
+
+@media (min-width: 720px) {
+  .grid--lab {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1080px) {
+  .grid--lab {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .grid--deck {
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+    gap: var(--sp-4);
+  }
+}
+
+/* Deck -------------------------------------------------------------------- */
+
+.source-plate {
+  padding: var(--sp-3);
+}
+
+.drop {
+  min-height: clamp(160px, 26vh, 210px);
+  padding: var(--sp-4) var(--sp-3);
+  gap: var(--sp-2);
+}
+
+.drop__icon {
+  width: clamp(40px, 7vw, 50px);
+  height: clamp(40px, 7vw, 50px);
+}
+
+.drop__title {
+  font-size: var(--fs-md);
+  letter-spacing: 2px;
+}
+
+.drop__hint {
+  font-size: var(--fs-2xs);
+}
+
+.wave-canvas {
+  height: clamp(96px, 22vw, 150px);
+}
+
+.wave-readout {
+  font-size: var(--fs-2xs);
+  gap: var(--sp-2);
+  padding: 5px 8px;
+}
+
+.transport {
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+}
+
+.transport__time {
+  font-size: var(--fs-2xs);
+  min-width: 74px;
+}
+
+.preset-chip {
+  width: clamp(118px, 34vw, 146px);
+  padding: var(--sp-3);
+}
+
+.preset-chip__name {
+  font-size: var(--fs-xs);
+}
+
+.preset-chip__sub {
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+}
+
+.master-strip {
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+}
+
+.master-cell {
+  padding: 8px 9px;
+}
+
+.master-cell .value {
+  font-size: var(--fs-md);
+}
+
+.report__grid {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+
+/* Progress ---------------------------------------------------------------- */
+
+.progress-plate {
+  padding: var(--sp-3);
+}
+
+/* Scope + loudness meter --------------------------------------------------- */
+
+.scope-canvas {
+  height: clamp(64px, 12vw, 86px);
+}
+
+.lufs-meter {
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  display: grid;
+  gap: 7px;
+}
+
+.lufs-meter__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.lufs-meter__head b {
+  margin-left: auto;
+  font-size: var(--fs-md);
+  font-weight: 400;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.lufs-meter__track {
+  position: relative;
+  height: 8px;
+  background:
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 8px),
+    var(--inset);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.lufs-meter__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: linear-gradient(90deg, var(--cobalt), color-mix(in srgb, var(--cobalt) 55%, var(--signal)));
+  transition: width 0.5s var(--ease-out);
+}
+
+.lufs-meter__target {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--crimson);
+  left: 50%;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--crimson) 60%, transparent);
+}
+
+.lufs-meter__scale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  letter-spacing: 0.4px;
+}
+
+.lufs-meter[data-state='over'] .lufs-meter__fill {
+  background: linear-gradient(90deg, var(--amber), var(--crimson));
+}
+
+/* Mobile action dock ------------------------------------------------------ */
+
+.dock {
+  position: fixed;
+  left: max(var(--gutter), var(--safe-left));
+  right: max(var(--gutter), var(--safe-right));
+  bottom: calc(var(--nav-h) + var(--safe-bottom) + 10px);
+  z-index: 35;
+  display: none;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px 8px 8px 13px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid color-mix(in srgb, var(--cobalt) 34%, var(--line));
+  box-shadow: 0 18px 44px rgba(6, 14, 32, 0.24);
+  clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px);
+  animation: dockIn 0.42s var(--spring) both;
+}
+
+[data-route='deck'] .dock {
+  display: flex;
+}
+
+@media (min-width: 900px) {
+  [data-route='deck'] .dock {
+    display: none;
+  }
+}
+
+@keyframes dockIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dock__info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dock__preset {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock__meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.5px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock__btn {
+  margin-left: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 16px 0 14px;
+  background: linear-gradient(100deg, var(--cobalt), var(--cobalt-deep));
+  color: #fff;
+  border: 1px solid var(--cobalt-deep);
+  clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 2px;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--cobalt) 30%, transparent);
+  transition: transform 0.14s var(--ease), filter 0.2s var(--ease);
+}
+
+.dock__btn:active {
+  transform: scale(0.975);
+}
+
+.dock__btn[disabled] {
+  filter: grayscale(0.45) brightness(0.85);
+}
+
+.dock__btn .ring {
+  width: 30px;
+  height: 30px;
+}
+
+.dock__btn .ring__pct {
+  font-size: 7.5px;
+}
+
+#screen-deck {
+  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 92px);
+}
+
+@media (min-width: 900px) {
+  #screen-deck {
+    padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 28px);
+  }
+}
+
+/* Nav --------------------------------------------------------------------- */
+
+.nav {
+  height: calc(var(--nav-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  padding-left: max(0px, var(--safe-left));
+  padding-right: max(0px, var(--safe-right));
+}
+
+.nav__btn {
+  gap: 2px;
+  min-height: 44px;
+}
+
+.nav__btn .ico svg {
+  width: clamp(17px, 4.6vw, 21px);
+  height: clamp(17px, 4.6vw, 21px);
+}
+
+.nav__btn span.nav__label {
+  font-size: clamp(7px, 1.7vw, 8.5px);
+  letter-spacing: 1.2px;
+}
+
+.nav__btn[aria-selected='true']::before {
+  left: 26%;
+  right: 26%;
+  height: 2px;
+}
+
+/* Desktop: floating nav pill instead of a full-width bar. */
+@media (min-width: 900px) {
+  .nav {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: 18px;
+    width: min(560px, 76vw);
+    height: 58px;
+    padding-bottom: 0;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 40px rgba(6, 14, 32, 0.16);
+    clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  }
+
+  .nav__btn[aria-selected='true']::before {
+    top: 0;
+    left: 30%;
+    right: 30%;
+  }
+}
+
+/* Very narrow phones ------------------------------------------------------ */
+
+@media (max-width: 359px) {
+  .nav__btn span.nav__label {
+    display: none;
+  }
+  .brand__sub {
+    display: none;
+  }
+  .chip--live {
+    padding: 3px 5px;
+  }
+  .app-header .chip:not(.chip--live) {
+    display: none;
+  }
+  .preset-chip {
+    width: 112px;
+  }
+  .master-cell {
+    padding: 7px 7px;
+  }
+  .report__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Landscape phones -------------------------------------------------------- */
+
+@media (orientation: landscape) and (max-height: 560px) {
+  :root {
+    --header-h: 46px;
+    --nav-h: 50px;
+    --sp-4: 12px;
+  }
+
+  .screen__desc,
+  .screen__kicker {
+    display: none;
+  }
+
+  .screen__title {
+    font-size: clamp(19px, 4vh, 26px);
+  }
+
+  .screen__intro {
+    margin-bottom: 8px;
+  }
+
+  .brand__sub {
+    display: none;
+  }
+
+  .drop {
+    min-height: 128px;
+  }
+
+  .wave-canvas {
+    height: 84px;
+  }
+
+  .dock {
+    bottom: calc(var(--nav-h) + var(--safe-bottom) + 6px);
+  }
+}
+
+/* Wide desktop ------------------------------------------------------------ */
+
+@media (min-width: 1440px) {
+  .screen {
+    max-width: 1320px;
+  }
+  .grid--deck {
+    gap: var(--sp-5);
+  }
+}
+
+/* Container queries inside plates ----------------------------------------- */
+
+@container (min-width: 420px) {
+  .report__actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@container (max-width: 300px) {
+  .section-head h2 {
+    letter-spacing: 1.2px;
+  }
+  .master-cell .label {
+    font-size: 7px;
+  }
+}
+
+/* View Transitions -------------------------------------------------------- */
+
+[data-vt='1'] .screen.is-active {
+  animation: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.26s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(root) {
+  animation-name: vtOut;
+}
+
+::view-transition-new(root) {
+  animation-name: vtIn;
+}
+
+@keyframes vtOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+}
+
+@keyframes vtIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+}
+
+/* Fade the dock in only after the deck is on screen */
+@media (prefers-reduced-motion: reduce) {
+  .dock {
+    animation: none;
+  }
+}
+
+/* Hover affordances only where a real pointer exists */
+@media (hover: hover) and (pointer: fine) {
+  .plate:hover {
+    border-color: color-mix(in srgb, var(--cobalt) 26%, var(--line));
+  }
+  .preset-card:hover {
+    box-shadow: 0 18px 40px rgba(10, 13, 18, 0.14);
+  }
+}
+
+/* Print ------------------------------------------------------------------- */
+
+@media print {
+  .nav,
+  .dock,
+  .app-header,
+  .aurora,
+  .skeleton {
+    display: none !important;
+  }
+  .screen {
+    display: block !important;
+    padding: 0;
+  }
+  .plate {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}
+
+/* Loudness meter states --------------------------------------------------- */
+
+.lufs-meter[data-stale='true'] {
+  opacity: 0.62;
+}
+
+.lufs-meter[data-stale='true'] .lufs-meter__fill {
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cobalt) 55%, var(--line)) 0 6px,
+    transparent 6px 8px
+  );
+}
+
+.lufs-meter__head b {
+  transition: color 0.3s var(--ease);
+}
+
+.lufs-meter[data-state='over'] .lufs-meter__head b {
+  color: var(--crimson);
+}
+
+.dock.is-busy {
+  border-color: color-mix(in srgb, var(--cobalt) 62%, var(--line));
+}
+
+.dock.is-busy .dock__btn {
+  filter: saturate(1.15);
+}
+
+/* Toast clears the mobile dock ------------------------------------------- */
+
+[data-route='deck'] #toast-host {
+  bottom: calc(var(--nav-h) + var(--safe-bottom) + 84px);
+}
+
+@media (min-width: 900px) {
+  [data-route='deck'] #toast-host {
+    bottom: calc(var(--nav-h) + 46px);
+  }
+}
+
+/* Focus on the skip target should not paint a ring around the whole page */
+#main-content:focus,
+#main-content:focus-visible {
+  outline: none;
+}
+
+/* Foldables / dual-screen ------------------------------------------------ */
+
+@media (horizontal-viewport-segments: 2) {
+  .shell {
+    padding-left: env(viewport-segment-left 1 0, 0px);
+  }
+  .screen {
+    max-width: none;
+  }
+  .grid--deck,
+  .grid--lab {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dock {
+    right: calc(50% + var(--gutter));
+  }
 }

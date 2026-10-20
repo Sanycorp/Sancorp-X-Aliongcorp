@@ -1,6 +1,6 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.0.0**
+**Offline mecha audio forge — v8.1.0**
 
 Slowed + reverb, nightcore, 8D orbit, club masters. Semua diproses **di dalam perangkat**, nol upload, nol server, nol telemetry.
 
@@ -35,7 +35,18 @@ Tidak ada lagi ZIP, tidak ada bot build, tidak ada upload ke server.
 | **Master** | Target −16 / −14 / −11 / −9 LUFS atau bypass, trim gain **statis**, limiter true-peak −1.2 dBTP. |
 | **Export** | MP3 128–320 kbps, WAV 16/24/32-float, FLAC 24-bit lossless. |
 | **Preset** | 14 loadout tervalidasi (lihat di bawah). |
-| **UI** | Dua finish: **ARMOR** (putih) dan **COCKPIT** (hitam), aksen cobalt/crimson/amber. |
+| **UI** | Tiga mode tampilan: **AUTO** (ikut tema sistem), **ARMOR** (putih), **COCKPIT** (hitam). Aksen cobalt/crimson/amber. |
+| **Layout** | Fluid dari 320 px sampai 1440 px: tipografi `clamp()`, container query, safe-area notch, mode landscape, dock aksi di HP, nav pill di desktop. |
+
+### Antarmuka adaptif
+
+- **Satu stylesheet, semua layar.** Ukuran huruf, jarak, dan target sentuh memakai `clamp()` + `dvh` + `env(safe-area-inset-*)`, jadi tidak ada breakpoint JS yang bisa meleset.
+- **Dock aksi mobile.** Di bawah 900 px, tombol FORGE menempel di atas navigasi lengkap dengan cincin progres, jadi tidak perlu scroll ke panel master.
+- **Desktop.** Navigasi berubah jadi pill mengambang, deck jadi dua kolom, lab tiga kolom.
+- **Landscape.** Header, judul, dan waveform memendek otomatis; konten tetap terbaca di layar 390 px tinggi.
+- **Gerak.** View Transitions API untuk pindah layar, reveal-on-scroll, dan semua animasi dimatikan otomatis saat `prefers-reduced-motion` atau toggle Reduce Motion aktif.
+- **Tema otomatis.** Mode AUTO mengikuti `prefers-color-scheme` secara live, termasuk `<meta name="theme-color">` dan status bar Android.
+- **Aksesibilitas.** Skip link, `role="tabpanel"` + panah kiri/kanan di navigasi, target sentuh ≥44 px, `aria-live` untuk progres, dan kontras tinggi via `prefers-contrast`.
 
 ### Preset
 
@@ -87,7 +98,7 @@ Tidak ada loudness normalisation dinamis. Selisih 12 dB antara bagian keras dan 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 72 tes: DSP, engine, encoder, UI (jsdom)
+npm test           # 88 tes: DSP, engine, encoder, UI (jsdom), audit responsive
 npm run typecheck
 npm run build      # bundle produksi di dist/
 npm run icons      # regenerate ikon PWA + Android mipmaps

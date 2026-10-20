@@ -1,4 +1,5 @@
 import { APP_DEFAULTS, FORMAT_META, TARGET_META } from '../../model/settings';
+import type { FinishMode } from '../../model/settings';
 import type { LoudnessTarget, OutputFormat } from '../../model/settings';
 import { store } from '../../state/store';
 import { Haptics } from '../haptics';
@@ -16,7 +17,8 @@ import { clearSession } from '../../io/storage';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
 
-export const APP_VERSION = '8.0.0';
+import { APP_VERSION } from '../../version';
+export { APP_VERSION };
 const REPO = 'https://github.com/Sanycorp/Sancorp-X-Aliongcorp';
 const ACTIONS = `${REPO}/actions/workflows/android.yml`;
 
@@ -24,12 +26,13 @@ export function createSystem(): Screen {
   // ------------------------------------------------------------- finish
   const finishSeg = segmented(
     [
+      { value: 'auto', label: 'AUTO', sub: 'SYSTEM' },
       { value: 'armor', label: 'ARMOR', sub: 'WHITE' },
       { value: 'cockpit', label: 'COCKPIT', sub: 'BLACK' },
     ],
     store.settings.finish,
     (v) => {
-      store.patchSettings({ finish: v as 'armor' | 'cockpit' });
+      store.patchSettings({ finish: v as FinishMode });
       Haptics.tap();
     },
   );

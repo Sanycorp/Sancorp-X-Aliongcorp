@@ -1,12 +1,13 @@
 <!doctype html>
-<html lang="id" data-finish="armor" data-motion="full">
+<html lang="id" data-finish="armor" data-finish-mode="auto" data-motion="full" data-route="deck">
   <head>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5, interactive-widget=resizes-content"
     />
-    <meta name="theme-color" content="#e8ecf3" />
+    <meta name="theme-color" content="#e8ecf3" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#070a0f" media="(prefers-color-scheme: dark)" />
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
@@ -35,6 +36,7 @@
         position: fixed;
         inset: 0;
         z-index: 999;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
         display: grid;
         place-content: center;
         justify-items: center;
@@ -127,6 +129,36 @@
         to {
           opacity: 1;
           transform: none;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: #070a0f;
+          color: #e9eff8;
+        }
+        #boot {
+          background:
+            radial-gradient(120% 80% at 50% 0%, rgba(61, 123, 255, 0.16), transparent 60%),
+            #070a0f;
+        }
+        #boot .shield {
+          background: #3d7bff;
+        }
+        #boot .shield span {
+          color: #04101f;
+        }
+        #boot .bar {
+          background: #1e2836;
+        }
+        #boot .bar i {
+          background: #3d7bff;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot *,
+        #boot *::before {
+          animation: none !important;
         }
       }
     </style>

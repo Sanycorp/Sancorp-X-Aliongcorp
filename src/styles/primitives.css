@@ -1,5 +1,6 @@
 /* ==========================================================================
-   Mecha primitives: chamfered plates, corner brackets, HUD grid, scanners.
+   Mecha primitives: chamfered plates, corner brackets, HUD grid, scanners,
+   grain, scroll-reveal, skeletons, progress rings.
    ========================================================================== */
 
 .shell {
@@ -7,12 +8,15 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  isolation: isolate;
   background:
-    linear-gradient(180deg, transparent 0 42%, var(--grid) 42% 42.2%, transparent 42.2%),
-    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--cobalt) 8%, transparent), transparent 60%),
+    radial-gradient(120% 75% at 50% -12%, color-mix(in srgb, var(--cobalt) 10%, transparent), transparent 62%),
+    radial-gradient(90% 60% at 100% 100%, color-mix(in srgb, var(--crimson) 5%, transparent), transparent 60%),
     var(--canvas);
   transition: background 0.5s var(--ease);
 }
+
+/* HUD grid ---------------------------------------------------------------- */
 
 .shell::before {
   content: '';
@@ -23,19 +27,113 @@
   background-image:
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(120% 90% at 50% 0%, #000 0%, transparent 75%);
+  background-size: clamp(32px, 5vw, 52px) clamp(32px, 5vw, 52px);
+  -webkit-mask-image: radial-gradient(130% 95% at 50% 0%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(130% 95% at 50% 0%, #000 0%, transparent 78%);
   opacity: 0.9;
+}
+
+/* Grain + aurora ---------------------------------------------------------- */
+
+.shell::after {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  background-size: 140px 140px;
+}
+
+[data-finish='cockpit'] .shell::after {
+  mix-blend-mode: screen;
+}
+
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.55;
+  filter: blur(56px) saturate(1.2);
+}
+
+.aurora i {
+  position: absolute;
+  display: block;
+  width: 46vmax;
+  height: 46vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, var(--glow), transparent 68%);
+  animation: drift 26s var(--ease) infinite alternate;
+}
+
+.aurora i:nth-child(1) {
+  top: -18vmax;
+  left: -12vmax;
+}
+.aurora i:nth-child(2) {
+  bottom: -22vmax;
+  right: -16vmax;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--crimson) 22%, transparent), transparent 66%);
+  animation-duration: 34s;
+  animation-delay: -8s;
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(6vw, 4vh, 0) scale(1.18);
+  }
+}
+
+@media (max-width: 600px) {
+  .aurora {
+    filter: blur(38px) saturate(1.1);
+    opacity: 0.42;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora i {
+    animation: none;
+  }
+  .drop::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+[data-motion='reduced'] .aurora i {
+  animation: none;
+}
+
+[data-motion='reduced'] .drop::after {
+  animation: none;
+  opacity: 0;
 }
 
 /* Plate ------------------------------------------------------------------- */
 
 .plate {
   position: relative;
+  container-type: inline-size;
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  clip-path: polygon(
+    clamp(9px, 1.4vw, 14px) 0,
+    100% 0,
+    100% calc(100% - clamp(9px, 1.4vw, 14px)),
+    calc(100% - clamp(9px, 1.4vw, 14px)) 100%,
+    0 100%,
+    0 clamp(9px, 1.4vw, 14px)
+  );
   transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease), transform 0.25s var(--ease);
 }
 
@@ -54,39 +152,45 @@
 }
 
 /* Corner brackets --------------------------------------------------------- */
-
-.bracket {
-  position: relative;
-}
+/* The plate is chamfered with clip-path, so the brackets sit just inside the
+   cut instead of hanging outside it (where they would be clipped away). */
 
 .bracket::before,
 .bracket::after {
   content: '';
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: clamp(9px, 1.4vw, 13px);
+  height: clamp(9px, 1.4vw, 13px);
   pointer-events: none;
   transition: width 0.3s var(--ease), height 0.3s var(--ease), opacity 0.3s var(--ease);
+  z-index: 1;
+  opacity: 0.9;
 }
 
 .bracket::before {
-  top: -1px;
-  left: -1px;
+  top: 3px;
+  left: clamp(10px, 1.6vw, 16px);
   border-top: 2px solid var(--cobalt);
   border-left: 2px solid var(--cobalt);
 }
 
 .bracket::after {
-  right: -1px;
-  bottom: -1px;
+  right: clamp(10px, 1.6vw, 16px);
+  bottom: 3px;
   border-right: 2px solid var(--crimson);
   border-bottom: 2px solid var(--crimson);
 }
 
 .bracket--lg::before,
 .bracket--lg::after {
-  width: 24px;
-  height: 24px;
+  width: clamp(13px, 1.9vw, 18px);
+  height: clamp(13px, 1.9vw, 18px);
+}
+
+.plate:hover .bracket::before,
+.plate:hover .bracket::after {
+  width: clamp(16px, 2.2vw, 22px);
+  height: clamp(16px, 2.2vw, 22px);
 }
 
 /* Rivets ------------------------------------------------------------------ */
@@ -120,26 +224,29 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 0 2px 10px;
+  padding: 0 2px var(--sp-2);
+  min-width: 0;
 }
 
 .section-head h2 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: 2.4px;
+  letter-spacing: 2.2px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .section-head .idx {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   color: var(--cobalt);
   letter-spacing: 1px;
 }
 
 .section-head .rule {
   flex: 1;
+  min-width: 12px;
   height: 1px;
   background: linear-gradient(90deg, var(--line-strong), transparent);
 }
@@ -149,17 +256,22 @@
 .telemetry {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 8px 12px;
+  gap: clamp(8px, 1.4vw, 14px);
+  padding: 7px 10px;
   background: var(--panel-alt);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.6px;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.5px;
   color: var(--ink-soft);
   text-transform: uppercase;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
   white-space: nowrap;
+}
+
+.telemetry::-webkit-scrollbar {
+  display: none;
 }
 
 .telemetry b {
@@ -174,6 +286,7 @@
   background: var(--signal);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 18%, transparent);
   animation: pulse 2.4s infinite;
+  flex: none;
 }
 
 .telemetry .dot--warn {
@@ -202,7 +315,7 @@
   }
 }
 
-/* Scan line / sweep ------------------------------------------------------- */
+/* Sweep ------------------------------------------------------------------- */
 
 .sweep {
   position: relative;
@@ -244,7 +357,7 @@
 /* Entry animation --------------------------------------------------------- */
 
 .fade-up {
-  animation: fadeUp 0.5s var(--ease) both;
+  animation: fadeUp 0.5s var(--ease-out) both;
 }
 
 @keyframes fadeUp {
@@ -259,31 +372,154 @@
 }
 
 .stagger > * {
-  animation: fadeUp 0.45s var(--ease) both;
+  animation: fadeUp 0.45s var(--ease-out) both;
 }
-.stagger > *:nth-child(1) {
-  animation-delay: 0.02s;
+
+/* Scroll reveal ----------------------------------------------------------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(14px) scale(0.995);
+  transition:
+    opacity 0.55s var(--ease-out),
+    transform 0.55s var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
 }
-.stagger > *:nth-child(2) {
-  animation-delay: 0.05s;
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
 }
-.stagger > *:nth-child(3) {
+
+/* Skeleton ---------------------------------------------------------------- */
+
+.skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  justify-items: center;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.skeleton[hidden] {
+  display: none;
+}
+
+.skeleton__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 40px;
+}
+
+.skeleton__bars i {
+  display: block;
+  width: 5px;
+  background: var(--cobalt);
+  opacity: 0.7;
+  animation: bounceBar 1s var(--ease) infinite alternate;
+  transform-origin: bottom;
+}
+
+.skeleton__bars i:nth-child(1) {
+  height: 40%;
+  animation-delay: 0s;
+}
+.skeleton__bars i:nth-child(2) {
+  height: 75%;
   animation-delay: 0.08s;
 }
-.stagger > *:nth-child(4) {
-  animation-delay: 0.11s;
+.skeleton__bars i:nth-child(3) {
+  height: 100%;
+  animation-delay: 0.16s;
 }
-.stagger > *:nth-child(5) {
-  animation-delay: 0.14s;
+.skeleton__bars i:nth-child(4) {
+  height: 62%;
+  animation-delay: 0.24s;
 }
-.stagger > *:nth-child(6) {
-  animation-delay: 0.17s;
+.skeleton__bars i:nth-child(5) {
+  height: 84%;
+  animation-delay: 0.32s;
 }
-.stagger > *:nth-child(7) {
-  animation-delay: 0.2s;
+
+.skeleton__label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
-.stagger > *:nth-child(8) {
-  animation-delay: 0.23s;
+
+@keyframes bounceBar {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Progress ring ----------------------------------------------------------- */
+
+.ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+
+.ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: butt;
+}
+
+.ring .ring__track {
+  stroke: color-mix(in srgb, var(--on-accent) 26%, transparent);
+}
+
+.ring .ring__value {
+  stroke: #fff;
+  stroke-dasharray: 113.1;
+  stroke-dashoffset: 113.1;
+  transition: stroke-dashoffset 0.35s var(--ease);
+}
+
+.ring .ring__pct {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #fff;
+  letter-spacing: -0.2px;
+}
+
+.ring--dark .ring__value {
+  stroke: var(--cobalt);
+}
+
+.ring--dark .ring__track {
+  stroke: var(--line);
+}
+
+.ring--dark .ring__pct {
+  color: var(--ink);
 }
 
 /* Badges ------------------------------------------------------------------ */
@@ -296,10 +532,11 @@
   border: 1px solid var(--line-strong);
   background: var(--panel-alt);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 .badge--cobalt {
@@ -339,6 +576,65 @@
 /* Safe areas -------------------------------------------------------------- */
 
 .pad-safe {
-  padding-left: max(16px, env(safe-area-inset-left));
-  padding-right: max(16px, env(safe-area-inset-right));
+  padding-left: max(var(--gutter), var(--safe-left));
+  padding-right: max(var(--gutter), var(--safe-right));
+}
+
+/* Drop-zone scan ---------------------------------------------------------- */
+
+.drop {
+  position: relative;
+  overflow: hidden;
+}
+
+.drop::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--cobalt) 70%, transparent),
+    transparent
+  );
+  animation: dropScan 3.6s var(--ease) infinite;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+@keyframes dropScan {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.7;
+  }
+  70% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateY(clamp(150px, 24vh, 200px));
+    opacity: 0;
+  }
+}
+
+/* Busy shimmer on the forge plate ----------------------------------------- */
+
+.forge[data-busy='true'] {
+  background: linear-gradient(100deg, var(--cobalt) 0%, var(--cobalt-deep) 45%, var(--cobalt) 70%, var(--cobalt-deep) 100%);
+  background-size: 220% 100%;
+  animation: forgeFlow 2.6s linear infinite;
+}
+
+@keyframes forgeFlow {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
 }

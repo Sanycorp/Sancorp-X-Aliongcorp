@@ -2,7 +2,7 @@ import { PRESETS, presetById } from '../../model/presets';
 import { FORMAT_META, SPEED_MODE_META, TARGET_META, SPACE_META } from '../../model/settings';
 import type { SourceInfo } from '../../model/settings';
 import { store } from '../../state/store';
-import { forgeExport, loadSource, renderPreview, shareLast } from '../../state/forge';
+import { forgeExport, getPreviewStats, loadSource, renderPreview, shareLast } from '../../state/forge';
 import { formatBytes, formatDuration, formatRate } from '../../io/audioFile';
 import { PreviewPlayer } from '../../io/player';
 import { Haptics } from '../haptics';
@@ -22,6 +22,8 @@ const STAGE_ORDER = ['CLEAN', 'TONE', 'SPACE', 'WARMTH', 'MASTER', 'LIMIT'];
 
 export interface Screen {
   el: HTMLElement;
+  /** Fixed chrome outside the scroll container (mobile action dock). */
+  overlay?: HTMLElement;
   update(): void;
   onEnter?(): void;
 }
@@ -85,6 +87,21 @@ export function createDeck(): Screen {
     ),
   );
 
+  const skeleton = el(
+    'div',
+    { class: 'skeleton', attrs: { hidden: true, role: 'status', 'aria-live': 'polite' } },
+    el(
+      'div',
+      { class: 'skeleton__bars', attrs: { 'aria-hidden': 'true' } },
+      el('i'),
+      el('i'),
+      el('i'),
+      el('i'),
+      el('i'),
+    ),
+    el('span', { class: 'skeleton__label', text: 'DECODING AUDIO' }),
+  );
+
   const sourcePlate = el(
     'div',
     { class: 'plate bracket bracket--lg source-plate' },
@@ -92,6 +109,7 @@ export function createDeck(): Screen {
     drop,
     loaded,
     fileInput,
+    skeleton,
   );
 
   const handleFiles = async (files: FileList | null): Promise<void> => {
@@ -316,14 +334,57 @@ export function createDeck(): Screen {
   const scope = createScope();
   const scopeTelemetry = el('div', { class: 'telemetry' });
 
+  const lufsValue = el('b', { text: '—' });
+  const lufsFill = el('div', { class: 'lufs-meter__fill' });
+  const lufsTarget = el('div', { class: 'lufs-meter__target' });
+  const lufsMeter = el(
+    'div',
+    { class: 'lufs-meter', attrs: { 'aria-label': 'Loudness preview' } },
+    el(
+      'div',
+      { class: 'lufs-meter__head' },
+      el('span', { text: 'LUFS · PREVIEW' }),
+      lufsValue,
+    ),
+    el('div', { class: 'lufs-meter__track' }, lufsFill, lufsTarget),
+    el(
+      'div',
+      { class: 'lufs-meter__scale' },
+      el('span', { text: '−36' }),
+      el('span', { text: '−21' }),
+      el('span', { text: '−14' }),
+      el('span', { text: '−6' }),
+    ),
+  );
+
   const scopePlate = el(
     'div',
     { class: 'plate source-plate' },
     sectionHead('03', 'SIGNAL SCOPE'),
     scope.el,
+    lufsMeter,
     el('div', { style: 'height:10px' }),
     scopeTelemetry,
   );
+
+  /** Maps LUFS onto the meter's −36…−6 window. */
+  function updateLoudness(): void {
+    const stats = getPreviewStats();
+    const target = TARGET_META[store.edit.target].lufs;
+    const pctOf = (lufs: number): number => Math.max(0, Math.min(100, ((lufs + 36) / 30) * 100));
+    lufsTarget.style.left = target == null ? '66.6%' : `${pctOf(target)}%`;
+    lufsMeter.dataset.stale = String(!store.previewReady);
+    if (!stats || stats.lufs == null) {
+      lufsValue.textContent = '—';
+      lufsFill.style.width = '0%';
+      lufsMeter.dataset.state = 'idle';
+      return;
+    }
+    const pct = pctOf(stats.lufs);
+    lufsFill.style.width = `${pct}%`;
+    lufsValue.textContent = `${stats.lufs.toFixed(1)} LUFS · TP ${stats.truePeak.toFixed(1)}`;
+    lufsMeter.dataset.state = target != null && stats.lufs > target + 1 ? 'over' : 'ok';
+  }
 
   const pipelineList = el('div', { class: 'pipeline' });
   const hashLine = el('div', { class: 'report__hash', text: 'HASH —' });
@@ -347,6 +408,41 @@ export function createDeck(): Screen {
   );
   const sessionStrip = quickPlate.querySelector('.master-strip') as HTMLElement;
 
+  // ---------------------------------------------------------------- mobile dock
+  const dockRingHost = document.createElement('div');
+  dockRingHost.className = 'ring';
+  dockRingHost.setAttribute('aria-hidden', 'true');
+  dockRingHost.innerHTML =
+    '<svg viewBox="0 0 44 44"><circle class="ring__track" cx="22" cy="22" r="18"/><circle class="ring__value" cx="22" cy="22" r="18"/></svg>';
+  const ringValue = dockRingHost.querySelector('.ring__value') as SVGCircleElement;
+  const ringPct = el('span', { class: 'ring__pct', text: 'GO' });
+  dockRingHost.appendChild(ringPct);
+
+  const dockPreset = el('span', { class: 'dock__preset', text: 'CUSTOM CHAIN' });
+  const dockMeta = el('span', { class: 'dock__meta', text: 'SIAP' });
+  const dockBtn = el(
+    'button',
+    {
+      class: 'dock__btn',
+      attrs: { type: 'button', 'aria-label': 'Forge hasil' },
+      on: {
+        click: () => {
+          Haptics.heavy();
+          void forgeExport().then(() => update());
+        },
+      },
+    },
+    dockRingHost,
+    el('span', { text: 'FORGE' }),
+  );
+
+  const dock = el(
+    'div',
+    { class: 'dock', attrs: { role: 'region', 'aria-label': 'Aksi cepat' } },
+    el('div', { class: 'dock__info' }, dockPreset, dockMeta),
+    dockBtn,
+  );
+
   // ---------------------------------------------------------------- screen
   const screen = el(
     'section',
@@ -369,14 +465,14 @@ export function createDeck(): Screen {
       { class: 'grid grid--deck' },
       el(
         'div',
-        { class: 'stack stagger' },
+        { class: 'stack' },
         sourcePlate,
         presetPlate,
         forgePlate,
         progressPlate,
         reportHost,
       ),
-      el('div', { class: 'stack stagger' }, scopePlate, pipelinePlate, quickPlate),
+      el('div', { class: 'stack' }, scopePlate, pipelinePlate, quickPlate),
     ),
   );
 
@@ -515,10 +611,12 @@ export function createDeck(): Screen {
       const idx = STAGE_ORDER.indexOf(status.stage);
       stagePips.forEach((pip, i) => pip.classList.toggle('is-done', idx >= 0 ? i <= idx : status.progress > 0.7));
       forgeBtn.setAttribute('disabled', 'true');
+      forgeBtn.dataset.busy = 'true';
       forgeSub.textContent = `${status.stage} · ${Math.round(status.progress * 100)}%`;
       forgingLabel.textContent = 'PROCESSING';
     } else {
       forgeBtn.removeAttribute('disabled');
+      forgeBtn.dataset.busy = 'false';
       forgeSub.textContent = store.source
         ? `${FORMAT_META[store.edit.format].label} · ${store.edit.bitrate}K · ${TARGET_META[store.edit.target].label}${TARGET_META[store.edit.target].lufs ? ' LUFS' : ''}`
         : 'MUAT AUDIO DULU';
@@ -665,6 +763,24 @@ export function createDeck(): Screen {
 
     hashLine.textContent = `PREVIEW ${store.previewReady ? 'READY' : store.previewBusy ? 'RENDERING' : 'STALE'} · ${Math.round(store.edit.speed * 100)}% · ${FORMAT_META[store.edit.format].label} ${store.edit.bitrate}K`;
 
+    // decoding skeleton
+    skeleton.hidden = !(store.status.stage === 'DECODE' && !store.source);
+
+    // mobile dock mirrors the deck state
+    const active = store.status.active;
+    const presetName = presetById(store.edit.activePreset)?.name ?? 'CUSTOM CHAIN';
+    dockPreset.textContent = presetName;
+    dockMeta.textContent = active
+      ? `${store.status.stage} · ${Math.round(store.status.progress * 100)}%`
+      : `${store.edit.speed.toFixed(2)}× · ${FORMAT_META[store.edit.format].label} · ${TARGET_META[store.edit.target].lufs ?? 'OFF'} LUFS`;
+    const pct = active ? Math.max(0, Math.min(1, store.status.progress)) : 0;
+    ringValue.style.strokeDashoffset = String(113.1 * (1 - pct));
+    ringPct.textContent = active ? `${Math.round(pct * 100)}%` : 'GO';
+    dockBtn.toggleAttribute('disabled', !store.source || active);
+    dockBtn.setAttribute('aria-busy', String(active));
+    dock.classList.toggle('is-busy', active);
+
+    updateLoudness();
     wave.redraw();
     updatePipeline();
     updateReport();
@@ -696,9 +812,11 @@ export function createDeck(): Screen {
 
   return {
     el: screen,
+    overlay: dock,
     update,
     onEnter: () => {
       wave.redraw();
+      updateLoudness();
       update();
     },
   };
