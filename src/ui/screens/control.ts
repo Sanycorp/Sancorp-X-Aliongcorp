@@ -8,6 +8,7 @@ import { installRipple } from '../motion';
 import type { Screen } from './deck';
 import { APP_VERSION } from '../../version';
 import { PRO_PRICE } from '../../model/tiers';
+import { parseOperatorKey, scrubOperatorKey } from '../../state/operatorKey';
 
 /**
  * AEGIS OPS — the operator app.
@@ -1100,14 +1101,20 @@ export function createControl(): Screen {
   function renderGate(): void {
     const adminInput = el('input', {
       class: 'input',
-      attrs: { type: 'password', autocomplete: 'current-password', 'aria-label': 'Kata sandi operator' },
+      attrs: {
+        type: 'password',
+        autocomplete: 'current-password',
+        spellcheck: 'false',
+        autocapitalize: 'characters',
+        'aria-label': 'Kunci operator',
+      },
     });
     const error = el('p', { class: 'form-error', attrs: { role: 'alert' } });
     const submit = button('MASUK OPS', { tone: 'primary', block: true, icon: 'system' });
 
     const run = async (): Promise<void> => {
-      if (!adminInput.value) {
-        error.textContent = 'Masukkan kata sandi.';
+      if (!adminInput.value.trim()) {
+        error.textContent = 'Masukkan kunci operator.';
         return;
       }
       submit.disabled = true;
@@ -1127,6 +1134,22 @@ export function createControl(): Screen {
     adminInput.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') void run();
     });
+    // Paste is the normal way in: drop the key and go, no second tap. Deferred so
+    // the clipboard has actually landed in the field before it is read.
+    adminInput.addEventListener('paste', () => {
+      setTimeout(() => {
+        if (adminInput.value.trim().length >= 8) void run();
+      }, 0);
+    });
+
+    // `#/control?op=…` signs in on load, then erases the key from the address bar
+    // so it never lingers in history, a bookmark, or a screenshot.
+    const linked = parseOperatorKey(location.hash);
+    if (linked) {
+      adminInput.value = linked;
+      scrubOperatorKey();
+      void run();
+    }
 
     gate.append(
       el(
@@ -1137,10 +1160,10 @@ export function createControl(): Screen {
         el('p', {
           class: 'lab-group__note',
           text: session.state.adminEnabled
-            ? 'Halaman ini tidak ditautkan dari navigasi. Masuk dengan kata sandi operator untuk membuka pemantauan dan meja lisensi.'
-            : 'Kata sandi operator belum disetel di server. Tambahkan AEGIS_ADMIN_PASSWORD lalu deploy ulang.',
+            ? 'Halaman ini tidak ditautkan dari navigasi. Buka tautan operator sekali — sesi bertahan 30 hari di perangkat ini — atau tempel kuncinya, langsung masuk tanpa menekan tombol.'
+            : 'Kunci operator belum disetel di server. Tambahkan AEGIS_ADMIN_PASSWORD lalu deploy ulang.',
         }),
-        el('div', { class: 'field' }, el('span', { class: 'label', text: 'KATA SANDI' }), adminInput),
+        el('div', { class: 'field' }, el('span', { class: 'label', text: 'KUNCI OPERATOR' }), adminInput),
         error,
         submit,
         button('KEMBALI KE APLIKASI', {

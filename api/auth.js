@@ -10,6 +10,7 @@
  */
 import {
   ADMIN_PASSWORD,
+  adminPasswordMatches,
   IS_DEV_SECRET,
   SESSION_DAYS,
   CLEAR_COOKIE,
@@ -17,7 +18,6 @@ import {
   json,
   rateLimit,
   readJsonBody,
-  safeEqual,
   sessionCookie,
   verifyLicense,
 } from './_lib/auth.js';
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       json(res, 501, { error: 'admin_disabled' });
       return;
     }
-    if (!safeEqual(body.admin, ADMIN_PASSWORD)) {
+    if (!adminPasswordMatches(body.admin)) {
       json(res, 401, { error: 'invalid_credentials' });
       return;
     }

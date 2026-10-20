@@ -63,6 +63,22 @@ export function safeEqual(a, b) {
   return timingSafeEqual(left, right);
 }
 
+/**
+ * Check the operator key.
+ *
+ * The key is generated in Crockford base32 and handed out by link, so the only
+ * human interaction left is the occasional copy-paste. Trailing whitespace and
+ * a lower-cased paste are therefore forgiven; the secret itself still has to
+ * match in constant time. An unset AEGIS_ADMIN_PASSWORD disables the console.
+ */
+export function adminPasswordMatches(input) {
+  if (!ADMIN_PASSWORD) return false;
+  const given = String(input ?? '').trim();
+  if (!given) return false;
+  if (safeEqual(given, ADMIN_PASSWORD)) return true;
+  return safeEqual(given.toUpperCase(), ADMIN_PASSWORD.trim().toUpperCase());
+}
+
 // ---------------------------------------------------------------------------
 // Sessions
 // ---------------------------------------------------------------------------

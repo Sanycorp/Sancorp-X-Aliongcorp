@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.1
+# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.2
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -9,7 +9,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | Produk | Aegis Sound Lab |
 | Perusahaan | Sanayacorp (logo & identitas induk) |
 | Master ikon | `brand/aegis-music-icon.png` → `npm run icons` → `public/icons/*` + `store/icon-512.png` |
-| Versi | 8.9.1 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.9.2 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -34,7 +34,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.1
+  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.2
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
 tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
@@ -306,6 +306,32 @@ ulang kanal; angka tetap tampil dari cache saat jaringan mati.
 
 Yang **tidak** dikirim: audio, nama file, kunci lisensi, tier, atau isi riwayat
 export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.
+
+## 12b. Kunci operator (v8.9.2)
+
+Konsol `#/control` tidak lagi memakai kata sandi yang diketik orang. Kuncinya
+dibuat mesin: **120 bit acak** dalam Crockford base32, `AEGIS-XXXXXX-XXXXXX-XXXXXX-XXXXXX`
+(24 simbol, alfabet tanpa I/L/O/U). Disimpan hanya di `AEGIS_ADMIN_PASSWORD`
+(Vercel, encrypted, semua environment) — tidak pernah ada di repo, di bundel,
+atau di localStorage.
+
+Tiga cara masuk, semuanya tanpa mengetik:
+
+1. **Tautan sekali klik** `https://sanayacorp-aegismusic.vercel.app/#/control?op=<kunci>`.
+   Aplikasi membaca fragmen, langsung `POST /api/auth`, lalu menghapus kunci dari
+   address bar dengan `history.replaceState` (bukan `pushState` — tidak ada sisa
+   di back stack). Fragmen `#` tidak pernah dikirim ke server, dan
+   `Referrer-Policy: no-referrer` menutup kebocoran lewat header.
+2. **Tempel di gerbang** — event `paste` langsung mengirim; tanpa tombol, tanpa
+   izin clipboard.
+3. Mengetik, kalau tautannya hilang.
+
+Server membandingkan lewat `adminPasswordMatches()`: trim + bandingkan
+case-insensitive, tetap `timingSafeEqual`. Sesi 30 hari di cookie httpOnly, jadi
+satu klik cukup sampai kuartal berikutnya.
+
+Rotasi: ganti `AEGIS_ADMIN_PASSWORD` di Vercel lalu deploy ulang. Kunci lama
+langsung mati; tidak ada data lain yang perlu dibersihkan.
 
 ## 13. Identitas merek (v8.9.0 → v8.9.1)
 
