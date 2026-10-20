@@ -6,7 +6,7 @@ import { clampForTier, exportableFormats, mayExport, presetLocked } from '../src
 import { NEUTRAL } from '../src/model/settings';
 import type { AppSettings, EditSettings } from '../src/model/settings';
 import { allGrants, makeGrant, parseGrant, premiumFor } from '../api/_lib/premium.js';
-import { makeState, readState } from '../api/_lib/google.js';
+import { authorizeUrl, makeState, readState, redirectUri } from '../api/_lib/google.js';
 
 const ROOT = process.cwd();
 
@@ -87,6 +87,26 @@ describe('google oauth state', () => {
   it('round-trips the remember flag', () => {
     expect(readState(makeState(true))?.remember).toBe(true);
     expect(readState(makeState(false))?.remember).toBe(false);
+  });
+
+  it('sends Google back to a clean callback path', () => {
+    // Registered redirect URIs are matched character for character, and the
+    // console is happiest with a plain path; vercel.json rewrites it onto
+    // /api/auth?google=callback.
+    expect(redirectUri('https://sanayacorp-aegismusic.vercel.app')).toBe(
+      'https://sanayacorp-aegismusic.vercel.app/api/auth/google/callback',
+    );
+    expect(redirectUri('https://sanayacorp-aegismusic.vercel.app/')).toBe(
+      'https://sanayacorp-aegismusic.vercel.app/api/auth/google/callback',
+    );
+    process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com';
+    const url = new URL(authorizeUrl({ origin: 'https://sanayacorp-aegismusic.vercel.app', state: 'abc' }));
+    expect(url.searchParams.get('redirect_uri')).toBe(
+      'https://sanayacorp-aegismusic.vercel.app/api/auth/google/callback',
+    );
+    expect(url.searchParams.get('scope')).toBe('openid email profile');
+    expect(url.searchParams.get('response_type')).toBe('code');
+    delete process.env.GOOGLE_CLIENT_ID;
   });
 
   it('rejects a forged or stale state', () => {

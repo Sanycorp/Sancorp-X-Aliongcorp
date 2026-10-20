@@ -76,5 +76,8 @@
       ]
     }
   ],
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/auth/google/callback", "destination": "/api/auth?google=callback" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }

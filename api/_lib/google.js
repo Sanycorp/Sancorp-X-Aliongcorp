@@ -8,7 +8,10 @@
  *
  * Required environment:
  *   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
- * and an authorised redirect URI of <origin>/api/auth?google=callback
+ * and an authorised redirect URI of <origin>/api/auth/google/callback — a clean
+ * path, because Google compares it character for character and console
+ * validation of registered URIs is friendlier to paths than to query strings.
+ * The rewrite in vercel.json maps that path onto /api/auth?google=callback.
  */
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { SECRET, signSession } from './auth.js';
@@ -20,7 +23,7 @@ export const googleConfigured = () =>
   Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 export function redirectUri(origin) {
-  return `${String(origin).replace(/\/$/, '')}/api/auth?google=callback`;
+  return `${String(origin).replace(/\/$/, '')}/api/auth/google/callback`;
 }
 
 /**

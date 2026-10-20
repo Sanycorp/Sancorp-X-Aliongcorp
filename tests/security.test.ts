@@ -25,7 +25,14 @@ describe('deployment security headers', () => {
   it('targets the static Vite build', () => {
     expect(vercel.framework).toBe('vite');
     expect(vercel.outputDirectory).toBe('dist');
-    expect(vercel.rewrites[0].destination).toBe('/index.html');
+    // The Google callback path is rewritten first; the SPA fallback stays last
+    // and keeps excluding /api so it can never swallow a function.
+    expect(vercel.rewrites.at(-1).destination).toBe('/index.html');
+    expect(vercel.rewrites.at(-1).source).toBe('/((?!api/).*)');
+    expect(vercel.rewrites[0]).toEqual({
+      source: '/api/auth/google/callback',
+      destination: '/api/auth?google=callback',
+    });
   });
 
   it('locks scripts down to same-origin with Trusted Types enforced', () => {

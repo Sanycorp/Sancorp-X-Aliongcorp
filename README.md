@@ -282,3 +282,8 @@ Unduh dari tab **Actions** (artifact `aegis-m-debug-apk`), lalu sideload APK-nya
 ## Lisensi aset
 
 Font **Chakra Petch** dan **Share Tech Mono** dipakai di bawah SIL Open Font License; teks lisensi ada di `src/assets/fonts/`.
+
+## Masuk dengan Google
+
+Langkah membuat OAuth client dan memasang dua environment variable-nya ada di
+[`GOOGLE-OAUTH.md`](GOOGLE-OAUTH.md).

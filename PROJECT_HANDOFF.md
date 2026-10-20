@@ -317,10 +317,14 @@ export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.
 Services — CSP `script-src 'self'` tidak dilonggarkan, tidak ada skrip pihak
 ketiga, dan penukaran token terjadi di server.
 `GET /api/auth?google=start&remember=1` → `accounts.google.com` →
-`GET /api/auth?google=callback` → cookie sesi + redirect `/?masuk=ok`.
+`GET /api/auth/google/callback` → cookie sesi + redirect `/?masuk=ok`.
+Path callback itu di-rewrite `vercel.json` ke `/api/auth?google=callback`, jadi
+redirect URI yang didaftarkan di Google adalah path bersih (Google membandingkan
+URI karakter per karakter).
 `state` adalah nonce bertanda tangan HMAC, berlaku 10 menit, tanpa tabel sesi.
 Env yang dibutuhkan: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan redirect URI
-`https://sanayacorp-aegismusic.vercel.app/api/auth?google=callback`.
+`https://sanayacorp-aegismusic.vercel.app/api/auth/google/callback`. Langkah
+pembuatan client, nilai yang disalin, dan tabel kegagalan ada di `GOOGLE-OAUTH.md`.
 
 **Premium per email.** Grant = `email:YYYYMMDD:HMAC(email|YYYYMMDD)`. Operator
 membuatnya di `#/control → AKUN → AKUN GOOGLE` (tombol BERI PREMIUM), lalu
