@@ -3,6 +3,7 @@ import { PLANS } from '../model/tiers';
 import type { Feature, Tier } from '../model/tiers';
 import { session } from '../state/session';
 import { Haptics } from './haptics';
+import { PURCHASE_NOTE, openPurchase } from '../model/contact';
 
 /**
  * Account sheet + paywall.
@@ -270,10 +271,15 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
     ),
     opts.switching
       ? button('BATAL', { tone: 'ghost', block: true, onClick: () => render() })
-      : el('p', {
-          class: 'sheet__note',
-          text: 'Belum punya kunci? Lisensi PRO membuka 14 preset, FLAC/WAV 24–32, 8D, repair, dan export tanpa batas.',
-        }),
+      : el(
+          'div',
+          {},
+          button('CARA DAPAT KUNCI', { tone: 'ghost', block: true, icon: 'bolt', onClick: () => openPurchase() }),
+          el('p', {
+            class: 'sheet__note',
+            text: `Lisensi PRO membuka 14 preset, FLAC/WAV 24–32, 8D, repair, dan export tanpa batas. ${PURCHASE_NOTE}`,
+          }),
+        ),
   );
 }
 
@@ -351,8 +357,14 @@ export function openPaywall(reason: string, feature?: Feature, trigger?: HTMLEle
     el(
       'div',
       { class: 'sheet__actions' },
-      button('PUNYA KUNCI? MASUK', {
+      button('AMBIL LISENSI PRO', {
         tone: 'primary',
+        block: true,
+        icon: 'bolt',
+        onClick: () => openPurchase(),
+      }),
+      button('PUNYA KUNCI? MASUK', {
+        tone: 'ghost',
         block: true,
         icon: 'check',
         onClick: () => {
@@ -363,6 +375,7 @@ export function openPaywall(reason: string, feature?: Feature, trigger?: HTMLEle
       }),
       button('NANTI', { tone: 'ghost', block: true, onClick: close }),
     ),
+    el('p', { class: 'sheet__note', text: PURCHASE_NOTE }),
     el('button', {
       class: 'sheet__close',
       attrs: { type: 'button', 'aria-label': 'Tutup' },

@@ -167,6 +167,14 @@ ada output yang diperkecil, dan tidak ada data yang dikirim ke mana pun.
 terkunci kata sandi admin. Isinya: kesehatan deployment (commit, region,
 uptime), probe header respons, feed pelanggaran CSP, dan generator kunci.
 
+### Mendapatkan kunci
+
+Kunci diterbitkan manual dari konsol `#/control` → tab LISENSI, lalu dikirim ke
+pembeli. Tombol **CARA DAPAT KUNCI** di aplikasi membuka satu URL yang bisa
+diganti kapan saja di `src/model/contact.ts` (default: issue GitHub dengan
+template pesanan). Tidak ada payment gateway di dalam bundle — kalau nanti ada,
+cukup ganti satu konstanta itu.
+
 ### Variabel lingkungan
 
 | Nama | Wajib | Fungsi |
