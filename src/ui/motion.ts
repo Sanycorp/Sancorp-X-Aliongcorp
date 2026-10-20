@@ -187,16 +187,23 @@ export function installRipple(root: Document | HTMLElement = document): void {
 
 const MAGNET_SELECTOR = '.forge, .dock__btn, .btn--primary';
 
+/** Nodes already wired for pointer effects — re-entering a screen must not stack listeners. */
+const magnetized = new WeakSet<HTMLElement>();
+const tilted = new WeakSet<HTMLElement>();
+
 /** Buttons lean toward the pointer, a few pixels, with a spring back. */
 export function installMagnets(root: ParentNode = document): () => void {
   if (typeof window.matchMedia === 'function') {
     const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
     if (!fine.matches) return () => undefined;
   }
-  const nodes = Array.from(root.querySelectorAll<HTMLElement>(MAGNET_SELECTOR));
+  const nodes = Array.from(root.querySelectorAll<HTMLElement>(MAGNET_SELECTOR)).filter(
+    (n) => !magnetized.has(n),
+  );
   const cleanups: (() => void)[] = [];
 
   for (const node of nodes) {
+    magnetized.add(node);
     let frame = 0;
     const move = (ev: PointerEvent): void => {
       if (prefersReduced()) return;
@@ -233,10 +240,13 @@ export function installTilt(root: ParentNode = document): () => void {
     const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
     if (!fine.matches) return () => undefined;
   }
-  const nodes = Array.from(root.querySelectorAll<HTMLElement>('.preset-card, .plate'));
+  const nodes = Array.from(
+    root.querySelectorAll<HTMLElement>('.preset-card, .plate'),
+  ).filter((n) => !tilted.has(n));
   const cleanups: (() => void)[] = [];
 
   for (const node of nodes) {
+    tilted.add(node);
     const move = (ev: PointerEvent): void => {
       if (prefersReduced()) return;
       const rect = node.getBoundingClientRect();
