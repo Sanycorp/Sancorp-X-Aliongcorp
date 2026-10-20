@@ -1,0 +1,62 @@
+name: probe
+
+# Verifies the deployed origin after every push to the arena branch and on
+# demand. No secrets required: everything here is what an anonymous visitor —
+# or an attacker — can already see.
+#
+#   gh workflow run probe.yml
+
+on:
+  push:
+    branches: ['arena/**']
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: Origin to probe
+        required: false
+        default: https://sancorp-x-aliongcorp.vercel.app
+
+concurrency:
+  group: probe-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe production
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for the deployment to settle
+        run: |
+          origin="${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$origin/api/health" || true)
+            echo "attempt $attempt → HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 12
+          done
+          echo "deployment did not answer in time" >&2
+          exit 1
+
+      - name: Probe
+        run: node tools/probe-prod.mjs "${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Production probe"
+            echo ""
+            echo "Origin: \`${{ inputs.origin || 'https://sancorp-x-aliongcorp.vercel.app' }}\`"
+            echo "Result: **${{ job.status }}**"
+          } >> "$GITHUB_STEP_SUMMARY"

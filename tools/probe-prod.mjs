@@ -1,0 +1,112 @@
+#!/usr/bin/env node
+/**
+ * Production probe.
+ *
+ * Verifies the *deployed* origin — not the bundle, not the tests. Every check
+ * below is something that has broken before or that the business depends on:
+ * security headers surviving the CDN, SRI still on the entry, the license
+ * endpoint refusing anonymous callers, and both server secrets actually set.
+ *
+ *   node tools/probe-prod.mjs                       # default origin
+ *   node tools/probe-prod.mjs https://example.com   # explicit origin
+ *
+ * Exit code 0 only when every check passes.
+ */
+
+const ORIGIN = (process.argv[2] || process.env.PROBE_ORIGIN || 'https://sancorp-x-aliongcorp.vercel.app').replace(/\/$/, '');
+
+const results = [];
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok, detail });
+  const mark = ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
+  console.log(`${mark} ${name}${detail ? ` — ${detail}` : ''}`);
+};
+
+const get = async (path, init = {}) => {
+  const res = await fetch(ORIGIN + path, { redirect: 'manual', ...init });
+  const body = await res.text();
+  return { res, body };
+};
+
+const has = (res, key, needle) => (res.headers.get(key) || '').toLowerCase().includes(needle);
+
+const index = await get('/');
+check('origin responds', index.res.status === 200, `HTTP ${index.res.status}`);
+
+// --- delivery layer -------------------------------------------------------
+const csp = index.res.headers.get('content-security-policy') || '';
+check('CSP default-src none', csp.includes("default-src 'none'"));
+check('CSP trusts only self for scripts', csp.includes("script-src 'self'"));
+check('Trusted Types enforced', csp.includes("require-trusted-types-for 'script'"));
+check('CSP report endpoint set', csp.includes('report-uri /api/csp-report'));
+check('frame-ancestors none', csp.includes("frame-ancestors 'none'"));
+check('HSTS preload', has(index.res, 'strict-transport-security', 'preload'));
+check('COOP same-origin', has(index.res, 'cross-origin-opener-policy', 'same-origin'));
+check('COEP credentialless', has(index.res, 'cross-origin-embedder-policy', 'credentialless'));
+check('nosniff', has(index.res, 'x-content-type-options', 'nosniff'));
+check('referrer no-referrer', has(index.res, 'referrer-policy', 'no-referrer'));
+check('permissions-policy denies camera', has(index.res, 'permissions-policy', 'camera=()'));
+
+const sri = [...index.body.matchAll(/<(?:script|link)[^>]*(?:src|href)="([^"]+)"[^>]*integrity="sha384-([^"]+)"/g)];
+check('SRI on entry assets', sri.length >= 2, `${sri.length} signed`);
+
+// --- version --------------------------------------------------------------
+const version = index.body.match(/AEGIS-M\s*(\d+\.\d+\.\d+)/)?.[1] ?? 'unknown';
+check('version 8.5.x', /^8\.5\./.test(version), version);
+
+// --- the console actually shipped -----------------------------------------
+const entry = index.body.match(/src="([^"]*assets\/index-[^"]+\.js)"/)?.[1];
+if (entry) {
+  const bundle = await get(entry);
+  check('console bundle shipped', bundle.body.includes('AKSES OPERATOR'));
+  check('account sheet shipped', bundle.body.includes('AKTIFKAN AKSES'));
+  // The service role string must never leak into the client bundle.
+  check('no secret in bundle', !bundle.body.includes('AEGIS_SECRET') && !bundle.body.includes('AEGIS_ADMIN_PASSWORD'));
+  check('bundle integrity', /sha384-/.test(index.body), 'entry hash present');
+} else {
+  check('console bundle shipped', false, 'entry script not found');
+}
+
+// --- server ---------------------------------------------------------------
+const health = await get('/api/health');
+let healthJson = {};
+try {
+  healthJson = JSON.parse(health.body);
+} catch {
+  /* handled below */
+}
+check('health 200', health.res.status === 200 && healthJson.ok === true);
+check('health reports prod env', healthJson.env === 'production', `${healthJson.env} · ${healthJson.region ?? '?'}`);
+check('health commit is a sha', /^[0-9a-f]{7,40}$/.test(healthJson.commit || ''), healthJson.commit);
+
+const auth = await get('/api/auth');
+const authJson = JSON.parse(auth.body || '{}');
+check('auth says free when signed out', authJson.tier === 'free');
+check('AEGIS_SECRET set (not dev)', authJson.devSecret === false);
+check('AEGIS_ADMIN_PASSWORD set', authJson.adminEnabled === true);
+check('auth is not cached', has(auth.res, 'cache-control', 'no-store'));
+
+const license = await get('/api/license', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ tier: 'pro', days: 365, count: 1 }),
+});
+check('license refuses anonymous', license.res.status === 403, `HTTP ${license.res.status}`);
+
+const feed = await get('/api/csp-report');
+check('csp feed refuses anonymous', feed.res.status === 403, `HTTP ${feed.res.status}`);
+
+const badKey = await get('/api/auth', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ key: 'AEGIS-PRO-AAAA-20990101-AAAAAA' }),
+});
+check('forged key rejected', badKey.res.status === 401, `HTTP ${badKey.res.status}`);
+check('no cookie on rejection', !badKey.res.headers.get('set-cookie'));
+
+const failed = results.filter((r) => !r.ok);
+console.log(`\n${results.length - failed.length}/${results.length} checks passed on ${ORIGIN}`);
+if (failed.length > 0) {
+  console.log('failed:', failed.map((f) => f.name).join(', '));
+  process.exit(1);
+}
