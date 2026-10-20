@@ -72,6 +72,28 @@ check('permissions-policy denies camera', has(index.res, 'permissions-policy', '
 const sri = [...index.body.matchAll(/<(?:script|link)[^>]*(?:src|href)="([^"]+)"[^>]*integrity="sha384-([^"]+)"/g)];
 check('SRI on entry assets', sri.length >= 2, `${sri.length} signed`);
 
+// --- identity in the chrome -----------------------------------------------
+/**
+ * The company seal is web furniture, not page content: it must reach the visitor
+ * as the tab icon and the share card, and must not reappear as a plate inside a
+ * screen. A 404 here is what a broken favicon looks like from the outside.
+ */
+const svgIcon = index.body.match(/rel="icon" type="image\/svg\+xml" href="([^"]+)"/)?.[1];
+check('vector tab icon declared', Boolean(svgIcon), svgIcon || 'no svg icon in head');
+if (svgIcon) {
+  const icon = await get(svgIcon);
+  check(
+    'vector tab icon served',
+    icon.res.status === 200 && icon.body.includes('Sanayacorp'),
+    `HTTP ${icon.res.status} · ${icon.res.headers.get('content-type') || 'no type'}`,
+  );
+}
+check('pinned-tab mask icon declared', index.body.includes('rel="mask-icon"'));
+check(
+  'share card points at the company icon',
+  index.body.includes(`property="og:image" content="${ORIGIN}/icons/icon-512.png"`),
+);
+
 // --- the bundle -----------------------------------------------------------
 /**
  * The alias can serve the previous deployment's HTML for a few seconds after a
@@ -120,6 +142,7 @@ if (entry && resolved.bundle.res.status === 200) {
   check('locked preset copy shipped', bundle.body.includes('arsenal PRO'));
   check('rating block shipped', bundle.body.includes('KIRIM PENILAIAN') && bundle.body.includes('PRESET AKTIF'));
   check('bundle immutable', (bundle.res.headers.get('cache-control') || '').includes('immutable'));
+  check('seal is chrome, not page content', !bundle.body.includes('brand-block'));
 } else {
   check('entry bundle served', false, entry ? `${entry.split('/').pop()} HTTP ${resolved.bundle.res.status}` : 'entry script not found');
 }

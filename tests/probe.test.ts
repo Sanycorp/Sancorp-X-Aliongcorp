@@ -35,5 +35,7 @@ describe('probe', () => {
       const out = render(tone(220, -12, 6), s, src);
       console.log(p.id.padEnd(16), 'I', out.lufs?.toFixed(2), 'TP', out.truePeak.toFixed(2), 'trim', out.trimDb.toFixed(2));
     }
-  });
+    // Fourteen full renders take about five seconds on a loaded machine, which is
+    // exactly the default timeout — the suite went red on a slow runner twice.
+  }, 60_000);
 });

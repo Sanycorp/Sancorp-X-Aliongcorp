@@ -318,6 +318,8 @@ Logo perusahaan hidup di **chrome web**, bukan sebagai gambar di dalam halaman:
 | Header | `brandMark()` di `src/ui/brand.ts`, 26–32 px, ikut finish |
 | Preview tautan | `og:image` / `twitter:image` → `/icons/icon-512.png` |
 
+Probe produksi sekarang ikut memeriksa ikon vektor (`vector tab icon served`) dan memastikan kelas `brand-block` tidak kembali ke bundel.
+
 Blok logo 64 px di TENTANG beserta `brandPlate()` dan CSS `.brand-block` sudah
 dihapus pada v8.9.1; TENTANG tetap menyebut perusahaan lewat `infoCell('PERUSAHAAN', 'SANAYACORP')`.
 
