@@ -4,6 +4,13 @@ const config: CapacitorConfig = {
   appId: 'com.eltzy.app',
   appName: 'EL TZY AEGIS-M',
   webDir: 'dist',
+  server: {
+    // The APK is offline by design: bundle origin only, no remote navigation.
+    androidScheme: 'https',
+    hostname: 'localhost',
+    cleartext: false,
+    allowNavigation: [],
+  },
   android: {
     allowMixedContent: false,
     captureInput: false,

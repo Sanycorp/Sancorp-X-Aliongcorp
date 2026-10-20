@@ -1,6 +1,6 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.3.0**
+**Offline mecha audio forge — v8.4.0**
 
 Slowed + reverb, nightcore, 8D orbit, club masters. Semua diproses **di dalam perangkat**, nol upload, nol server, nol telemetry.
 
@@ -114,31 +114,35 @@ Tidak ada loudness normalisation dinamis. Selisih 12 dB antara bagian keras dan 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 100 tes: DSP, engine, encoder, UI (jsdom), motion, audit responsive
+npm test           # 123 tes: DSP, engine, encoder, UI (jsdom), motion, audit responsive
 npm run typecheck
 npm run build      # bundle produksi di dist/
 npm run icons      # regenerate ikon PWA + Android mipmaps
 ```
 
-## Keamanan (edisi web, Oktober 2026)
+## Keamanan — dua target, dua model
 
-Build web di-deploy ke Vercel dengan header yang tidak bisa dilonggarkan tanpa
-mengubah `vercel.json`. Detail lengkap ada di [SECURITY.md](SECURITY.md).
+Website dan APK **sengaja tidak disamakan**. Web menghadapi internet dan markup
+asing; APK jalan offline tanpa server, jadi header HTTP tidak relevan di sana.
+Detail lengkap: [SECURITY.md](SECURITY.md).
 
-| Kontrol | Implementasi |
-| --- | --- |
-| **CSP Level 3** | `default-src 'none'`, `script-src 'self'`, `style-src 'self'`, `frame-ancestors 'none'`, `form-action 'none'` |
-| **Trusted Types** | `require-trusted-types-for 'script'` + policy tunggal `aegis` (DOMPurify 3.4.17) untuk semua sink `innerHTML` |
-| **SRI** | `tools/sri.mjs` menandatangani setiap script & stylesheet dengan `sha384` saat build |
-| **Isolasi** | `COOP: same-origin`, `COEP: credentialless`, `CORP: same-origin`, `Origin-Agent-Cluster: ?1` |
-| **Permissions-Policy** | kamera, mikrofon, lokasi, USB, serial, payment, MIDI, HID, ad-APIs ditolak eksplisit |
-| **Service worker** | hanya GET same-origin, `/api/*` tidak pernah di-cache, respons `no-store` dilewatkan |
-| **Pelaporan** | `/api/csp-report` menerima laporan CSP, membuang query string, hanya menyimpan direktif + origin + baris |
-| **Metadata** | `/.well-known/security.txt` (RFC 9116), `robots.txt` menutup `/api/` |
+**Web (Vercel)** — CSP Level 3 (`default-src 'none'`, `script-src 'self'`,
+`style-src 'self'`, `frame-ancestors 'none'`), Trusted Types enforced + DOMPurify,
+SRI sha-384, COOP `same-origin` + COEP `credentialless`, HSTS preload,
+Permissions-Policy menolak kamera/mikrofon/lokasi/USB/payment/ad-APIs,
+service worker hanya same-origin GET, laporan CSP ke `/api/csp-report`.
 
-Layar **System → 05 SECURITY** membaca postur keamanan secara live: header CSP
-yang benar-benar diterima, enforcement Trusted Types, cakupan SRI, isolasi
-lintas-origin, dan status service worker. Tidak ada klaim yang tidak diukur.
+**App (APK)** — tanpa server, jadi pertahanan pindah ke manifest:
+`usesCleartextTraffic="false"` + `network_security_config.xml`, `allowBackup="false"`
++ `data_extraction_rules.xml` (cloud backup & device transfer ditolak),
+`allowNavigation: []`, `webContentsDebuggingEnabled: false`,
+permission berbahaya dihapus dari manifest (build gagal kalau ada),
+hanya `MainActivity` boleh exported, dan **service worker tidak didaftarkan**.
+Diterapkan oleh `tools/android-harden.mjs`, diuji 6 tes.
+
+Layar **System → 05 SECURITY** menyesuaikan diri: `SECURITY · WEB` membaca header
+respons yang benar-benar diterima, `SECURITY · APP` melaporkan sandbox, jaminan
+manifest, dan absennya service worker.
 
 ### Deploy ke Vercel
 

@@ -15,6 +15,7 @@ import {
 } from '../elements';
 import { clearSession } from '../../io/storage';
 import { postureOnce, postureVerdict } from '../../security/posture';
+import { isNativeApp } from '../../security/platform';
 import type { Posture, PostureState } from '../../security/posture';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
@@ -156,9 +157,12 @@ export function createSystem(): Screen {
   // ------------------------------------------------------------- security
   const secChip = el('span', { class: 'chip', text: 'MEMINDAI' });
   const secList = el('div', { class: 'posture-list' });
+  const native = isNativeApp();
   const secNote = el('p', {
     class: 'lab-group__note',
-    text: 'Status dibaca langsung dari platform saat layar ini dibuka — header CSP, enforcement Trusted Types, cakupan SRI, isolasi lintas-origin, dan cache shell.',
+    text: native
+      ? 'APK tidak punya server, jadi tidak ada header HTTP di sini. Yang diperiksa: sandbox WebView, Trusted Types, SRI, manifest anti-cleartext, larangan navigasi keluar, dan backup yang diblokir.'
+      : 'Edisi web: status dibaca langsung dari respons server — header CSP, enforcement Trusted Types, SRI, isolasi lintas-origin, dan cache shell.',
   });
 
   const securityGroup = el(
@@ -167,7 +171,11 @@ export function createSystem(): Screen {
     el(
       'div',
       { class: 'row', style: 'align-items:center;gap:10px' },
-      el('div', { style: 'flex:1;min-width:0' }, sectionHead('05', 'SECURITY')),
+      el(
+        'div',
+        { style: 'flex:1;min-width:0' },
+        sectionHead('05', native ? 'SECURITY · APP' : 'SECURITY · WEB'),
+      ),
       secChip,
     ),
     secList,

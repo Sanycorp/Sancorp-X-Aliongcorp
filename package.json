@@ -1,7 +1,7 @@
 {
   "name": "el-tzy-aegis",
   "private": true,
-  "version": "8.3.0",
+  "version": "8.4.0",
   "type": "module",
   "description": "EL TZY AEGIS-M \u2014 offline mecha audio forge. Web-native DSP, zero upload.",
   "scripts": {
@@ -13,9 +13,10 @@
     "typecheck": "tsc --noEmit",
     "cap:sync": "npm run build && cap sync android",
     "cap:open": "cap open android",
-    "android:apk": "npm run build && cap sync android && cd android && ./gradlew assembleDebug",
+    "android:apk": "npm run build && cap sync android && node tools/android-harden.mjs && cd android && ./gradlew assembleDebug",
     "icons": "node tools/make-icons.mjs",
-    "security:audit": "node tools/audit-headers.mjs"
+    "security:audit": "node tools/audit-headers.mjs",
+    "android:harden": "node tools/android-harden.mjs"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",

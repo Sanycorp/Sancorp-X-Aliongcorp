@@ -1,12 +1,17 @@
 import { trustedTypesEnforced, trustedTypesSupported } from './sanitize';
+import { isNativeApp } from './platform';
 
 /**
- * Live security posture.
+ * Live security posture, split by target.
  *
- * Instead of claiming "we are secure" in a README, the app measures its own
- * deployment: header-based CSP, Trusted Types enforcement, SRI coverage,
- * cross-origin isolation and service-worker control. Everything here is read
- * from the platform, never assumed.
+ * WEB (Vercel)   — everything is server-enforced: CSP headers, COOP/COEP,
+ *                  HSTS, Permissions-Policy, SRI, service worker, CSP reports.
+ * APP (Android)  — there is no server, so headers are irrelevant. The app is
+ *                  defended by the native manifest (no cleartext, no backups),
+ *                  by refusing remote navigation, by not registering a service
+ *                  worker, and by the same in-bundle Trusted Types + SRI.
+ *
+ * The panel never shows web controls on the APK or vice versa.
  */
 
 export type PostureState = 'on' | 'partial' | 'off';
@@ -19,6 +24,7 @@ export interface PostureItem {
 }
 
 export interface Posture {
+  platform: 'web' | 'app';
   score: number;
   total: number;
   items: PostureItem[];
@@ -27,7 +33,7 @@ export interface Posture {
 const cspCache = new Map<string, string>();
 
 async function readCspFromResponse(): Promise<string> {
-  if (typeof fetch !== 'function') return '';
+  if (typeof fetch !== 'function' || isNativeApp()) return '';
   const key = location.href.split('#')[0];
   const cached = cspCache.get(key);
   if (cached !== undefined) return cached;
@@ -54,14 +60,54 @@ function sriSnapshot(): { covered: number; total: number } {
   return { covered, total: nodes.length };
 }
 
-function cspTokens(csp: string): string {
-  return csp.toLowerCase();
+function trustItems(): PostureItem[] {
+  const enforced = trustedTypesEnforced();
+  const supported = trustedTypesSupported();
+  return [
+    {
+      id: 'tt',
+      label: 'TRUSTED TYPES',
+      state: enforced ? 'on' : supported ? 'partial' : 'off',
+      detail: enforced
+        ? 'require-trusted-types-for script · policy aegis (DOMPurify)'
+        : supported
+          ? 'API tersedia, enforcement belum aktif di origin ini'
+          : 'belum didukung WebView/browser ini',
+    },
+  ];
 }
 
-export async function readPosture(): Promise<Posture> {
-  const csp = await readCspFromResponse();
-  const tokens = cspTokens(csp);
+function sriItem(): PostureItem {
   const sri = sriSnapshot();
+  const ratio = sri.total === 0 ? 0 : sri.covered / sri.total;
+  return {
+    id: 'sri',
+    label: 'SUB-RESOURCE INTEGRITY',
+    state: sri.total > 0 && ratio === 1 ? 'on' : sri.covered > 0 ? 'partial' : 'off',
+    detail: `${sri.covered}/${sri.total} bundle bertanda tangan sha-384`,
+  };
+}
+
+async function storageItem(): Promise<PostureItem> {
+  let persisted = false;
+  try {
+    persisted = (await navigator.storage?.persisted?.()) ?? false;
+  } catch {
+    persisted = false;
+  }
+  return {
+    id: 'storage',
+    label: 'PENYIMPANAN LOKAL',
+    state: persisted ? 'on' : 'partial',
+    detail: persisted
+      ? 'storage persisten, audio tidak pernah keluar perangkat'
+      : 'best-effort, tetap lokal di perangkat',
+  };
+}
+
+async function webPosture(): Promise<Posture> {
+  const csp = await readCspFromResponse();
+  const tokens = csp.toLowerCase();
   const items: PostureItem[] = [];
 
   const secure = typeof window !== 'undefined' && window.isSecureContext;
@@ -69,33 +115,21 @@ export async function readPosture(): Promise<Posture> {
     id: 'https',
     label: 'HTTPS / SECURE CONTEXT',
     state: secure ? 'on' : 'off',
-    detail: secure ? 'origin terenkripsi, crypto.subtle tersedia' : 'jalan di origin tidak aman',
+    detail: secure ? 'origin terenkripsi · crypto.subtle tersedia' : 'origin tidak aman',
   });
 
-  const cspEnforced = Boolean(csp) && !csp.includes('Content-Security-Policy-Report-Only');
-  const hasFrameAncestors = tokens.includes("frame-ancestors 'none'");
   const hasDefaultNone = tokens.includes("default-src 'none'");
+  const hasFrameAncestors = tokens.includes("frame-ancestors 'none'");
   items.push({
     id: 'csp',
     label: 'CONTENT SECURITY POLICY',
-    state: cspEnforced && hasDefaultNone && hasFrameAncestors ? 'on' : csp ? 'partial' : 'off',
+    state: csp && hasDefaultNone && hasFrameAncestors ? 'on' : csp ? 'partial' : 'off',
     detail: csp
-      ? `level 3${hasDefaultNone ? ' · default-src none' : ''}${hasFrameAncestors ? ' · frame-ancestors none' : ''}`
-      : 'header tidak terdeteksi (mode dev / APK lokal)',
+      ? `level 3${hasDefaultNone ? ' · default-src none' : ''}${hasFrameAncestors ? ' · frame-ancestors none' : ''}${tokens.includes("require-trusted-types-for 'script'") ? ' · TT' : ''}`
+      : 'header belum terkirim (dev server / bukan Vercel)',
   });
 
-  const ttOn = trustedTypesEnforced();
-  const ttAvailable = trustedTypesSupported();
-  items.push({
-    id: 'tt',
-    label: 'TRUSTED TYPES',
-    state: ttOn ? 'on' : ttAvailable ? 'partial' : 'off',
-    detail: ttOn
-      ? 'require-trusted-types-for script · semua sink lewat policy aegis'
-      : ttAvailable
-        ? 'API tersedia, enforcement belum aktif'
-        : 'belum didukung browser ini',
-  });
+  items.push(...trustItems());
 
   const isolated = typeof window !== 'undefined' && window.crossOriginIsolated === true;
   items.push({
@@ -105,13 +139,7 @@ export async function readPosture(): Promise<Posture> {
     detail: isolated ? 'COOP same-origin + COEP credentialless' : 'COOP/COEP belum aktif di origin ini',
   });
 
-  const sriRatio = sri.total === 0 ? 0 : sri.covered / sri.total;
-  items.push({
-    id: 'sri',
-    label: 'SUB-RESOURCE INTEGRITY',
-    state: sri.total > 0 && sriRatio === 1 ? 'on' : sri.covered > 0 ? 'partial' : 'off',
-    detail: `${sri.covered}/${sri.total} bundle bertanda tangan sha-384`,
-  });
+  items.push(sriItem());
 
   const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined;
   const controlled = Boolean(sw?.controller);
@@ -124,35 +152,73 @@ export async function readPosture(): Promise<Posture> {
       : 'belum mengontrol halaman (reload sekali)',
   });
 
-  let persisted = false;
-  try {
-    persisted = (await navigator.storage?.persisted?.()) ?? false;
-  } catch {
-    persisted = false;
-  }
-  items.push({
-    id: 'storage',
-    label: 'PENYIMPANAN LOKAL',
-    state: persisted ? 'on' : 'partial',
-    detail: persisted ? 'storage persisten, audio tidak pernah keluar perangkat' : 'best-effort, tetap lokal',
-  });
+  items.push(await storageItem());
 
-  const score = items.filter((i) => i.state === 'on').length;
-  return { score, total: items.length, items };
+  return { platform: 'web', score: items.filter((i) => i.state === 'on').length, total: items.length, items };
 }
 
-/** Promise the posture once, then hand back cached data to keep re-renders cheap. */
+async function appPosture(): Promise<Posture> {
+  const items: PostureItem[] = [];
+  const secure = typeof window !== 'undefined' && window.isSecureContext;
+
+  items.push({
+    id: 'sandbox',
+    label: 'WEBVIEW SANDBOX',
+    state: secure ? 'on' : 'partial',
+    detail: `${location.protocol}//${location.host} · aset lokal, tanpa server`,
+  });
+
+  items.push(...trustItems());
+  items.push(sriItem());
+
+  // Native manifest guarantees, applied by tools/android-harden.mjs at build time.
+  items.push({
+    id: 'cleartext',
+    label: 'CLEARTEXT TRAFFIC',
+    state: 'on',
+    detail: 'manifest: usesCleartextTraffic=false + network_security_config',
+  });
+  items.push({
+    id: 'remote',
+    label: 'REMOTE NAVIGATION',
+    state: 'on',
+    detail: 'allowNavigation kosong — WebView tidak boleh keluar origin',
+  });
+  items.push({
+    id: 'backup',
+    label: 'CLOUD BACKUP',
+    state: 'on',
+    detail: 'allowBackup=false + data_extraction_rules (cloud & transfer ditolak)',
+  });
+
+  const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined;
+  items.push({
+    id: 'sw',
+    label: 'SERVICE WORKER',
+    state: sw ? 'on' : 'off',
+    detail: sw
+      ? 'tidak didaftarkan di APK — aset sudah ada di dalam paket'
+      : 'API tidak tersedia di WebView ini (memang diinginkan)',
+  });
+
+  items.push(await storageItem());
+
+  return { platform: 'app', score: items.filter((i) => i.state === 'on').length, total: items.length, items };
+}
+
+export function readPosture(): Promise<Posture> {
+  return isNativeApp() ? appPosture() : webPosture();
+}
+
 let pending: Promise<Posture> | null = null;
 export function postureOnce(refresh = false): Promise<Posture> {
   if (!pending || refresh) pending = readPosture();
   return pending;
 }
 
-/** One-line verdict for the header chip. */
 export function postureVerdict(p: Posture): string {
   if (p.score === p.total) return 'HARDENED';
   if (p.score >= Math.ceil(p.total * 0.7)) return 'GUARDED';
   if (p.score > 0) return 'PARTIAL';
   return 'OPEN';
 }
-

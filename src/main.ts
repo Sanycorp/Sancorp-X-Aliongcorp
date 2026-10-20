@@ -13,6 +13,7 @@ import { createLab } from './ui/screens/lab';
 import { createArsenal } from './ui/screens/arsenal';
 import { createSystem, APP_VERSION } from './ui/screens/system';
 import { icon, el, toast } from './ui/elements';
+import { isNativeApp } from './security/platform';
 import {
   installMagnets,
   installNavPulse,
@@ -147,6 +148,8 @@ function boot(): void {
   app.replaceChildren(skipLink, shell, nav, routeAnnouncer, el('div', { id: 'toast-host' }));
 
   // ------------------------------------------------------------------ motion
+  document.documentElement.dataset.platform = isNativeApp() ? 'app' : 'web';
+
   const scrollMotion =
     typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
       ? CSS.supports('animation-timeline: view()')
@@ -457,6 +460,9 @@ async function initNative(): Promise<void> {
 function registerServiceWorker(): void {
   if (!import.meta.env.PROD) return;
   if (!('serviceWorker' in navigator)) return;
+  // The Android build ships its assets inside the APK; a service worker there
+  // would only add a stale-cache failure mode. Web-only on purpose.
+  if (isNativeApp()) return;
   if (location.protocol !== 'https:' && location.hostname !== 'localhost' && !Capacitor.isNativePlatform()) {
     // Vite preview over http still works; skip only for plain file://
     if (location.protocol === 'file:') return;
