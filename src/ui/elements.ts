@@ -258,7 +258,7 @@ export function segmented(
       },
       el('span', { text: o.label }),
       o.sub ? el('em', { text: o.sub }) : null,
-      o.locked ? el('i', { class: 'lock', text: 'PRO' }) : null,
+      o.locked ? el('i', { class: 'lock', text: 'PRO', attrs: { 'aria-hidden': 'true' } }) : null,
     );
     return b;
   });
@@ -278,7 +278,7 @@ export function segmented(
         if (locked) b.setAttribute('aria-disabled', 'true');
         else b.removeAttribute('aria-disabled');
         let badge = b.querySelector<HTMLElement>('.lock');
-        if (locked && !badge) b.append(el('i', { class: 'lock', text: 'PRO' }));
+        if (locked && !badge) b.append(el('i', { class: 'lock', text: 'PRO', attrs: { 'aria-hidden': 'true' } }));
         if (!locked && badge) badge.remove();
       });
     },

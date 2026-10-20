@@ -191,7 +191,7 @@ export function createDeck(): Screen {
       el('span', { class: 'preset-chip__tag', text: preset.tag }),
       el('span', { class: 'preset-chip__name', text: preset.name }),
       el('span', { class: 'preset-chip__sub', text: preset.tagline }),
-      el('i', { class: 'lock', text: 'PRO' }),
+      el('i', { class: 'lock', text: 'PRO', attrs: { 'aria-hidden': 'true' } }),
     );
     chip.dataset.preset = preset.id;
     return chip;

@@ -109,7 +109,7 @@ export function createArsenal(): Screen {
       ),
       el('p', { class: 'preset-card__detail', text: preset.detail }),
       el('div', { class: 'preset-card__foot', text: summarize(preset) }),
-      el('i', { class: 'lock lock--card', text: 'PRO' }),
+      el('i', { class: 'lock lock--card', text: 'PRO', attrs: { 'aria-hidden': 'true' } }),
     );
     cards.set(preset.id, card);
     grid.appendChild(card);

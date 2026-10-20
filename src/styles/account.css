@@ -433,13 +433,15 @@
   background: color-mix(in srgb, var(--amber) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent);
   opacity: 0;
+  visibility: hidden;
   transform: translateY(-2px);
-  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease), visibility 0.2s;
   pointer-events: none;
 }
 
 .is-locked .lock {
   opacity: 1;
+  visibility: visible;
   transform: none;
 }
 

@@ -195,7 +195,7 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sancorp-x-aliongcorp` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx` (commit `e643357`, v8.5.0) |
+| Deployment aktif | `dpl_5wnMuwHHTHc32oxkjMZnUNix2yd6` (commit `602116f`, v8.5.0) |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
@@ -219,7 +219,7 @@ walaupun log job tidak bisa diunduh dari sandbox.
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1), lalu `dpl_Fe2rvrszrxnGTraza5uBy4SEvg2V` dan `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx` (v8.5.0).
+- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1), lalu `dpl_Fe2rvrszrxnGTraza5uBy4SEvg2V`, `dpl_JDkgdgmpi5vQrJnNwoVVBpCDTJhj`, `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx`, dan `dpl_5wnMuwHHTHc32oxkjMZnUNix2yd6` (v8.5.0).
 
 ### Cara deploy berikutnya
 
