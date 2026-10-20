@@ -2,6 +2,8 @@ import { el, button, sectionHead, segmented, toast } from '../elements';
 import { session } from '../../state/session';
 import { ledger, statusOf, dayCount } from '../../state/ops';
 import type { OpsAccount, OpsFilter } from '../../state/ops';
+import { RATING_APP, dedupe, rankByTarget, ratingBook, remoteRatings, summarize, trendOf } from '../../state/rating';
+import type { Rating } from '../../state/rating';
 import { installRipple } from '../motion';
 import type { Screen } from './deck';
 import { APP_VERSION } from '../../version';
@@ -52,7 +54,7 @@ interface IssuedKey {
   expires: string;
 }
 
-type Tab = 'live' | 'accounts' | 'issue' | 'security';
+type Tab = 'live' | 'accounts' | 'rating' | 'issue' | 'security';
 
 const HEADER_CHECKS: { key: string; label: string; expect: string }[] = [
   { key: 'content-security-policy', label: 'CSP', expect: "default-src 'none'" },
@@ -96,6 +98,14 @@ export function createControl(): Screen {
   let desk: DeskState | null = null;
   let csp: CspEntry[] = [];
   let cspError = '';
+
+  // rating desk
+  let ratings: Rating[] = [];
+  let ratingSink = false;
+  let ratingSource = 'none';
+  let ratingError = '';
+  let ratingBusy = false;
+  let ratingFilter: 'all' | 'app' | 'preset' = 'all';
   let headers = HEADER_CHECKS.map((check) => ({ ...check, ok: false, value: 'belum dicek' }));
 
   // desk form state
@@ -496,6 +506,217 @@ export function createControl(): Screen {
         el('p', {
           class: 'ops-hint',
           text: 'Daftar ini hidup di perangkatmu, bukan di server. Ekspor JSON sebelum ganti HP. Yang menentukan akses tetap kunci bertanda tangan + daftar cabut di server.',
+        }),
+      ),
+    );
+  }
+
+
+  // ------------------------------------------------------------------ ratings
+  async function loadRatings(): Promise<void> {
+    ratingBusy = true;
+    ratingError = '';
+    if (tab === 'rating') render();
+    try {
+      const response = await fetch('/api/rating', { headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error(String(response.status));
+      const data = (await response.json()) as { sink?: boolean; source?: string; ratings?: Rating[] };
+      ratingSink = Boolean(data.sink);
+      ratingSource = String(data.source ?? 'none');
+      if (Array.isArray(data.ratings)) {
+        remoteRatings.merge(data.ratings);
+        ratings = data.ratings;
+      }
+    } catch {
+      ratingError =
+        'Kanal penilaian tidak terbaca sekarang. Angka di bawah memakai cache terakhir dan penilaian di perangkat ini.';
+    } finally {
+      ratingBusy = false;
+      if (tab === 'rating') render();
+    }
+  }
+
+  /** Remote first, then this device, then the last response; newest wins. */
+  function mergedRatings(): Rating[] {
+    return dedupe([...remoteRatings.all(), ...ratings, ...ratingBook.all()]);
+  }
+
+  function starGlyphs(stars: number): string {
+    return '★'.repeat(stars) + '☆'.repeat(5 - stars);
+  }
+
+  function targetLabel(target: string): string {
+    if (target === RATING_APP) return 'APLIKASI';
+    return target.replace(/-/g, ' ').toUpperCase();
+  }
+
+  function relative(at: number): string {
+    const diff = Date.now() - at;
+    const minute = 60_000;
+    if (diff < minute) return 'baru saja';
+    if (diff < 60 * minute) return `${Math.round(diff / minute)} mnt lalu`;
+    if (diff < 24 * 60 * minute) return `${Math.round(diff / (60 * minute))} jam lalu`;
+    return `${Math.round(diff / (24 * 60 * minute))} hari lalu`;
+  }
+
+  function renderRating(): void {
+    const merged = mergedRatings();
+    const scoped = merged.filter((row) =>
+      ratingFilter === 'all' ? true : ratingFilter === 'app' ? row.target === RATING_APP : row.target !== RATING_APP,
+    );
+    const summary = summarize(scoped);
+    const week = trendOf(merged, 7);
+    const weekCount = week.reduce((sum, point) => sum + point.count, 0);
+    const ranking = rankByTarget(
+      scoped.filter((row) => row.target !== RATING_APP),
+      1,
+    ).slice(0, 6);
+    const peak = Math.max(1, ...week.map((point) => point.count));
+
+    const distribution = [5, 4, 3, 2, 1].map((stars) => {
+      const count = summary.distribution[stars - 1];
+      const pct = summary.count ? Math.round((count / summary.count) * 100) : 0;
+      return el(
+        'div',
+        { class: 'rate-bar' },
+        el('span', { class: 'rate-bar__stars mono', text: `${stars}★` }),
+        el('div', { class: 'rate-bar__track' }, el('i', { class: 'rate-bar__fill', style: `width:${pct}%` })),
+        el('b', { class: 'rate-bar__num mono', text: `${count}` }),
+        el('span', { class: 'rate-bar__pct mono', text: `${pct}%` }),
+      );
+    });
+
+    const trend = week.map((point) =>
+      el(
+        'div',
+        { class: 'rate-day' },
+        el(
+          'div',
+          { class: 'rate-day__bar' },
+          el('i', { style: `height:${Math.round((point.count / peak) * 100)}%` }),
+        ),
+        el('span', { class: 'rate-day__count mono', text: point.count ? String(point.count) : '' }),
+        el('span', { class: 'rate-day__label mono', text: point.day.slice(8) }),
+      ),
+    );
+
+    const rows = scoped.slice(0, 12).map((row) =>
+      el(
+        'div',
+        { class: 'rate-row' },
+        el(
+          'div',
+          { class: 'rate-row__top' },
+          el('span', { class: 'rate-row__stars', text: starGlyphs(row.stars) }),
+          el('span', { class: 'rate-row__target mono', text: targetLabel(row.target) }),
+          el('span', { class: 'rate-row__when mono', text: relative(row.at) }),
+          el('span', {
+            class: `rate-row__tag ${row.sent ? 'is-sent' : 'is-local'}`,
+            text: row.sent ? 'TERKIRIM' : 'LOKAL',
+          }),
+        ),
+        row.note ? el('p', { class: 'rate-row__note', text: row.note }) : null,
+      ),
+    );
+
+    body.append(
+      el(
+        'div',
+        { class: 'ops-grid ops-grid--tight' },
+        statCard('RATA-RATA', summary.count ? summary.average.toFixed(2) : '—', `${summary.count} penilaian`),
+        statCard('POSITIF', summary.count ? `${Math.round(summary.positive * 100)}%` : '—', '4–5 bintang'),
+        statCard('7 HARI', String(weekCount), 'penilaian masuk'),
+        statCard('PRESET DINILAI', String(ranking.length), ranking[0] ? `teratas ${targetLabel(ranking[0].target)}` : 'belum ada'),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('04', 'KANAL PENILAIAN'),
+        el(
+          'div',
+          { class: 'ops-line' },
+          el('span', { class: `ops-dot ${ratingError ? 'is-bad' : ratingSink ? 'is-ok' : ''}` }),
+          el('b', {
+            text: ratingBusy
+              ? 'Membaca kanal…'
+              : ratingError
+                ? 'Kanal tidak terjangkau'
+                : ratingSink
+                  ? 'Kanal aktif — kiriman masuk ke issue repo'
+                  : 'Kanal baca-saja — kiriman baru disimpan di perangkat',
+          }),
+          el('span', { class: 'spacer' }),
+          button('MUAT ULANG', {
+            tone: 'ghost',
+            size: 'sm',
+            icon: 'reset',
+            onClick: () => void loadRatings(),
+          }),
+        ),
+        el(
+          'div',
+          { class: 'ctrl-kv' },
+          kv('SUMBER', ratingSource === 'github' ? 'GitHub issues · label [RATING]' : 'lokal / cache'),
+          kv('TERAKHIR DIBACA', remoteRatings.updatedAt() ? fmtTime(remoteRatings.updatedAt()) : 'belum pernah'),
+          kv('DI PERANGKAT INI', String(ratingBook.all().length)),
+          kv('CATATAN', 'Teks ulasan hanya terlihat oleh sesi operator'),
+        ),
+        ratingError ? el('p', { class: 'ops-hint', text: ratingError }) : null,
+        segmented(
+          [
+            { value: 'all', label: 'SEMUA' },
+            { value: 'app', label: 'APLIKASI' },
+            { value: 'preset', label: 'PRESET' },
+          ],
+          ratingFilter,
+          (value) => {
+            ratingFilter = value as 'all' | 'app' | 'preset';
+            render();
+          },
+        ).wrap,
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('05', 'DISTRIBUSI BINTANG'),
+        summary.count
+          ? el('div', { class: 'rate-bars' }, ...distribution)
+          : el('p', { class: 'ctrl-empty', text: 'Belum ada penilaian pada filter ini.' }),
+        el('div', {
+          class: 'ops-hint',
+          text: `Tren tujuh hari: ${weekCount} masuk · puncak harian ${peak}.`,
+        }),
+        el('div', { class: 'rate-trend' }, ...trend),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('06', 'PERINGKAT PRESET'),
+        ranking.length
+          ? el(
+              'div',
+              { class: 'rate-rank' },
+              ...ranking.map((row, index) =>
+                el(
+                  'div',
+                  { class: 'rate-rank__row' },
+                  el('span', { class: 'rate-rank__idx mono', text: String(index + 1).padStart(2, '0') }),
+                  el('span', { class: 'rate-rank__name', text: targetLabel(row.target) }),
+                  el('span', { class: 'rate-rank__score mono', text: row.summary.average.toFixed(2) }),
+                  el('span', { class: 'rate-rank__count mono', text: `${row.summary.count}×` }),
+                ),
+              ),
+            )
+          : el('p', { class: 'ctrl-empty', text: 'Belum ada preset yang dinilai.' }),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate' },
+        sectionHead('07', 'ULASAN TERBARU'),
+        rows.length ? el('div', { class: 'rate-list' }, ...rows) : el('p', { class: 'ctrl-empty', text: 'Belum ada ulasan.' }),
+        el('p', {
+          class: 'ops-hint',
+          text: 'Ulasan tampil apa adanya setelah dibersihkan dari tautan dan karakter kendali. Sumbernya issue berlabel [RATING] di repo.',
         }),
       ),
     );
@@ -953,6 +1174,7 @@ export function createControl(): Screen {
         [
           { value: 'live', label: 'LIVE' },
           { value: 'accounts', label: 'AKUN' },
+          { value: 'rating', label: 'RATING' },
           { value: 'issue', label: 'TERBIT' },
           { value: 'security', label: 'KEAMANAN' },
         ],
@@ -966,12 +1188,14 @@ export function createControl(): Screen {
             void loadDesk();
           }
           if (tab === 'accounts') void loadDesk();
+          if (tab === 'rating') void loadRatings();
         },
       ).wrap,
     );
 
     if (tab === 'live') renderLive();
     else if (tab === 'accounts') renderAccounts();
+    else if (tab === 'rating') renderRating();
     else if (tab === 'issue') renderIssue();
     else renderSecurity();
   }

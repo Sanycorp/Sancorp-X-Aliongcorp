@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — EL TZY AEGIS-M v8.6.0
+# PROJECT HANDOFF — EL TZY AEGIS-M v8.7.0
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -7,7 +7,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | | |
 | --- | --- |
 | Produk | EL TZY AEGIS-M |
-| Versi | 8.6.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.7.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -17,7 +17,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **166 test lulus** (13 file: dsp 27, engine 29, security 18, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 18, control 3, ops 8)
+- `npx vitest run` → **180 test lulus** (14 file: dsp 27, engine 29, security 18, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 18, control 3, ops 8, rating 14)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -32,7 +32,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-m-v8.6.0
+  sw.js                    # cache shell, versi aegis-m-v8.7.0
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 tools/make-icons.mjs       # generator PNG tanpa dependency + mipmap Android
 .github/workflows/android.yml
@@ -65,6 +65,8 @@ src/
     renderClient.ts worker pool 1 job; fallback sinkron
     session.ts      tier dari /api/auth, fallback FREE saat offline
     ops.ts          ledger operator: tambah/perpanjang/cabut, filter, JSON/CSV
+    rating.ts       penilaian bintang: clampNote, summarize, rankByTarget, trendOf,
+                    RatingBook (perangkat) + RemoteRatings (cache kanal)
   model/
     contact.ts      Telegram t.me/ElTzyy8, kode pesanan AEG-XXXX
   api/ (root)
@@ -72,11 +74,14 @@ src/
     _lib/revoked.js serial dicabut (ditulis tools/revoke.mjs)
     auth.js         GET/POST/DELETE sesi
     license.js      GET meja + POST issue/extend/inspect
+    rating.js       GET agregat (publik) / daftar ulasan (admin), POST kiriman
     health.js, csp-report.js
   .github/workflows/revoke.yml  ubah deny list dari HP → commit → deploy
   workers/render.worker.ts
   version.ts      APP_VERSION tunggal
   ui/
+    rating.ts     blok RATING di SYSTEM: bintang per aplikasi/preset, catatan,
+                  kirim ke /api/rating, agregat publik
     motion.ts     tween, animateValue, scramble, ripple, magnet, tilt, burst,
                   kineticTitle, installScrollChrome, installNavPulse (move/hide)
     elements.ts   el(), fader/toggle/segmented(locks)/select/button, toast
@@ -93,7 +98,7 @@ src/
     sanitize.ts   setHtml() + Trusted Types policy `aegis` (DOMPurify allowlist)
     posture.ts    pembacaan header/probe (dipakai konsol, bukan UI publik)
   styles/         base.css, primitives.css, controls.css, app.css, motion.css,
-                  security.css, account.css, control.css
+                  security.css, account.css, rating.css, control.css
                   (token fluid, breakpoint 360/720/900/1080/1440, landscape,
                    safe-area, container query, view transition, scroll-driven,
                    kinetic/reveal/ripple/tilt/spark, reduced-motion kill sheet)
@@ -167,7 +172,8 @@ Worker mengembalikan buffer hasil dengan transfer; `renderClient` mempertahankan
 - **probe.test.ts** — angka referensi (bukan assertion ketat) untuk debugging.
 - **auth.test.ts** — 18 tes: round-trip kunci, tanda tangan diubah, tier diubah, kedaluwarsa, perpanjangan (serial tetap, kunci mati bisa dihidupkan), pencabutan sesi, cookie, rate limit.
 - **ops.test.ts** — 8 tes ledger: parsing kunci, dedupe serial, perpanjangan, filter status, nilai pass, ekspor/impor JSON+CSV.
-- **control.test.ts** — 3 tes konsol: terkunci tanpa sesi, empat tab + copy meja lisensi, offline tidak pernah memberi tier.
+- **control.test.ts** — 3 tes konsol: terkunci tanpa sesi, lima tab (LIVE/AKUN/RATING/TERBIT/KEAMANAN) + copy meja lisensi, offline tidak pernah memberi tier.
+- **rating.test.ts** — 14 tes penilaian: pembulatan/clamp bintang, pembersihan catatan (tautan & kendali), ringkasan distribusi, peringkat preset, tren 7 hari, satu suara per target, id perangkat stabil, dedupe remote, ekspor JSON.
 
 ## 8. Yang belum ada / kandidat lanjutan
 
@@ -255,7 +261,37 @@ Verifikasi selalu lewat job `probe` (target dari `.vercel-url`); jangan menganda
 ### Catatan
 
 - Tim `aegis-m-eltzy` (`team_MWFOZvHuvKThmyhWF8a2LqpP`) dibuat saat uji coba lepas dari default protection. Token connector tidak berizin menghapusnya — silakan hapus manual di dashboard, tidak dipakai.
-- Empat fungsi serverless: `auth`, `license`, `health`, `csp-report`. Semuanya berbagi `api/_lib/auth.js`. Kalau feed CSP membanjir, itu tanda ada aset yang melanggar direktif.
+- Lima fungsi serverless: `auth`, `license`, `health`, `csp-report`, `rating`. Semuanya berbagi `api/_lib/auth.js`. Kalau feed CSP membanjir, itu tanda ada aset yang melanggar direktif.
 - Pencabutan: `api/_lib/revoked.js` dibaca setiap `readSession`, jadi sesi mati pada permintaan berikutnya setelah deploy. Untuk darurat tanpa deploy, isi `AEGIS_REVOKED` (dipisah koma) — nilainya dibaca saat cold start.
 - `license.js` sekarang punya tiga operasi: `issue`, `extend` (serial tetap), `inspect` (validitas kunci tanpa membocorkan rahasia). `GET` hanya mengembalikan jumlah serial dicabut, bukan daftarnya.
 
+## 12. Kanal penilaian (v8.7.0)
+
+Bintang disimpan di perangkat lebih dulu (`aegis.rating.v1`), lalu dikirim lewat
+`POST /api/rating`. Server tidak punya database, jadi kiriman diteruskan menjadi
+**issue GitHub** di repo ini dengan judul `[RATING] ★★★★☆ <target>` dan satu baris
+JSON di badan issue. Nol akun baru, nol tagihan, bisa diaudit di git.
+
+| | |
+| --- | --- |
+| Target | `app` atau id preset (`night-shift`, `mecha-protocol`, …) |
+| Satu suara | id = `<target>:<device>`; menilai ulang menimpa, bukan menambah |
+| Pembersihan | catatan ≤140 karakter, tautan & karakter kendali dibuang |
+| Batas | 6 kiriman / 10 menit per IP (per instance), 429 + `Retry-After: 600` |
+| Baca publik | `GET /api/rating` → `{summary}` saja (rata-rata, distribusi, positif) |
+| Baca operator | sesi admin → ikut `ratings[]` berisi catatan ulasan |
+| Cache | 30 detik per instance; konsol punya cache lokal `aegis.rating.remote.v1` |
+
+Mengaktifkan kanal tulis (opsional, tanpa ini rating tetap tersimpan di perangkat
+dan endpoint menjawab `202 {sink:false, stored:false}`):
+
+1. Buat fine-grained PAT dengan izin **Issues: read & write** untuk repo ini.
+2. Tambahkan env Vercel `AEGIS_FEEDBACK_TOKEN` = token tersebut.
+3. Opsional `AEGIS_FEEDBACK_REPO` bila repo dipindah (default `Sanycorp/Sancorp-X-Aliongcorp`).
+
+Konsol: tab **RATING** (04) menampilkan rata-rata, distribusi 1–5, tren tujuh
+hari, peringkat preset, dan dua belas ulasan terbaru. Tombol MUAT ULANG menarik
+ulang kanal; angka tetap tampil dari cache saat jaringan mati.
+
+Yang **tidak** dikirim: audio, nama file, kunci lisensi, tier, atau isi riwayat
+export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.

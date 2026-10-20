@@ -1,0 +1,320 @@
+/* --------------------------------------------------------------------------
+   Rating — the star block in SYSTEM and the rating desk in AEGIS OPS.
+   Same vocabulary as the rest of the cockpit: mono labels, hairline borders,
+   cobalt for the active star, crimson only for refusals.
+   -------------------------------------------------------------------------- */
+
+.rating {
+  display: grid;
+  gap: 10px;
+}
+
+.rating__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-alt);
+}
+
+.rating__row .label {
+  margin: 0;
+  min-width: 96px;
+  letter-spacing: 0.12em;
+}
+
+.rating__value {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  min-width: 74px;
+}
+
+.rating__stars {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.rating__stars[data-locked='true'] {
+  opacity: 0.45;
+}
+
+.rating__star {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 140ms var(--ease-out),
+    border-color 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
+}
+
+.rating__star:hover {
+  color: var(--cobalt);
+  transform: translateY(-1px);
+}
+
+.rating__star.is-on {
+  color: var(--cobalt);
+}
+
+.rating__star[aria-pressed='true'] {
+  border-color: var(--cobalt);
+  background: color-mix(in srgb, var(--cobalt) 10%, transparent);
+}
+
+.rating__star:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+.rating__note-wrap {
+  position: relative;
+}
+
+.rating__note {
+  width: 100%;
+  min-height: 62px;
+  resize: vertical;
+  padding: 10px 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.rating__note:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 1px;
+}
+
+.rating__count {
+  position: absolute;
+  right: 9px;
+  bottom: 7px;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+}
+
+.rating__actions {
+  display: grid;
+  gap: 8px;
+}
+
+.rating__status,
+.rating__aggregate,
+.rating__privacy {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.rating__aggregate {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  color: var(--ink);
+}
+
+.rating__privacy {
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------------- ops desk */
+
+.rate-bars {
+  display: grid;
+  gap: 7px;
+  margin: 4px 0 12px;
+}
+
+.rate-bar {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px 42px;
+  align-items: center;
+  gap: 9px;
+}
+
+.rate-bar__stars {
+  font-size: var(--fs-2xs);
+  color: var(--ink-soft);
+}
+
+.rate-bar__track {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  overflow: hidden;
+}
+
+.rate-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cobalt), color-mix(in srgb, var(--cobalt) 55%, white));
+}
+
+.rate-bar__num {
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.rate-bar__pct {
+  font-size: var(--fs-2xs);
+  text-align: right;
+  color: var(--muted);
+}
+
+.rate-trend {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  align-items: end;
+  min-height: 92px;
+  margin-top: 10px;
+}
+
+.rate-day {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.rate-day__bar {
+  display: flex;
+  align-items: flex-end;
+  height: 58px;
+  width: 100%;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  overflow: hidden;
+}
+
+.rate-day__bar i {
+  display: block;
+  width: 100%;
+  min-height: 3px;
+  background: var(--cobalt);
+}
+
+.rate-day__count,
+.rate-day__label {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+}
+
+.rate-rank {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.rate-rank__row {
+  display: grid;
+  grid-template-columns: 26px 1fr 48px 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}
+
+.rate-rank__idx {
+  color: var(--muted);
+}
+
+.rate-rank__name {
+  letter-spacing: 0.06em;
+}
+
+.rate-rank__score,
+.rate-rank__count {
+  text-align: right;
+}
+
+.rate-rank__count {
+  color: var(--muted);
+}
+
+.rate-list {
+  display: grid;
+  gap: 7px;
+}
+
+.rate-row {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-alt);
+}
+
+.rate-row__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--fs-2xs);
+}
+
+.rate-row__stars {
+  color: var(--cobalt);
+  letter-spacing: 0.1em;
+}
+
+.rate-row__target {
+  letter-spacing: 0.08em;
+}
+
+.rate-row__when {
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.rate-row__tag {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+}
+
+.rate-row__tag.is-sent {
+  color: var(--cobalt);
+  border-color: color-mix(in srgb, var(--cobalt) 45%, transparent);
+}
+
+.rate-row__tag.is-local {
+  color: var(--muted);
+}
+
+.rate-row__note {
+  margin: 6px 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rating__star {
+    transition: none;
+  }
+}

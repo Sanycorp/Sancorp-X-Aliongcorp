@@ -4,6 +4,7 @@ import './styles/controls.css';
 import './styles/app.css';
 import './styles/motion.css';
 import './styles/account.css';
+import './styles/rating.css';
 import './styles/control.css';
 
 import { store } from './state/store';

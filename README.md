@@ -1,6 +1,6 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.6.0**
+**Offline mecha audio forge — v8.7.0**
 
 > Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
 > sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.

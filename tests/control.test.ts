@@ -89,6 +89,16 @@ describe('operator console', () => {
           });
         }
         if (url.startsWith('/api/csp-report')) return jsonResponse({ count: 0, reports: [] });
+        if (url.startsWith('/api/rating')) {
+          return jsonResponse({
+            ok: true,
+            sink: false,
+            source: 'none',
+            cachedAt: 0,
+            summary: { count: 0, average: 0, distribution: [0, 0, 0, 0, 0], positive: 0 },
+            ratings: [],
+          });
+        }
         if (url.startsWith('/api/license')) return jsonResponse({ ok: true, revoked: 0, adminEnabled: true, devSecret: false, days: [1, 7, 30] });
         return jsonResponse({}, 404);
       }),
@@ -102,20 +112,26 @@ describe('operator console', () => {
     expect(screen.el.dataset.gate).toBe('open');
 
     const tabs = screen.el.querySelectorAll('.ctrl-tabs .segment button');
-    expect(Array.from(tabs).map((b) => b.textContent)).toEqual(['LIVE', 'AKUN', 'TERBIT', 'KEAMANAN']);
+    expect(Array.from(tabs).map((b) => b.textContent)).toEqual(['LIVE', 'AKUN', 'RATING', 'TERBIT', 'KEAMANAN']);
 
     // The desk mints on the server; the copy must say so.
-    (tabs[2] as HTMLButtonElement).click();
+    (tabs[3] as HTMLButtonElement).click();
     expect(screen.el.textContent).toContain('TERBITKAN KUNCI');
     expect(screen.el.textContent).toContain('HMAC-SHA256');
+
+    // Ratings are an operator view: distribution, trend and the review list.
+    (tabs[2] as HTMLButtonElement).click();
+    expect(screen.el.textContent).toContain('KANAL PENILAIAN');
+    expect(screen.el.textContent).toContain('DISTRIBUSI BINTANG');
+    expect(screen.el.textContent).toContain('PERINGKAT PRESET');
 
     // And the ledger is the operator's own device, not a database.
     (tabs[1] as HTMLButtonElement).click();
     expect(screen.el.textContent).toContain('DAFTAR AKUN');
     expect(screen.el.textContent).toContain('perangkat ini');
 
-    // Revocation and the live header probe live behind the fourth tab.
-    (tabs[3] as HTMLButtonElement).click();
+    // Revocation and the live header probe live behind the last tab.
+    (tabs[4] as HTMLButtonElement).click();
     expect(screen.el.textContent).toContain('PENCABUTAN');
     expect(screen.el.textContent).toContain('HEADER LIVE');
     expect(screen.el.textContent).toContain('LAPORAN CSP');

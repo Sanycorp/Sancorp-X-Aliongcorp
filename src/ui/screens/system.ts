@@ -17,6 +17,7 @@ import { clearSession } from '../../io/storage';
 import { session } from '../../state/session';
 import { PRO_PASS_DAYS, PRO_PRICE, planFor } from '../../model/tiers';
 import { openAccount } from '../account';
+import { createRatingGroup } from '../rating';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
 
@@ -204,11 +205,14 @@ export function createSystem(): Screen {
     );
   }
 
+  // ------------------------------------------------------------- rating
+  const ratingGroup = createRatingGroup();
+
   // ------------------------------------------------------------- about
   const aboutGroup = el(
     'div',
     { class: 'plate settings-group' },
-    sectionHead('05', 'TENTANG'),
+    sectionHead('06', 'TENTANG'),
     el(
       'div',
       { class: 'about-grid' },
@@ -272,6 +276,7 @@ export function createSystem(): Screen {
       outputGroup,
       historyGroup,
       accountGroup,
+      ratingGroup.el,
       aboutGroup,
     ),
     el('div', { class: 'footnote', text: `EL TZY AEGIS-M ${APP_VERSION} · dibuat untuk dipakai, bukan untuk di-upload` }),
@@ -322,5 +327,12 @@ export function createSystem(): Screen {
   store.trimHistory();
   update();
 
-  return { el: screen, update };
+  return {
+    el: screen,
+    update,
+    onEnter: () => {
+      ratingGroup.onEnter();
+      ratingGroup.update();
+    },
+  };
 }
