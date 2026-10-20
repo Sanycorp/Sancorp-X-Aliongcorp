@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 /**
  * Boots the real app inside jsdom. Canvas is not implemented there, so the
@@ -62,10 +62,31 @@ beforeAll(() => {
 describe('app shell', () => {
   let store: typeof import('../src/state/store').store;
 
+  const seen: string[] = [];
+  const fetchSpy = async (input: RequestInfo | URL): Promise<Response> => {
+    const url = String(input);
+    seen.push(url);
+    const body = url.startsWith('/api/auth')
+      ? { tier: 'free', exp: null, subject: null, adminEnabled: true, devSecret: false }
+      : url.startsWith('/api/health')
+        ? { ok: true, commit: 'abc1234', ref: 'main', env: 'test', region: 'local', uptimeSec: 1, now: Date.now() }
+        : {};
+    return {
+      ok: url.startsWith('/api/auth') || url.startsWith('/api/health'),
+      status: 200,
+      json: async () => body,
+      headers: new Headers({ 'content-type': 'application/json' }),
+    } as unknown as Response;
+  };
+
   beforeAll(async () => {
     document.body.innerHTML = '<div id="app"></div><div id="boot"></div>';
+    // Boot with a scripted server so the licensed path is exercised, not just
+    // the offline fallback.
+    vi.stubGlobal('fetch', fetchSpy);
     store = (await import('../src/state/store')).store;
     await import('../src/main');
+    await new Promise((r) => setTimeout(r, 30));
   });
 
   it('mounts four public screens, one hidden console, and the navigation', () => {
@@ -73,6 +94,19 @@ describe('app shell', () => {
     expect(document.querySelectorAll('.nav__btn').length).toBe(4);
     expect(document.querySelector('#screen-deck.is-active')).not.toBeNull();
     expect(document.querySelector('#toast-host')).not.toBeNull();
+  });
+
+  it('asks the server for the session on boot', () => {
+    // Guards a real regression: the session block was once nested inside
+    // store.subscribe(), so /api/auth was never called at boot.
+    expect(seen).toContain('/api/auth');
+    expect(document.querySelector('.account-chip b')?.textContent).toBe('FREE');
+  });
+
+  it('tells the console whether the admin password is configured', () => {
+    const copy = document.querySelector('#screen-control')?.textContent ?? '';
+    expect(copy).toContain('tidak ditautkan dari navigasi');
+    expect(copy).not.toContain('belum disetel');
   });
 
   it('keeps the operator console off the navigation', () => {

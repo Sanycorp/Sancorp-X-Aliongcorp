@@ -298,6 +298,17 @@ function boot(): void {
   store.subscribe(() => {
     applyTheme();
 
+    const busy = store.status.active;
+    headerStatus.className = `chip ${busy ? '' : 'chip--live'}`;
+    headerStatus.replaceChildren();
+    const chipText = busy ? store.status.stage : 'READY';
+    const chipLabel = el('b', { text: chipText });
+    if (headerStatus.textContent !== chipText) chipLabel.classList.add('chip-flip');
+    headerStatus.append(chipLabel);
+    if (busy) headerStatus.style.borderColor = 'var(--cobalt)';
+    else headerStatus.style.borderColor = '';
+  });
+
   // ------------------------------------------------------------------ session
   /**
    * A downgrade has to close the doors the previous tier opened. Stored edits
@@ -321,7 +332,10 @@ function boot(): void {
   let enforced = false;
   const onSession = (): void => {
     if (session.state.status === 'loading') return;
-    applyTierLimits();
+    // Only the server may take features away. If the check itself failed we
+    // leave the user's stored chain untouched instead of silently rewriting
+    // their settings on a flaky connection.
+    if (session.state.status === 'ready') applyTierLimits();
     if (!enforced) {
       enforced = true;
       if (session.state.status === 'offline' && session.state.tier === 'free') {
@@ -337,16 +351,6 @@ function boot(): void {
     if (document.visibilityState !== 'visible') return;
     const stale = !session.state.exp || session.state.exp - Date.now() < 86_400_000;
     if (stale) void session.refresh();
-  });
-    const busy = store.status.active;
-    headerStatus.className = `chip ${busy ? '' : 'chip--live'}`;
-    headerStatus.replaceChildren();
-    const chipText = busy ? store.status.stage : 'READY';
-    const chipLabel = el('b', { text: chipText });
-    if (headerStatus.textContent !== chipText) chipLabel.classList.add('chip-flip');
-    headerStatus.append(chipLabel);
-    if (busy) headerStatus.style.borderColor = 'var(--cobalt)';
-    else headerStatus.style.borderColor = '';
   });
   applyTheme();
 

@@ -17,7 +17,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **151 test lulus** (12 file: dsp 27, engine 29, security 19, encode 7, android 6, motion 12, responsive 12, ui 15, probe 1, tiers 7, auth 14, control 3)
+- `npx vitest run` → **153 test lulus** (12 file: dsp 27, engine 29, security 19, encode 7, android 6, motion 12, responsive 12, ui 17, probe 1, tiers 7, auth 14, control 3)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -112,7 +112,8 @@ src/
 18. Setiap kontrol yang bisa dikunci harus memanggil `openPaywall()` alih-alih diam-diam gagal.
 19. Konsol `#/control` tidak didaftarkan di `ROUTES` — hanya di `HIDDEN_ROUTES` (`ALL_ROUTE_IDS`). Tanpa tombol nav.
 20. `session.refresh()` yang gagal **wajib** jatuh ke `free`, bukan mempertahankan tier terakhir (uang tidak boleh hilang karena jaringan).
-21. Saat tier turun, `applyTierLimits()` di `main.ts` mematikan 8D/denoise/voiceMode dan mengembalikan format/target yang tidak sah.
+21. Saat tier turun, `applyTierLimits()` di `main.ts` mematikan 8D/denoise/voiceMode dan mengembalikan format/target yang tidak sah — **hanya ketika `session.state.status === 'ready'`** (jangan hapus setelan user gara-gara jaringan putus).
+22. Blok sesi di `main.ts` harus berada di level `boot()`, **bukan di dalam `store.subscribe()`**. Regresi ini pernah terjadi: `/api/auth` tidak pernah dipanggil dan konsol selalu bilang "kata sandi belum disetel". `tests/ui.test.ts` menjaga dengan memeriksa panggilan `/api/auth` saat boot.
 
 ## 5. Invarian DSP yang tidak boleh dilanggar
 
