@@ -6,7 +6,7 @@
  * makes revocation a matter of rotating the secret, and means no user data is
  * ever stored — the same promise the audio engine makes.
  */
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { REVOKED } from './revoked.js';
 
 export const COOKIE = 'aegis_sess';
@@ -148,13 +148,27 @@ export function requireAdmin(req) {
 // Licenses
 // ---------------------------------------------------------------------------
 
+/**
+ * Account ids.
+ *
+ * The serial is the customer's account id for life — renewals keep it, the
+ * ledger keys on it, and revoking it kills every device — so it has to be
+ * unique without a database to check against. 32 symbols, no I/L/O/0/1 to
+ * misread, ten of them = 50 bits: at ten thousand customers the chance of two
+ * accounts sharing an id is about one in twenty million, and a collision would
+ * only merge two accounts, never expose one.
+ *
+ * `randomBytes`, not `Math.random`: the serial is also the part a human reads
+ * out loud on Telegram, so it must not be predictable from an earlier one.
+ */
 const SERIAL_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const SERIAL_LENGTH = 10;
 
-export function randomSerial(length = 4) {
+export function randomSerial(length = SERIAL_LENGTH) {
+  const bytes = randomBytes(length);
   let out = '';
-  for (let i = 0; i < length; i += 1) {
-    out += SERIAL_ALPHABET[Math.floor(Math.random() * SERIAL_ALPHABET.length)];
-  }
+  // 32 symbols divides 256 exactly, so a modulo byte has no bias.
+  for (let i = 0; i < length; i += 1) out += SERIAL_ALPHABET[bytes[i] % SERIAL_ALPHABET.length];
   return out;
 }
 
@@ -176,7 +190,7 @@ const dateStamp = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, 
 
 /** `AEGIS-PRO-7F3K-20271120-9K2M4Q` */
 export function makeLicense(tier, days) {
-  return formatLicense(tier, randomSerial(4), dateStamp(Date.now() + days * 86400_000));
+  return formatLicense(tier, randomSerial(), dateStamp(Date.now() + days * 86400_000));
 }
 
 /**
@@ -197,7 +211,9 @@ export function verifyLicense(raw, options = {}) {
   const [, tierRaw, serial, expires, sig] = parts;
   const tier = tierRaw.toLowerCase();
   if (tier !== 'pro' && tier !== 'admin') return null;
-  if (!/^[A-Z0-9]{4}$/.test(serial)) return null;
+  // Four-symbol serials are the v8.x format and must keep working: those keys
+  // were sold, and a format upgrade may never lock a paying customer out.
+  if (!/^(?:[A-Z0-9]{4}|[A-Z0-9]{10})$/.test(serial)) return null;
   if (!/^\d{8}$/.test(expires)) return null;
   const expected = licenseSignature(tier, serial, expires);
   if (!safeEqual(sig, expected)) return null;

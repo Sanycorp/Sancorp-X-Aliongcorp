@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.2
+# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.3
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -9,7 +9,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | Produk | Aegis Sound Lab |
 | Perusahaan | Sanayacorp (logo & identitas induk) |
 | Master ikon | `brand/aegis-music-icon.png` → `npm run icons` → `public/icons/*` + `store/icon-512.png` |
-| Versi | 8.9.2 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.9.3 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -34,7 +34,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.2
+  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.3
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
 tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
@@ -306,6 +306,27 @@ ulang kanal; angka tetap tampil dari cache saat jaringan mati.
 
 Yang **tidak** dikirim: audio, nama file, kunci lisensi, tier, atau isi riwayat
 export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.
+
+## 12c. ID akun premium (v8.9.3)
+
+Serial di dalam kunci lisensi **adalah** id akun: dipakai ledger, dipertahankan
+saat perpanjangan, dan jadi sasaran pencabutan. Karena tidak ada database untuk
+mengecek duplikat, id itu harus unik dengan sendirinya.
+
+| | v8.9.2 | v8.9.3 |
+| --- | --- | --- |
+| Sumber acak | `Math.random()` | `crypto.randomBytes()` |
+| Panjang | 4 simbol (36⁴ ≈ 1,7 jt) | **10 simbol (2⁵⁰ ≈ 1,1 kuadriliun)** |
+| Alfabet | A–Z + 2–9 | A–Z tanpa I/L/O + 2–9 (tanpa 0/1) |
+| Bentuk | `AEGIS-PRO-AB12-20301231-ZWVX26` | `AEGIS-PRO-7QK4M2XP9T-20301231-ZWVX26` |
+
+32 simbol membagi 256 dengan pas, jadi `byte % 32` tidak berbias. Kunci lama
+dengan serial 4 simbol tetap diterima (`verifyLicense` menerima keduanya) —
+pelanggan yang sudah bayar tidak boleh terkunci oleh naiknya format.
+
+`DAFTAR AKUN` mendapat tombol **BUAT AKUN PRO**: satu ketuk menerbitkan pass 30
+hari, menamai akun `USER-<4 simbol pertama>`, memasukkannya ke ledger, dan
+menyalin kunci ke clipboard. Tidak ada yang diketik.
 
 ## 12b. Kunci operator (v8.9.2)
 

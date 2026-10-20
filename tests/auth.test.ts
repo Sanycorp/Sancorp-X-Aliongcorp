@@ -5,6 +5,7 @@ import {
   SESSION_DAYS,
   extendLicense,
   isRevoked,
+  formatLicense,
   makeLicense,
   REVOKED_SERIALS,
   parseCookies,
@@ -22,11 +23,36 @@ const DAY = 86_400_000;
 describe('license keys', () => {
   it('round-trips a freshly minted key', () => {
     const licence = makeLicense('pro', 365);
-    expect(licence.key).toMatch(/^AEGIS-PRO-[A-Z0-9]{4}-\d{8}-[A-Z0-9]{6}$/);
+    expect(licence.key).toMatch(/^AEGIS-PRO-[A-Z0-9]{10}-\d{8}-[A-Z0-9]{6}$/);
     const verified = verifyLicense(licence.key);
     expect(verified).not.toBeNull();
     expect(verified!.tier).toBe('pro');
     expect(verified!.serial).toBe(licence.serial);
+  });
+
+  it('mints account ids from the crypto source, ten symbols, no look-alikes', () => {
+    const serials = new Set<string>();
+    for (let i = 0; i < 500; i += 1) {
+      const { serial } = makeLicense('pro', 30);
+      // I, L, O, 0 and 1 are out of the alphabet on purpose: the id gets read
+      // aloud on Telegram and copied off a screenshot.
+      expect(serial).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$/);
+      expect(serial).toHaveLength(10);
+      serials.add(serial);
+    }
+    expect(serials.size).toBe(500);
+  });
+
+  it('keeps accepting the four-symbol ids already sold', () => {
+    const legacy = formatLicense('pro', 'AB12', '20301231').key;
+    const verified = verifyLicense(legacy);
+    expect(verified).not.toBeNull();
+    expect(verified!.serial).toBe('AB12');
+  });
+
+  it('rejects a serial of the wrong length instead of guessing', () => {
+    expect(verifyLicense(formatLicense('pro', 'ABC', '20301231').key)).toBeNull();
+    expect(verifyLicense(formatLicense('pro', 'ABCDEFGHIJK', '20301231').key)).toBeNull();
   });
 
   it('accepts lowercase and padded input (people paste by hand)', () => {

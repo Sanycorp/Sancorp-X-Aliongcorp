@@ -259,6 +259,35 @@ export function createControl(): Screen {
     render();
   }
 
+  /**
+   * One tap: mint a PRO pass and land it in the account list. No serial to type,
+   * no key to paste — the desk generates a crypto-random id, the ledger names the
+   * account after it, and the key is already on the clipboard for Telegram.
+   */
+  async function quickAccount(): Promise<void> {
+    const data = await postDesk({ op: 'issue', tier: 'pro', days: 30, count: 1 });
+    if (!data) return;
+    const [issued] = (data.keys as IssuedKey[]) ?? [];
+    if (!issued) {
+      toast('Kunci tidak terbit', 'err', 2000);
+      return;
+    }
+    const account = ledger.add({
+      key: issued.key,
+      handle: `USER-${issued.serial.slice(0, 4)}`,
+      days: 30,
+      passes: 1,
+      note: 'dibuat satu ketuk',
+    });
+    if (!account) {
+      toast('Kunci terbit tapi gagal masuk daftar', 'err', 2400);
+      return;
+    }
+    copy(issued.key, `Akun ${account.serial} dibuat — kunci disalin`);
+    query = '';
+    render();
+  }
+
   async function renew(account: OpsAccount): Promise<void> {
     const data = await postDesk({ op: 'extend', key: account.key, days: 30 });
     if (!data) return;
@@ -443,8 +472,15 @@ export function createControl(): Screen {
               },
             },
           }),
+          button('BUAT AKUN PRO', {
+            tone: 'primary',
+            size: 'sm',
+            icon: 'bolt',
+            title: 'Terbitkan pass PRO 30 hari dan masukkan ke daftar akun',
+            onClick: () => void quickAccount(),
+          }),
           button(showLink ? 'TUTUP' : '+ TAUTKAN KUNCI', {
-            tone: showLink ? 'ghost' : 'primary',
+            tone: 'ghost',
             size: 'sm',
             onClick: () => {
               showLink = !showLink;
