@@ -234,7 +234,7 @@ export function encodeFlac(audio: Stereo, meta: Record<string, string> = {}): Bl
   // Optional VORBIS_COMMENT block with tags (type 4, not last).
   const tags = Object.entries(meta);
   if (tags.length > 0) {
-    const vendor = new TextEncoder().encode('SANAYACORP AEGIS MUSIC');
+    const vendor = new TextEncoder().encode('SANAYACORP AEGIS SOUND LAB');
     const parts: number[] = [];
     const u32le = (n: number) => parts.push(n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, (n >>> 24) & 0xff);
     u32le(vendor.length);

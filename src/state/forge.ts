@@ -155,10 +155,10 @@ export async function forgeExport(): Promise<void> {
     const presetName = presetById(edit.activePreset)?.name ?? 'CUSTOM';
     const meta: Record<string, string> = {
       artist: 'Sanayacorp',
-      album: 'Aegis Music',
+      album: 'Aegis Sound Lab',
       title: `ELTZY ${safeName(source.name)}`,
-      comment: `Aegis Music v8|preset=${presetName}|target=${edit.target}|trim=${result.trimDb.toFixed(2)}dB|hash=${hash}`,
-      software: `Sanayacorp Aegis Music ${APP_VERSION}`,
+      comment: `Aegis Sound Lab v8|preset=${presetName}|target=${edit.target}|trim=${result.trimDb.toFixed(2)}dB|hash=${hash}`,
+      software: `Sanayacorp Aegis Sound Lab ${APP_VERSION}`,
     };
     const encoded = await encode(result.audio, edit.format, edit.bitrate, meta);
     const name = outputName(edit, source, encoded.ext);

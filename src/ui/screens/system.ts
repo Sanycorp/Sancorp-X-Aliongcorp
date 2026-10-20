@@ -221,7 +221,7 @@ export function createSystem(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'brand-block__name', text: 'AEGIS MUSIC' }),
+        el('div', { class: 'brand-block__name', text: 'AEGIS SOUND LAB' }),
         el('div', { class: 'brand-block__co', text: 'Produk Sanayacorp' }),
         el('div', { class: 'brand-block__line', text: 'Forge audio offline untuk web dan PWA.' }),
       ),
@@ -229,7 +229,7 @@ export function createSystem(): Screen {
     el(
       'div',
       { class: 'about-grid' },
-      infoCell('APP', 'AEGIS MUSIC'),
+      infoCell('APP', 'AEGIS SOUND LAB'),
       infoCell('PERUSAHAAN', 'SANAYACORP'),
       infoCell('VERSI', APP_VERSION),
       infoCell('ENGINE', 'TS 7 · Vite 8'),
@@ -278,7 +278,7 @@ export function createSystem(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS MUSIC / CONTROL ROOM' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / CONTROL ROOM' }),
         el('h1', { class: 'screen__title', html: 'SYSTEM <em>CONTROL</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'OFFLINE' }))),
@@ -293,7 +293,7 @@ export function createSystem(): Screen {
       ratingGroup.el,
       aboutGroup,
     ),
-    el('div', { class: 'footnote', text: `Aegis Music ${APP_VERSION} · Sanayacorp · dibuat untuk dipakai, bukan untuk di-upload` }),
+    el('div', { class: 'footnote', text: `Aegis Sound Lab ${APP_VERSION} · Sanayacorp · dibuat untuk dipakai, bukan untuk di-upload` }),
   );
 
   function renderHistory(): void {

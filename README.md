@@ -1,6 +1,6 @@
-# AEGIS MUSIC · SANAYACORP
+# AEGIS SOUND LAB · SANAYACORP
 
-**Offline mecha audio forge — v8.8.0**
+**Offline mecha audio forge — v8.9.0**
 
 > Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
 > sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.
@@ -10,13 +10,13 @@ dalam perangkat** — tidak ada file yang diunggah dan tidak ada pelacakan latar
 Jaringan hanya dipakai untuk memeriksa lisensi, membaca rata-rata penilaian, dan
 mengirim penilaian saat tombolnya ditekan.
 
-**Aegis Music** adalah produk **Sanayacorp**. Logo perusahaan (phoenix + perisai
+**Aegis Sound Lab** adalah produk **Sanayacorp**. Logo perusahaan (phoenix + perisai
 + huruf S) ada di `brand/aegis-music-icon.png`; seluruh ikon aplikasi diturunkan
 dari berkas itu lewat `npm run icons`, jadi jangan pernah mengedit PNG di
 `public/icons/` secara manual.
 
 <p align="center">
-  <img src="store/icon-512.png" width="132" alt="Aegis Music icon" />
+  <img src="store/icon-512.png" width="132" alt="Aegis Sound Lab icon" />
 </p>
 
 ---

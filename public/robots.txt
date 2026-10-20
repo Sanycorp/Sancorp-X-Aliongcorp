@@ -1,4 +1,4 @@
-# Aegis Music (Sanayacorp) — static, offline-first audio tool.
+# Aegis Sound Lab (Sanayacorp) — static, offline-first audio tool.
 User-agent: *
 Allow: /
 Disallow: /api/

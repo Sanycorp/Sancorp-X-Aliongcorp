@@ -1,5 +1,5 @@
 /**
- * Shared auth primitives for the Aegis Music (Sanayacorp) license server.
+ * Shared auth primitives for the Aegis Sound Lab (Sanayacorp) license server.
  *
  * There is no database on purpose: a license is a self-contained HMAC-signed
  * string, and a session is a signed cookie. That keeps the deployment static,

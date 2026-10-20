@@ -136,7 +136,7 @@ export function createControl(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS MUSIC / OPERATIONS' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / OPERATIONS' }),
         el('h1', { class: 'screen__title', html: 'AEGIS <em>OPS</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'ADMIN' })), stamp),
@@ -144,7 +144,7 @@ export function createControl(): Screen {
     gate,
     tabsHost,
     body,
-    el('div', { class: 'footnote', text: `Konsol operator · Aegis Music ${APP_VERSION} · Sanayacorp · data dibaca live dari deployment ini` }),
+    el('div', { class: 'footnote', text: `Konsol operator · Aegis Sound Lab ${APP_VERSION} · Sanayacorp · data dibaca live dari deployment ini` }),
   );
 
   installRipple(screen);

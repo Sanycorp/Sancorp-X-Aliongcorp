@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Aegis Music — Sanayacorp",
-  "short_name": "Aegis Music",
-  "description": "Aegis Music by Sanayacorp — offline mecha audio forge — slowed, nightcore, 8D, reverb, mastering. Semua proses di perangkat, nol upload.",
+  "name": "Aegis Sound Lab — Sanayacorp",
+  "short_name": "Aegis Sound",
+  "description": "Aegis Sound Lab oleh Sanayacorp — forge audio offline: slowed, nightcore, 8D, reverb, mastering. Semua proses di perangkat, nol upload.",
   "lang": "id",
   "dir": "ltr",
   "start_url": "./",

@@ -112,7 +112,7 @@ await mkdir(resXml, { recursive: true });
 await writeFile(
   join(resXml, 'network_security_config.xml'),
   `<?xml version="1.0" encoding="utf-8"?>
-<!-- Aegis Music: the APK is fully offline. No cleartext, ever, for any host. -->
+<!-- Aegis Sound Lab: the APK is fully offline. No cleartext, ever, for any host. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>

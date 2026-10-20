@@ -107,6 +107,6 @@ export function brandMark(size = 30): HTMLElement {
 export function brandPlate(size = 64): HTMLElement {
   const host = document.createElement('div');
   host.className = 'brand-plate';
-  host.appendChild(seal(size, 'Aegis Music — Sanayacorp'));
+  host.appendChild(seal(size, 'Aegis Sound Lab — Sanayacorp'));
   return host;
 }

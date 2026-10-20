@@ -115,8 +115,8 @@ describe('manifest', () => {
   const manifest = JSON.parse(readFileSync(join(ROOT, 'public/manifest.webmanifest'), 'utf8'));
 
   it('names the product, not the company', () => {
-    expect(manifest.name).toContain('Aegis Music');
-    expect(manifest.short_name).toBe('Aegis Music');
+    expect(manifest.name).toContain('Aegis Sound Lab');
+    expect(manifest.short_name).toBe('Aegis Sound');
     expect(manifest.short_name.length).toBeLessThanOrEqual(12);
   });
 

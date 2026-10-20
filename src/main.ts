@@ -91,8 +91,8 @@ function boot(): void {
   );
 
   const mark = brandMark(30);
-  const brandName = el('div', { class: 'brand__name', text: 'SANAYACORP' });
-  const brandSub = el('div', { class: 'brand__sub', html: `AEGIS MUSIC <b>${APP_VERSION}</b>` });
+  const brandName = el('div', { class: 'brand__name', text: 'AEGIS SOUND LAB' });
+  const brandSub = el('div', { class: 'brand__sub', html: `SANAYACORP <b>${APP_VERSION}</b>` });
   const headerStatus = el('span', { class: 'chip chip--live' }, el('b', { text: 'READY' }));
   const starBtn = el(
     'button',
@@ -238,7 +238,7 @@ function boot(): void {
       btn.setAttribute('aria-selected', String(btn.dataset.route === id));
     }
     document.documentElement.dataset.route = id;
-    document.title = `AEGIS MUSIC · ${id.toUpperCase()}`;
+    document.title = `AEGIS SOUND LAB · ${id.toUpperCase()}`;
     routeAnnouncer.textContent = `Layar ${ROUTES.find((r) => r.id === id)?.label ?? 'Kontrol'}`;
     const navIndex = ROUTES.findIndex((r) => r.id === id);
     if (navIndex >= 0) navPulse.move(navIndex);
