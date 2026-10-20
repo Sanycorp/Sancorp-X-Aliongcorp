@@ -4,6 +4,10 @@ name: probe
 # demand. No secrets required: everything here is what an anonymous visitor —
 # or an attacker — can already see.
 #
+# Only pushes that touch build inputs are graded. Deployments are created by
+# hand from the connector, so a docs/CI push never has one to wait for; the gate
+# turns those runs into a no-op instead of a four-minute timeout.
+#
 # A red run opens (or bumps) a labelled issue, so a broken deploy surfaces as a
 # notification instead of a log nobody opens.
 #
@@ -47,12 +51,41 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The gate diffs the pushed range, which needs the parent commit.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
+      - name: Check whether this push can change production
+        id: gate
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != "push" ] || [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "no usable range: grading"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BEFORE" "$AFTER" -- \
+            'src/**' 'api/**' 'public/**' 'index.html' 'vercel.json' \
+            'package.json' 'package-lock.json' || true)
+          if [ -n "$changed" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "build inputs changed:"
+            echo "$changed"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "no build inputs in this push: nothing to grade"
+          fi
+
       - name: Wait for this commit to be live
+        if: steps.gate.outputs.run == 'true'
         env:
           SHA: ${{ github.sha }}
         run: |
@@ -71,6 +104,7 @@ jobs:
           exit 1
 
       - name: Probe
+        if: steps.gate.outputs.run == 'true'
         run: node tools/probe-prod.mjs "${{ inputs.origin || 'https://sanayacorp-aegismusic.vercel.app' }}"
 
       - name: Raise an alert issue
@@ -103,5 +137,6 @@ jobs:
             echo "### Production probe"
             echo ""
             echo "Origin: \`${{ inputs.origin || 'https://sanayacorp-aegismusic.vercel.app' }}\`"
+            echo "Graded: **${{ steps.gate.outputs.run == 'true' && 'yes' || 'no — no build inputs in this push' }}**"
             echo "Result: **${{ job.status }}**"
           } >> "$GITHUB_STEP_SUMMARY"

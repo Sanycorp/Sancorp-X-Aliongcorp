@@ -230,7 +230,7 @@ ffmpeg -v error -i hasil.flac -f null -
 7. `/api/auth` → `tier: free`, **`devSecret: false`** (AEGIS_SECRET terpasang), **`adminEnabled: true`** (AEGIS_ADMIN_PASSWORD terpasang)
 8. `/api/license` (GET meja & POST terbit) dan `GET /api/csp-report` menolak anonim (403), kunci palsu ditolak (401) tanpa Set-Cookie
 
-Catatan operasional: `probe` hanya jalan untuk push yang menyentuh `src/`, `api/`, `public/`, `index.html`, `vercel.json`, `package*.json`, `tools/probe-prod.mjs`, atau `.vercel-url`. Deploy tetap manual lewat connector, jadi setelah push yang menyentuh build, buat deployment sebelum probe kehabisan waktu tunggu (4 menit). Kegagalan membuka/comment issue berlabel `monitor`.
+Catatan operasional: `probe` punya dua lapis penyaring. Lapis pertama `paths:` di trigger; lapis kedua langkah **gate** yang men-diff rentang push dan hanya menilai kalau `src/`, `api/`, `public/`, `index.html`, `vercel.json`, atau `package*.json` ikut berubah. Push dokumen/CI jadi no-op yang tetap hijau, bukan timeout empat menit. Deploy tetap manual lewat connector, jadi setelah push yang menyentuh build, buat deployment sebelum probe kehabisan waktu tunggu (4 menit). Kegagalan membuka/comment issue berlabel `monitor`.
 
 Kirim kegagalan sebagai annotation (`::error`) supaya tetap terbaca lewat API check-runs. Probe run terakhir: `39396855403` (push `5c39de9`) — **success**, 18/18 pemeriksaan, hanya annotation `warning` (Node 20) dan `notice` (runner Ubuntu)
 walaupun log job tidak bisa diunduh dari sandbox.
