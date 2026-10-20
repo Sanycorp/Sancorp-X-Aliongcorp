@@ -2,6 +2,7 @@ import './styles/base.css';
 import './styles/primitives.css';
 import './styles/controls.css';
 import './styles/app.css';
+import './styles/motion.css';
 
 import { store } from './state/store';
 import { resolveFinish } from './model/settings';
@@ -11,6 +12,14 @@ import { createLab } from './ui/screens/lab';
 import { createArsenal } from './ui/screens/arsenal';
 import { createSystem, APP_VERSION } from './ui/screens/system';
 import { icon, el, toast } from './ui/elements';
+import {
+  installMagnets,
+  installNavPulse,
+  installRipple,
+  installScrollChrome,
+  installTilt,
+  kineticTitle,
+} from './ui/motion';
 import type { Screen } from './ui/screens/deck';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -136,6 +145,24 @@ function boot(): void {
 
   app.replaceChildren(skipLink, shell, nav, routeAnnouncer, el('div', { id: 'toast-host' }));
 
+  // ------------------------------------------------------------------ motion
+  const scrollMotion =
+    typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+      ? CSS.supports('animation-timeline: view()')
+      : false;
+  if (scrollMotion) document.documentElement.dataset.scrollMotion = '1';
+
+  const navPulse = installNavPulse(nav);
+  installRipple(document);
+  installScrollChrome(header);
+  // Pointer-only effects, attached once; they no-op on touch devices.
+  requestAnimationFrame(() => {
+    installMagnets(document);
+    installTilt(document);
+  });
+
+  const kineticDone = new Set<RouteId>();
+
   // ------------------------------------------------------------------ theme
   let resolvedFinish = resolveFinish(store.settings.finish);
 
@@ -195,6 +222,16 @@ function boot(): void {
     document.documentElement.dataset.route = id;
     document.title = `EL TZY AEGIS-M · ${id.toUpperCase()}`;
     routeAnnouncer.textContent = `Layar ${ROUTES.find((r) => r.id === id)?.label ?? id}`;
+    navPulse.move(ROUTES.findIndex((r) => r.id === id));
+    if (!kineticDone.has(id)) {
+      kineticDone.add(id);
+      const title = screens[id].el.querySelector<HTMLElement>('.screen__title');
+      if (title) kineticTitle(title);
+    }
+    // Re-attach pointer effects to controls created on this screen.
+    const activeScreen = screens[id].el;
+    installMagnets(activeScreen);
+    installTilt(activeScreen);
     window.scrollTo({ top: 0, behavior: 'auto' });
     revealVisible();
   };
@@ -245,7 +282,10 @@ function boot(): void {
     const busy = store.status.active;
     headerStatus.className = `chip ${busy ? '' : 'chip--live'}`;
     headerStatus.innerHTML = '';
-    headerStatus.append(el('b', { text: busy ? store.status.stage : 'READY' }));
+    const chipText = busy ? store.status.stage : 'READY';
+    const chipLabel = el('b', { text: chipText });
+    if (headerStatus.textContent !== chipText) chipLabel.classList.add('chip-flip');
+    headerStatus.append(chipLabel);
     if (busy) headerStatus.style.borderColor = 'var(--cobalt)';
     else headerStatus.style.borderColor = '';
   });
@@ -293,6 +333,14 @@ function boot(): void {
   // ------------------------------------------------------------------ reveal on scroll
   setupReveal();
   revealVisible();
+
+  window.addEventListener(
+    'resize',
+    () => {
+      navPulse.move(ROUTES.findIndex((r) => r.id === activeRoute));
+    },
+    { passive: true },
+  );
 
   // ------------------------------------------------------------------ swipe between screens
   let touchStart: { x: number; y: number; at: number; ignore: boolean } | null = null;

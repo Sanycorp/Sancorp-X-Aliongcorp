@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — EL TZY AEGIS-M v8.1.0
+# PROJECT HANDOFF — EL TZY AEGIS-M v8.2.0
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -7,7 +7,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | | |
 | --- | --- |
 | Produk | EL TZY AEGIS-M |
-| Versi | 8.1.0 (`package.json` + `src/version.ts` → `APP_VERSION`) |
+| Versi | 8.2.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -17,7 +17,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **88 test lulus** (dsp 27, engine 29, encode 7, responsive 12, ui 12, probe 1)
+- `npx vitest run` → **100 test lulus** (dsp 27, engine 29, encode 7, motion 12, responsive 12, ui 12, probe 1)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -32,7 +32,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-m-v8.1.0
+  sw.js                    # cache shell, versi aegis-m-v8.2.0
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 tools/make-icons.mjs       # generator PNG tanpa dependency + mipmap Android
 .github/workflows/android.yml
@@ -66,14 +66,17 @@ src/
   workers/render.worker.ts
   version.ts      APP_VERSION tunggal
   ui/
+    motion.ts     tween, animateValue, scramble, ripple, magnet, tilt, burst,
+                  kineticTitle, installScrollChrome, installNavPulse
     elements.ts   el(), fader/toggle/segmented/select/button, toast
     waveform.ts   canvas timeline + trim handles
     scope.ts      oscilloscope
     haptics.ts
     screens/      deck.ts, lab.ts, arsenal.ts, system.ts
-  styles/         base.css, primitives.css, controls.css, app.css
+  styles/         base.css, primitives.css, controls.css, app.css, motion.css
                   (token fluid, breakpoint 360/720/900/1080/1440, landscape,
-                   safe-area, container query, view transition)
+                   safe-area, container query, view transition, scroll-driven,
+                   kinetic/reveal/ripple/tilt/spark, reduced-motion kill sheet)
   assets/fonts/   Chakra Petch ×4, Share Tech Mono + OFL
 ```
 
@@ -86,6 +89,9 @@ src/
 5. Reveal-on-scroll harus selalu punya fallback `is-in` (sudah di `setupReveal`).
 6. Dock hanya tampil pada `[data-route='deck']` dan disembunyikan ≥900 px.
 7. `finish: 'auto'` wajib lewat `resolveFinish()`; jangan baca `settings.finish` mentah untuk warna.
+8. Semua animasi baru harus punya pasangan di kill-sheet `motion.css` (`prefers-reduced-motion` + `[data-motion='reduced']`).
+9. Animasi re-trigger hanya dari perubahan state nyata. Deck meng-cache tag/pipeline DOM (`lastTagSig`, `lastPipeSig`) supaya `store.emit()` tidak memutar ulang animasi.
+10. `tween()` meng-anchor timeline di frame pertama; jangan pakai `performance.now()` sebagai start (rAF punya clock sendiri, dan jsdom berbeda).
 
 ## 5. Invarian DSP yang tidak boleh dilanggar
 
@@ -123,6 +129,7 @@ Worker mengembalikan buffer hasil dengan transfer; `renderClient` mempertahankan
 - **ui.test.ts** — boot jsdom, 4 layar, 14 chip/preset, routing, apply preset, fader, theme toggle, forge tanpa source tidak crash, persist localStorage.
 - **responsive.test.ts** — audit statis CSS: clamp, breakpoint, safe-area, larangan 100vw, target ≥44 px, hover gating, reduced motion, dock, view transition.
 - **ui.test.ts** — boot jsdom, 4 layar, 14 chip/preset, routing, preset, fader, siklus tema auto→armor→cockpit, dock + meter + skeleton, persistensi.
+- **motion.test.ts** — tween selesai + `onDone`, retarget `animateValue`, decode `scramble`, ripple muncul/hilang, `kineticTitle` tidak double-wrap, spark canvas tunggal, dan semua jalur instan saat Reduce Motion.
 - **probe.test.ts** — angka referensi (bukan assertion ketat) untuk debugging.
 
 ## 8. Yang belum ada / kandidat lanjutan

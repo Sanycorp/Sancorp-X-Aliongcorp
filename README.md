@@ -1,6 +1,6 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.1.0**
+**Offline mecha audio forge — v8.2.0**
 
 Slowed + reverb, nightcore, 8D orbit, club masters. Semua diproses **di dalam perangkat**, nol upload, nol server, nol telemetry.
 
@@ -37,6 +37,22 @@ Tidak ada lagi ZIP, tidak ada bot build, tidak ada upload ke server.
 | **Preset** | 14 loadout tervalidasi (lihat di bawah). |
 | **UI** | Tiga mode tampilan: **AUTO** (ikut tema sistem), **ARMOR** (putih), **COCKPIT** (hitam). Aksen cobalt/crimson/amber. |
 | **Layout** | Fluid dari 320 px sampai 1440 px: tipografi `clamp()`, container query, safe-area notch, mode landscape, dock aksi di HP, nav pill di desktop. |
+
+### Motion system
+
+Semua animasi dijalankan di compositor (`transform` / `opacity`), tidak ada layout thrash, dan semuanya berhenti saat Reduce Motion aktif atau OS memintanya.
+
+| Lapisan | Detail |
+| --- | --- |
+| **Kinetic heading** | Judul layar dipecah per huruf, masuk dengan rotasi 3D + blur → tajam, delay 22 ms per karakter. `aria-label` tetap satu supaya screen reader tidak mengeja. |
+| **Scroll-driven** | `animation-timeline: view()` membuat setiap plate naik dan fokus saat masuk viewport — digerakkan posisi scroll, bukan JS. Fallback IntersectionObserver untuk browser lama. |
+| **Number tweening** | LUFS, true peak, trim, persentase dock, dan sel master dianimasikan dari nilai yang sedang tampil, bukan dari nol. |
+| **Text decode** | Nama preset dan status export di-resolve dari glyph acak ala HUD. |
+| **Ripple + magnet** | Ripple radial mengikuti titik tap; tombol utama (FORGE, dock, primary) sedikit tertarik ke kursor. Touch device otomatis dilewati. |
+| **Tilt + spotlight** | Kartu preset miring 5–6° mengikuti kursor dengan sorotan radial; plate punya spotlight via `@property --spot`. |
+| **Spark burst** | Ledakan pecahan cobalt/crimson/putih saat export selesai, di kanvas terpisah yang langsung berhenti ketika partikel habis. |
+| **Live chrome** | Progress bar scroll di bawah header, header memadat saat scroll, indikator tab meluncur dengan spring, aurora parallax. |
+| **State motion** | Stage pip memantul berurutan, tag chain pop-in, baris pipeline slide, kartu arsenal cascade, progress meter bergaris berjalan, meter LUFS mengalir. |
 
 ### Antarmuka adaptif
 
@@ -98,7 +114,7 @@ Tidak ada loudness normalisation dinamis. Selisih 12 dB antara bagian keras dan 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 88 tes: DSP, engine, encoder, UI (jsdom), audit responsive
+npm test           # 100 tes: DSP, engine, encoder, UI (jsdom), motion, audit responsive
 npm run typecheck
 npm run build      # bundle produksi di dist/
 npm run icons      # regenerate ikon PWA + Android mipmaps

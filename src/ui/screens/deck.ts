@@ -17,6 +17,7 @@ import {
 } from '../elements';
 import { createWaveform } from '../waveform';
 import { createScope } from '../scope';
+import { animateValue, burst, scramble } from '../motion';
 
 const STAGE_ORDER = ['CLEAN', 'TONE', 'SPACE', 'WARMTH', 'MASTER', 'LIMIT'];
 
@@ -309,7 +310,11 @@ export function createDeck(): Screen {
   );
 
   // ---------------------------------------------------------------- progress
-  const stagePips = STAGE_ORDER.map(() => el('div', { class: 'stage-pip' }));
+  const stagePips = STAGE_ORDER.map((_, i) => {
+    const pip = el('div', { class: 'stage-pip' });
+    pip.style.setProperty('--i', String(i));
+    return pip;
+  });
   const progressFill = el('div', { class: 'meter__fill' });
   const progressStage = el('span', { class: 'progress-plate__stage', text: 'IDLE' });
   const progressPct = el('span', { class: 'progress-plate__pct', text: '0%' });
@@ -382,7 +387,11 @@ export function createDeck(): Screen {
     }
     const pct = pctOf(stats.lufs);
     lufsFill.style.width = `${pct}%`;
-    lufsValue.textContent = `${stats.lufs.toFixed(1)} LUFS · TP ${stats.truePeak.toFixed(1)}`;
+    animateValue(
+      lufsValue,
+      stats.lufs,
+      (n) => `${n.toFixed(1)} LUFS · TP ${stats.truePeak.toFixed(1)}`,
+    );
     lufsMeter.dataset.state = target != null && stats.lufs > target + 1 ? 'over' : 'ok';
   }
 
@@ -528,6 +537,7 @@ export function createDeck(): Screen {
         : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5l11 7-11 7z"/></svg>'
     }</span>`;
     playBtn.setAttribute('aria-label', player.playing ? 'Jeda preview' : 'Putar hasil');
+    wave.el.classList.toggle('is-playing', player.playing);
     if (!player.playing) {
       const total = player.duration;
       timeLabel.textContent = `${formatDuration(player.position, true)} / ${formatDuration(total, true)}`;
@@ -581,7 +591,12 @@ export function createDeck(): Screen {
       pipelineRow('MASTER', s.target === 'off' ? 'PEAK ONLY' : `${TARGET_META[s.target].label} LUFS`, true),
       pipelineRow('LIMIT', '−1.2 dBTP', true),
     ];
-    pipelineList.replaceChildren(...rows);
+    const pipeSig = rows.map((r) => r.textContent).join('|');
+    if (pipeSig !== lastPipeSig) {
+      lastPipeSig = pipeSig;
+      rows.forEach((row, i) => row.style.setProperty('--i', String(i)));
+      pipelineList.replaceChildren(...rows);
+    }
   }
 
   function toneActive(): boolean {
@@ -642,7 +657,16 @@ export function createDeck(): Screen {
       return;
     }
     if (reportRef === report) return;
+    const firstReport = reportRef === null;
     reportRef = report;
+
+    if (firstReport) {
+      const anchor = dockBtn.getBoundingClientRect();
+      const anchorVisible = anchor.width > 0 && anchor.bottom > 0 && anchor.top < window.innerHeight;
+      const rect = anchorVisible ? anchor : forgeBtn.getBoundingClientRect();
+      burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 40);
+      scramble(dockPreset, 'EXPORT READY', 520);
+    }
 
     const card = el(
       'div',
@@ -699,6 +723,8 @@ export function createDeck(): Screen {
 
   let lastSourceRef: SourceInfo | null = null;
   let lastPreset: string | null = null;
+  let lastTagSig = '';
+  let lastPipeSig = '';
 
   function update(): void {
     const hasSource = !!store.source;
@@ -708,6 +734,7 @@ export function createDeck(): Screen {
     if (store.source && lastSourceRef !== store.source) {
       lastSourceRef = store.source;
       sourceName.textContent = store.source.name;
+      sourceName.title = store.source.name;
       sourceMeta.textContent = `${formatDuration(store.source.duration, true)} · ${formatRate(store.source.sampleRate)} · ${store.source.channels === 1 ? 'MONO' : 'STEREO'} · ${formatBytes(store.source.size)}`;
       wave.redraw();
     }
@@ -730,6 +757,13 @@ export function createDeck(): Screen {
       }
     }
 
+    const tagSig = [
+      store.edit.speed, store.edit.speedMode, store.edit.reverbEnabled, store.edit.reverbType,
+      store.edit.spatial8d, store.edit.bass, store.edit.sub, store.edit.air, store.edit.warmth,
+      store.edit.denoiseAmount, store.edit.denoise, store.edit.voiceMode, store.edit.deEsser,
+      store.edit.monoBass, store.edit.fadeIn, store.edit.fadeOut, store.edit.finalGain,
+    ].join(':');
+
     const tags: HTMLElement[] = [];
     if (Math.abs(store.edit.speed - 1) > 0.001) {
       tags.push(tag('TIME', `${store.edit.speed.toFixed(2)}× ${store.edit.speedMode === 'retro' ? 'R' : 'M'}`));
@@ -746,7 +780,11 @@ export function createDeck(): Screen {
     if (Math.abs(store.edit.finalGain - 1) > 0.01) tags.push(tag('GAIN', `${(20 * Math.log10(store.edit.finalGain)).toFixed(1)}dB`));
     if (store.edit.denoise && store.edit.voiceMode) tags.push(tag('REPAIR', 'VOICE MODE'));
     if (tags.length === 0) tags.push(el('span', { class: 'tag', text: 'CHAIN NETRAL' }));
-    chainTags.replaceChildren(...tags);
+    if (tagSig !== lastTagSig) {
+      lastTagSig = tagSig;
+      tags.forEach((node, i) => node.style.setProperty('--i', String(i)));
+      chainTags.replaceChildren(...tags);
+    }
 
     targetSeg.set(store.edit.target);
     formatSeg.set(store.edit.format === 'wav16' || store.edit.format === 'wav32' ? 'wav24' : store.edit.format);
@@ -769,13 +807,20 @@ export function createDeck(): Screen {
     // mobile dock mirrors the deck state
     const active = store.status.active;
     const presetName = presetById(store.edit.activePreset)?.name ?? 'CUSTOM CHAIN';
-    dockPreset.textContent = presetName;
+    if (dockPreset.dataset.value !== presetName) {
+      dockPreset.dataset.value = presetName;
+      scramble(dockPreset, presetName, 480);
+    }
     dockMeta.textContent = active
       ? `${store.status.stage} · ${Math.round(store.status.progress * 100)}%`
       : `${store.edit.speed.toFixed(2)}× · ${FORMAT_META[store.edit.format].label} · ${TARGET_META[store.edit.target].lufs ?? 'OFF'} LUFS`;
     const pct = active ? Math.max(0, Math.min(1, store.status.progress)) : 0;
     ringValue.style.strokeDashoffset = String(113.1 * (1 - pct));
-    ringPct.textContent = active ? `${Math.round(pct * 100)}%` : 'GO';
+    if (active) {
+      animateValue(ringPct, pct * 100, (n) => `${Math.round(n)}%`, { duration: 260 });
+    } else if (ringPct.textContent !== 'GO') {
+      ringPct.textContent = 'GO';
+    }
     dockBtn.toggleAttribute('disabled', !store.source || active);
     dockBtn.setAttribute('aria-busy', String(active));
     dock.classList.toggle('is-busy', active);
@@ -798,6 +843,29 @@ export function createDeck(): Screen {
     if (!cell) return;
     const v = cell.querySelector('.value');
     if (!v) return;
+    const numeric = Number(value);
+    if (value.trim() !== '' && Number.isFinite(numeric)) {
+      // Keep the trailing unit node, tween only the number.
+      let target = v.querySelector('b') as HTMLElement | null;
+      if (!target) {
+        v.innerHTML = '';
+        target = document.createElement('b');
+        v.append(target);
+        if (unit) {
+          const small = document.createElement('small');
+          small.textContent = ` ${unit}`;
+          v.append(small);
+        }
+      }
+      animateValue(target, numeric, (n) => {
+        const digits = Math.abs(n) >= 100 ? 0 : String(value).includes('.') ? 2 : 0;
+        return digits === 0 ? String(Math.round(n)) : n.toFixed(digits);
+      });
+      target.classList.remove('is-ticking');
+      void target.offsetWidth;
+      target.classList.add('is-ticking');
+      return;
+    }
     v.innerHTML = '';
     v.append(document.createTextNode(value));
     if (unit) {

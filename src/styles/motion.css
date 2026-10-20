@@ -1,0 +1,969 @@
+/* ==========================================================================
+   AEGIS-M motion layer
+   Transform/opacity only, scroll-driven where the platform supports it.
+   Everything here collapses under prefers-reduced-motion / Reduce Motion.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Kinetic heading
+   -------------------------------------------------------------------------- */
+
+.kchar {
+  display: inline-block;
+  will-change: transform, opacity;
+  animation: kcharIn 0.62s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+
+h1 em .kchar,
+.screen__title em .kchar {
+  color: var(--cobalt);
+}
+
+@keyframes kcharIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.42em, 0) rotateX(-42deg) scale(1.12);
+    filter: blur(3px);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.screen__title.is-kinetic {
+  perspective: 500px;
+}
+
+/* --------------------------------------------------------------------------
+   Ripple
+   -------------------------------------------------------------------------- */
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--cobalt) 42%, transparent), transparent 62%);
+  transform: scale(0);
+  opacity: 0.65;
+  animation: rippleOut 0.6s var(--ease-out) forwards;
+  mix-blend-mode: multiply;
+  z-index: 0;
+}
+
+[data-finish='cockpit'] .ripple {
+  mix-blend-mode: screen;
+  background: radial-gradient(circle, color-mix(in srgb, var(--cobalt) 62%, transparent), transparent 62%);
+}
+
+.btn,
+.preset-chip,
+.preset-card,
+.nav__btn,
+.segment button,
+.icon-btn,
+.ab-slot,
+.toggle,
+.forge,
+.dock__btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.forge .ripple,
+.dock__btn .ripple {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55), transparent 62%);
+  mix-blend-mode: screen;
+}
+
+@keyframes rippleOut {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Press physics
+   -------------------------------------------------------------------------- */
+
+.btn:active,
+.preset-chip:active,
+.icon-btn:active,
+.segment button:active,
+.ab-slot:active {
+  transform: scale(0.972);
+}
+
+.btn,
+.preset-chip,
+.icon-btn,
+.segment button {
+  transition:
+    transform 0.16s var(--ease),
+    background-color 0.18s var(--ease),
+    color 0.18s var(--ease),
+    border-color 0.18s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+
+/* --------------------------------------------------------------------------
+   Magnetic buttons + spotlight plates
+   -------------------------------------------------------------------------- */
+
+.is-magnetic {
+  transform: translate3d(var(--mag-x, 0), var(--mag-y, 0), 0) scale(1.012);
+}
+
+.forge,
+.dock__btn {
+  transition: transform 0.18s var(--spring), box-shadow 0.24s var(--ease), filter 0.2s var(--ease);
+}
+
+/* Pointer spotlight.
+   Plates paint it as an extra background layer (no pseudo-element, so the
+   corner brackets and the decode skeleton keep their own stacking). */
+@property --spot {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+.plate {
+  background-image: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--cobalt) calc(var(--spot) * 16%), transparent),
+    transparent 64%
+  );
+  background-repeat: no-repeat;
+  transition:
+    --spot 0.4s var(--ease),
+    border-color 0.25s var(--ease),
+    box-shadow 0.25s var(--ease),
+    transform 0.25s var(--ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .plate:hover {
+    --spot: 1;
+  }
+}
+
+/* Cards use a pseudo-element, kept behind their content explicitly. */
+.preset-card {
+  isolation: isolate;
+}
+
+.preset-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--cobalt) 16%, transparent),
+    transparent 62%
+  );
+  z-index: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .preset-card:hover::after {
+    opacity: 1;
+  }
+}
+
+.preset-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.preset-card {
+  transform-style: preserve-3d;
+  transform: perspective(800px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+
+/* --------------------------------------------------------------------------
+   Scroll progress + compact header
+   -------------------------------------------------------------------------- */
+
+.scroll-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scroll-progress i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--cobalt), var(--crimson) 70%, var(--amber));
+  transition: transform 0.12s linear;
+}
+
+.app-header.is-compact {
+  box-shadow: 0 10px 30px rgba(6, 14, 32, 0.14);
+}
+
+.app-header.is-compact .brand__sub {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.brand__sub {
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+}
+
+/* --------------------------------------------------------------------------
+   Nav sliding pulse
+   -------------------------------------------------------------------------- */
+
+.nav__pulse {
+  position: absolute;
+  top: 0;
+  height: 2px;
+  left: 0;
+  border-radius: 2px;
+  background: var(--cobalt);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--cobalt) 70%, transparent);
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform 0.42s var(--spring),
+    width 0.42s var(--spring),
+    opacity 0.2s var(--ease);
+  pointer-events: none;
+}
+
+.nav__pulse.is-in {
+  opacity: 1;
+}
+
+/* The old per-button bar is now redundant. */
+.nav__btn[aria-selected='true']::before {
+  display: none;
+}
+
+.nav__btn .ico {
+  transition: transform 0.32s var(--spring), color 0.24s var(--ease);
+}
+
+.nav__btn[aria-selected='true'] .ico {
+  animation: navPop 0.45s var(--spring);
+}
+
+@keyframes navPop {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-4px) scale(1.16);
+  }
+  100% {
+    transform: translateY(-1px) scale(1.08);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Section rule draw-in
+   -------------------------------------------------------------------------- */
+
+.section-head .rule {
+  transform-origin: 0 50%;
+  animation: ruleDraw 0.7s var(--ease-out) both;
+}
+
+@keyframes ruleDraw {
+  from {
+    transform: scaleX(0);
+    opacity: 0.2;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Number pop (count-up settles with a tiny overshoot)
+   -------------------------------------------------------------------------- */
+
+.master-cell .value,
+.lufs-meter__head b,
+.report__grid b,
+.dock__meta,
+.transport__time {
+  font-variant-numeric: tabular-nums;
+  transition: color 0.25s var(--ease);
+}
+
+.master-cell .value.is-ticking {
+  animation: tickGlow 0.5s var(--ease-out);
+}
+
+@keyframes tickGlow {
+  0% {
+    color: var(--cobalt);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--cobalt) 55%, transparent);
+  }
+  100% {
+    color: inherit;
+    text-shadow: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Stage pips cascade
+   -------------------------------------------------------------------------- */
+
+.stage-pip {
+  transition: background-color 0.3s var(--ease), transform 0.3s var(--spring);
+}
+
+.stage-pip.is-done {
+  animation: pipPop 0.42s var(--spring) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes pipPop {
+  0% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(2.4);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Waveform playhead + scope pulse
+   -------------------------------------------------------------------------- */
+
+.transport__scrub i {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cobalt) 60%, transparent);
+}
+
+.scope {
+  transition: box-shadow 0.4s var(--ease);
+}
+
+.scope:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cobalt) 26%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   FX layer (sparks)
+   -------------------------------------------------------------------------- */
+
+#fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* --------------------------------------------------------------------------
+   Toast spring
+   -------------------------------------------------------------------------- */
+
+.toast {
+  animation: none;
+  transition:
+    opacity 0.3s var(--ease),
+    transform 0.42s var(--spring);
+}
+
+.toast.is-in {
+  animation: toastSettle 0.5s var(--spring) both;
+}
+
+@keyframes toastSettle {
+  0% {
+    transform: translateY(16px) scale(0.96);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.01);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Scroll-driven animation (Chrome 115+, Safari 26, Edge)
+   Plates rise and de-blur as they enter the viewport, driven by scroll
+   position instead of JavaScript. Browsers without support keep the IO reveal.
+   -------------------------------------------------------------------------- */
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .screen .plate,
+    .preset-card {
+      animation: scrollRise linear;
+      animation-timeline: view();
+      animation-range: entry 0% entry 42%;
+    }
+
+    .screen .plate:nth-child(even) {
+      animation-name: scrollRiseAlt;
+    }
+  }
+}
+
+@keyframes scrollRise {
+  from {
+    opacity: 0.35;
+    transform: translateY(26px) scale(0.985);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes scrollRiseAlt {
+  from {
+    opacity: 0.35;
+    transform: translateY(38px) scale(0.985);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* When scroll-driven animation is active, JS reveal must stay out of the way. */
+html[data-scroll-motion='1'] .reveal {
+  opacity: 1;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   Boot choreography (first paint)
+   -------------------------------------------------------------------------- */
+
+.brand__mark {
+  animation: markIn 0.75s var(--spring) both;
+}
+
+.brand__text {
+  animation: fadeInUp 0.6s 0.1s var(--ease-out) both;
+}
+
+.app-header .header__meta {
+  animation: fadeInUp 0.6s 0.18s var(--ease-out) both;
+}
+
+.nav {
+  animation: navSlideIn 0.7s 0.22s var(--ease-out) both;
+}
+
+.dock {
+  animation: dockIn 0.5s 0.3s var(--spring) both;
+}
+
+@keyframes markIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes navSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion: hard off
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .kchar,
+  .ripple,
+  .stage-pip.is-done,
+  .toast.is-in,
+  .brand__mark,
+  .brand__text,
+  .app-header .header__meta,
+  .nav,
+  .dock,
+  .section-head .rule {
+    animation: none !important;
+  }
+
+  .screen .plate,
+  .preset-card {
+    animation: none !important;
+  }
+
+  .nav__pulse {
+    transition: none;
+  }
+
+  .is-magnetic,
+  .preset-card {
+    transform: none !important;
+  }
+}
+
+[data-motion='reduced'] .kchar,
+[data-motion='reduced'] .ripple,
+[data-motion='reduced'] .stage-pip.is-done,
+[data-motion='reduced'] .toast.is-in,
+[data-motion='reduced'] .brand__mark,
+[data-motion='reduced'] .brand__text,
+[data-motion='reduced'] .app-header .header__meta,
+[data-motion='reduced'] .nav,
+[data-motion='reduced'] .dock,
+[data-motion='reduced'] .section-head .rule,
+[data-motion='reduced'] .plate,
+[data-motion='reduced'] .preset-card {
+  animation: none !important;
+}
+
+[data-motion='reduced'] .is-magnetic,
+[data-motion='reduced'] .preset-card {
+  transform: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Micro-choreography for live data
+   Delays come from --i, set once per real change (the deck caches the DOM so
+   these never replay on unrelated store updates).
+   -------------------------------------------------------------------------- */
+
+.chain-tags .tag {
+  animation: tagPop 0.42s var(--spring) both;
+  animation-delay: calc(var(--i, 0) * 34ms);
+}
+
+@keyframes tagPop {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pipe-row {
+  animation: pipeIn 0.4s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+@keyframes pipeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.report {
+  animation: reportIn 0.62s var(--spring) both;
+}
+
+@keyframes reportIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.report__grid div {
+  animation: cellIn 0.45s var(--ease-out) both;
+}
+
+.report__grid div:nth-child(1) {
+  animation-delay: 0.04s;
+}
+.report__grid div:nth-child(2) {
+  animation-delay: 0.08s;
+}
+.report__grid div:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.report__grid div:nth-child(4) {
+  animation-delay: 0.16s;
+}
+.report__grid div:nth-child(5) {
+  animation-delay: 0.2s;
+}
+.report__grid div:nth-child(6) {
+  animation-delay: 0.24s;
+}
+
+@keyframes cellIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Selected preset chip gets a quick confirmation bounce */
+.preset-chip[aria-pressed='true'] {
+  animation: chipPick 0.5s var(--spring);
+}
+
+@keyframes chipPick {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.955);
+  }
+  70% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Arsenal cards cascade in */
+.arsenal-grid .preset-card {
+  animation: cardIn 0.5s var(--ease-out) both;
+}
+
+.arsenal-grid .preset-card:nth-child(1) { animation-delay: 0.01s; }
+.arsenal-grid .preset-card:nth-child(2) { animation-delay: 0.04s; }
+.arsenal-grid .preset-card:nth-child(3) { animation-delay: 0.07s; }
+.arsenal-grid .preset-card:nth-child(4) { animation-delay: 0.1s; }
+.arsenal-grid .preset-card:nth-child(5) { animation-delay: 0.13s; }
+.arsenal-grid .preset-card:nth-child(6) { animation-delay: 0.16s; }
+.arsenal-grid .preset-card:nth-child(7) { animation-delay: 0.19s; }
+.arsenal-grid .preset-card:nth-child(8) { animation-delay: 0.22s; }
+.arsenal-grid .preset-card:nth-child(9) { animation-delay: 0.25s; }
+.arsenal-grid .preset-card:nth-child(10) { animation-delay: 0.28s; }
+.arsenal-grid .preset-card:nth-child(11) { animation-delay: 0.31s; }
+.arsenal-grid .preset-card:nth-child(12) { animation-delay: 0.34s; }
+.arsenal-grid .preset-card:nth-child(13) { animation-delay: 0.37s; }
+.arsenal-grid .preset-card:nth-child(14) { animation-delay: 0.4s; }
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97) rotateX(6deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Lab groups cascade */
+.grid--lab .lab-group {
+  animation: labIn 0.55s var(--ease-out) both;
+}
+
+.grid--lab .lab-group:nth-child(1) { animation-delay: 0.02s; }
+.grid--lab .lab-group:nth-child(2) { animation-delay: 0.06s; }
+.grid--lab .lab-group:nth-child(3) { animation-delay: 0.1s; }
+.grid--lab .lab-group:nth-child(4) { animation-delay: 0.14s; }
+.grid--lab .lab-group:nth-child(5) { animation-delay: 0.18s; }
+.grid--lab .lab-group:nth-child(6) { animation-delay: 0.22s; }
+.grid--lab .lab-group:nth-child(7) { animation-delay: 0.26s; }
+
+@keyframes labIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Fader value confirmation */
+.fader input[type='range']:active ~ .fader__hint,
+.fader input[type='range']:active + .fader__value {
+  color: var(--cobalt);
+}
+
+.fader__value {
+  transition: color 0.2s var(--ease), transform 0.2s var(--spring);
+}
+
+.fader.is-active .fader__value {
+  transform: translateY(-1px);
+}
+
+/* Progress meter stripes crawl while a render runs */
+.progress-plate .meter__fill::after {
+  animation: stripes 0.9s linear infinite;
+}
+
+@keyframes stripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 12px 0;
+  }
+}
+
+.progress-plate:not(.hidden) {
+  animation: platePulse 2.6s var(--ease) infinite;
+}
+
+@keyframes platePulse {
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--cobalt) 40%, var(--line));
+  }
+  50% {
+    border-color: color-mix(in srgb, var(--cobalt) 80%, var(--line));
+  }
+}
+
+/* History rows slide in */
+.history-row {
+  animation: rowIn 0.4s var(--ease-out) both;
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Brand mark reacts to hover */
+@media (hover: hover) and (pointer: fine) {
+  .brand__mark {
+    transition: transform 0.5s var(--spring), background-color 0.3s var(--ease);
+  }
+  .brand__mark:hover {
+    transform: rotate(-8deg) scale(1.06);
+  }
+}
+
+/* Button sheen sweep */
+.btn--primary,
+.btn--danger {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn--primary::before,
+.btn--danger::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 42%;
+  left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.6s var(--ease-out);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:hover::before,
+  .btn--danger:hover::before {
+    left: 120%;
+  }
+}
+
+/* Waveform trim handles breathe while draggable */
+.wave:hover .wave-canvas {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--cobalt) 25%, transparent));
+}
+
+.wave-canvas {
+  transition: filter 0.3s var(--ease);
+}
+
+/* LUFS meter shimmer while fresh */
+.lufs-meter[data-state='ok'] .lufs-meter__fill {
+  background-image: linear-gradient(
+    90deg,
+    var(--cobalt),
+    color-mix(in srgb, var(--cobalt) 55%, var(--signal)) 45%,
+    var(--cobalt) 90%
+  );
+  background-size: 220% 100%;
+  animation: lufsFlow 4.5s var(--ease) infinite;
+}
+
+@keyframes lufsFlow {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 220% 0;
+  }
+}
+
+/* Reduced motion: kill the new loop-heavy animations too */
+@media (prefers-reduced-motion: reduce) {
+  .chain-tags .tag,
+  .pipe-row,
+  .report,
+  .report__grid div,
+  .preset-chip[aria-pressed='true'],
+  .arsenal-grid .preset-card,
+  .grid--lab .lab-group,
+  .history-row,
+  .progress-plate,
+  .lufs-meter[data-state='ok'] .lufs-meter__fill,
+  .progress-plate .meter__fill::after {
+    animation: none !important;
+  }
+}
+
+[data-motion='reduced'] .chain-tags .tag,
+[data-motion='reduced'] .pipe-row,
+[data-motion='reduced'] .report,
+[data-motion='reduced'] .report__grid div,
+[data-motion='reduced'] .preset-chip[aria-pressed='true'],
+[data-motion='reduced'] .arsenal-grid .preset-card,
+[data-motion='reduced'] .grid--lab .lab-group,
+[data-motion='reduced'] .history-row,
+[data-motion='reduced'] .progress-plate,
+[data-motion='reduced'] .lufs-meter__fill,
+[data-motion='reduced'] .progress-plate .meter__fill::after {
+  animation: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Ambient layers
+   -------------------------------------------------------------------------- */
+
+.aurora {
+  transform: translate3d(0, calc(var(--scroll-y, 0) * -0.05px), 0);
+  transition: transform 0.1s linear;
+}
+
+.wave.is-playing .wave-canvas {
+  animation: waveBreath 2.6s var(--ease) infinite;
+}
+
+@keyframes waveBreath {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cobalt) 22%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px color-mix(in srgb, var(--cobalt) 46%, transparent));
+  }
+}
+
+.wave.is-playing .wave-readout b {
+  color: var(--cobalt);
+}
+
+.chip-flip {
+  display: inline-block;
+  animation: chipFlip 0.5s var(--spring) both;
+}
+
+@keyframes chipFlip {
+  from {
+    opacity: 0;
+    transform: rotateX(-70deg) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Play/pause button breathes while audio runs */
+.wave.is-playing ~ .transport .play-btn {
+  animation: playPulse 2s var(--ease) infinite;
+}
+
+@keyframes playPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cobalt) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--cobalt) 14%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave.is-playing .wave-canvas,
+  .wave.is-playing ~ .transport .play-btn,
+  .chip-flip {
+    animation: none !important;
+  }
+  .aurora {
+    transform: none;
+  }
+}
+
+[data-motion='reduced'] .wave.is-playing .wave-canvas,
+[data-motion='reduced'] .wave.is-playing ~ .transport .play-btn,
+[data-motion='reduced'] .chip-flip {
+  animation: none !important;
+}
+
+[data-motion='reduced'] .aurora {
+  transform: none;
+}
