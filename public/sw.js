@@ -9,7 +9,7 @@
  *  - a version bump is the only way to invalidate, so stale shells cannot serve
  *    markup that references retired asset hashes.
  */
-const VERSION = 'aegis-sound-lab-v8.9.0';
+const VERSION = 'aegis-sound-lab-v8.9.1';
 const SHELL = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ const SHELL = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/favicon-64.png',
+  './icons/seal.svg',
 ];
 
 const CACHEABLE_PATH = /^\/(assets\/|icons\/|boot\.css$|manifest\.webmanifest$|index\.html$|\/$)/;

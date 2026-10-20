@@ -135,7 +135,7 @@ describe('manifest', () => {
 
 describe('brand mark', () => {
   it('renders the seal as vector with an accessible name', async () => {
-    const { brandMark, brandPlate } = await import('../src/ui/brand');
+    const { brandMark } = await import('../src/ui/brand');
     const mark = brandMark(30);
     expect(mark.className).toBe('brand__mark');
     const svg = mark.querySelector('svg');
@@ -144,10 +144,31 @@ describe('brand mark', () => {
     expect(svg?.querySelector('title')?.textContent).toBe('Sanayacorp');
     expect(svg?.querySelector('.brand-seal__shield')).not.toBeNull();
     expect(svg?.querySelector('.brand-seal__letter')).not.toBeNull();
+  });
 
-    const plate = brandPlate(64);
-    expect(plate.className).toBe('brand-plate');
-    expect(plate.querySelector('svg')?.getAttribute('width')).toBe('64');
+  it('keeps the company mark out of the pages and in the browser chrome', async () => {
+    // The seal is the tab icon, the installed icon and the header mark. Rendering
+    // it again as a plate inside TENTANG was the thing the owner asked to drop.
+    const screen = readFileSync(join(ROOT, 'src/ui/screens/system.ts'), 'utf8');
+    expect(screen).not.toContain('brand-block');
+    expect(screen).not.toContain('brandPlate');
+
+    const head = readFileSync(join(ROOT, 'index.html'), 'utf8');
+    expect(head).toContain('rel="icon" type="image/svg+xml" href="/icons/seal.svg"');
+    expect(head).toContain('rel="mask-icon" href="/icons/seal.svg"');
+    expect(head).toContain('property="og:image" content="https://sanayacorp-aegismusic.vercel.app/icons/icon-512.png"');
+  });
+
+  it('ships the vector tab icon the head refers to', () => {
+    const file = join(ROOT, 'public/icons/seal.svg');
+    expect(existsSync(file)).toBe(true);
+    const svg = readFileSync(file, 'utf8');
+    expect(svg).toContain('viewBox="0 0 44 48"');
+    expect(svg).toContain('<title>Sanayacorp</title>');
+    expect(svg).toContain('aria-label="Sanayacorp"');
+    // Same four shapes as the vector mark in the header: field, shield, wires, S.
+    expect(svg.match(/<path /g)?.length).toBe(4);
+    expect(readFileSync(join(ROOT, 'public/sw.js'), 'utf8')).toContain("'./icons/seal.svg'");
   });
 
   it('gives every instance its own gradient id so the two marks do not collide', async () => {

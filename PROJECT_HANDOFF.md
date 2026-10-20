@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.0
+# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.1
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -9,7 +9,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | Produk | Aegis Sound Lab |
 | Perusahaan | Sanayacorp (logo & identitas induk) |
 | Master ikon | `brand/aegis-music-icon.png` → `npm run icons` → `public/icons/*` + `store/icon-512.png` |
-| Versi | 8.9.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.9.1 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -34,7 +34,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.0
+  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.1
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
 tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
@@ -307,7 +307,20 @@ ulang kanal; angka tetap tampil dari cache saat jaringan mati.
 Yang **tidak** dikirim: audio, nama file, kunci lisensi, tier, atau isi riwayat
 export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.
 
-## 13. Identitas merek (v8.9.0)
+## 13. Identitas merek (v8.9.0 → v8.9.1)
+
+Logo perusahaan hidup di **chrome web**, bukan sebagai gambar di dalam halaman:
+
+| Tempat | Berkas |
+| --- | --- |
+| Tab browser | `public/icons/seal.svg` (vektor, `rel="icon"` + `mask-icon`) |
+| Ikon install | `public/icons/icon-192/512/maskable-512.png` |
+| Header | `brandMark()` di `src/ui/brand.ts`, 26–32 px, ikut finish |
+| Preview tautan | `og:image` / `twitter:image` → `/icons/icon-512.png` |
+
+Blok logo 64 px di TENTANG beserta `brandPlate()` dan CSS `.brand-block` sudah
+dihapus pada v8.9.1; TENTANG tetap menyebut perusahaan lewat `infoCell('PERUSAHAAN', 'SANAYACORP')`.
+
 
 | | |
 | --- | --- |

@@ -2,9 +2,10 @@
  * Sanayacorp brand marks.
  *
  * The master artwork lives in `brand/aegis-music-icon.png`; the icons in
- * `public/icons` are derived from it by `npm run icons`. The two marks below are
- * the same idea reduced to vector so they stay sharp at 26 px in the header and
- * inherit the current finish (ink on white, paper on black).
+ * `public/icons` are derived from it by `npm run icons`. This is the same idea
+ * reduced to vector for the header, so it stays sharp at 26 px and inherits the
+ * current finish (ink on white, paper on black). `icons/seal.svg` is its static
+ * twin for the tab icon, which gets no stylesheet and no session to inherit.
  *
  * Built with createElementNS, never with markup strings: the CSP forbids inline
  * HTML for scripts and Trusted Types would reject it anyway.
@@ -100,13 +101,5 @@ export function brandMark(size = 30): HTMLElement {
   const host = document.createElement('div');
   host.className = 'brand__mark';
   host.appendChild(seal(size, 'Sanayacorp'));
-  return host;
-}
-
-/** Large seal for the About panel. */
-export function brandPlate(size = 64): HTMLElement {
-  const host = document.createElement('div');
-  host.className = 'brand-plate';
-  host.appendChild(seal(size, 'Aegis Sound Lab — Sanayacorp'));
   return host;
 }

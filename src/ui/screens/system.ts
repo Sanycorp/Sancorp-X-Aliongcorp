@@ -17,7 +17,6 @@ import { clearSession } from '../../io/storage';
 import { session } from '../../state/session';
 import { PRO_PASS_DAYS, PRO_PRICE, planFor } from '../../model/tiers';
 import { openAccount } from '../account';
-import { brandPlate } from '../brand';
 import { createRatingGroup } from '../rating';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
@@ -214,18 +213,6 @@ export function createSystem(): Screen {
     'div',
     { class: 'plate settings-group' },
     sectionHead('06', 'TENTANG'),
-    el(
-      'div',
-      { class: 'brand-block' },
-      brandPlate(64),
-      el(
-        'div',
-        {},
-        el('div', { class: 'brand-block__name', text: 'AEGIS SOUND LAB' }),
-        el('div', { class: 'brand-block__co', text: 'Produk Sanayacorp' }),
-        el('div', { class: 'brand-block__line', text: 'Forge audio offline untuk web dan PWA.' }),
-      ),
-    ),
     el(
       'div',
       { class: 'about-grid' },

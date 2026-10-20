@@ -1,6 +1,6 @@
 # AEGIS SOUND LAB · SANAYACORP
 
-**Offline mecha audio forge — v8.9.0**
+**Offline mecha audio forge — v8.9.1**
 
 > Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
 > sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.

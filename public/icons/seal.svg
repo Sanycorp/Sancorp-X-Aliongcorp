@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 48" width="44" height="48" role="img" aria-label="Sanayacorp">
+  <title>Sanayacorp</title>
+  <style>
+    /* Vector twin of brandMark(): the same geometry the header draws, with the
+       colours baked in because a favicon gets no stylesheet from the page. */
+    .shield { fill: none; stroke: #0a0d12; stroke-width: 2.4; stroke-linejoin: round; }
+    .wire { stroke: #0a0d12; stroke-width: 1.6; stroke-linecap: round; opacity: 0.45; }
+    .letter { fill: none; stroke: #0b4fd6; stroke-width: 4.4; stroke-linecap: round; }
+    @media (prefers-color-scheme: dark) {
+      .shield, .wire { stroke: #e9eff8; }
+      .letter { stroke: #3d7bff; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="holo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4fd1ff" />
+      <stop offset="0.55" stop-color="#8b6cff" />
+      <stop offset="1" stop-color="#ff6fd8" />
+    </linearGradient>
+  </defs>
+  <path d="M4.6 25.4 22 44 39.4 25.4V27L22 46.4 4.6 27Z" fill="url(#holo)" opacity="0.9" />
+  <path class="shield" d="M22 2.5 40 9.6V27L22 45.5 4 27V9.6Z" />
+  <path class="wire" d="M4 21.5H0.8M43.2 21.5H40" />
+  <path class="letter" d="M30 15.4c0-3.3-3.4-5.4-8-5.4s-8 2.1-8 5.4 3.4 4.3 8 5.4 8 2.1 8 5.4-3.4 5.4-8 5.4-8-2.1-8-5.4" />
+</svg>
