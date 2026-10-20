@@ -172,3 +172,36 @@ ffmpeg -v error -i hasil.flac -f null -
 - Branch kerja: `arena/985911e3-sancorp-x-aliongcorp`
 - Commit message gaya `v8: <area> — <ringkasan>`
 - Jangan commit `node_modules/`, `dist/`, `android/` hasil generate, atau file audio besar.
+
+## 11. Deployment web (Vercel)
+
+| Hal | Nilai |
+| --- | --- |
+| Project | `sancorp-x-aliongcorp` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` |
+| Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (plan Hobby) |
+| Framework | vite · install `npm ci` · build `npm run build` · output `dist` |
+| Region | `sin1` |
+| Header | 100% dari `vercel.json` (CSP, HSTS, COOP/COEP, CORP, Permissions-Policy, SRI) |
+| Prober | job `probe` di `android.yml`, target dibaca dari `.vercel-url` |
+
+**Blocker yang butuh aksi pemilik akun** (tidak bisa dilakukan lewat API connector):
+
+1. **Deployment Protection** — team default `ssoProtection: all_except_custom_domains`
+   membuat semua URL `.vercel.app` redirect ke login Vercel (302 ke `vercel.com/sso-api`).
+   Matikan di Project → Settings → Deployment Protection → Vercel Authentication → Disabled.
+2. **GitHub Login Connection** — deploy berbasis git ditolak dengan
+   `You need to add a Login Connection to your GitHub account first`.
+   Hubungkan di Account Settings → Authentication → Login Connections → GitHub.
+   Setelah tersambung: `create_deployment` dengan `git_source` (JSON string, bukan object)
+   akan bekerja, dan setiap push otomatis membangun ulang.
+
+**Catatan teknis penting**
+
+- Param `files` pada connector Vercel menerima **array of JSON strings**
+  (`["{\"file\":\"index.html\",\"data\":\"...\"}"]`), dan file yang di-upload mendarat
+  di direktori `src/` pada snapshot deployment. Untuk deploy statis tanpa git,
+  set `root_directory` project ke `src` lalu `output_directory` ke `.`.
+- Tanpa akses HTTP keluar ke `*.vercel.app`, verifikasi deploy dilakukan lewat job
+  `probe` di GitHub Actions; hasil diagnostik dibaca dari **annotations API**
+  (`gh api repos/.../check-runs/<job_id>/annotations`) karena log artifact diblokir.
+
