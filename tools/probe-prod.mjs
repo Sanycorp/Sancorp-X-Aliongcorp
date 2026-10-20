@@ -52,7 +52,7 @@ const get = async (path, init = {}) => {
 
 const has = (res, key, needle) => (res.headers.get(key) || '').toLowerCase().includes(needle);
 
-const index = await get('/');
+const index = await get(`/?probe=${Date.now()}`);
 check('origin responds', index.res.status === 200, `HTTP ${index.res.status}`);
 
 // --- delivery layer -------------------------------------------------------
@@ -73,12 +73,37 @@ const sri = [...index.body.matchAll(/<(?:script|link)[^>]*(?:src|href)="([^"]+)"
 check('SRI on entry assets', sri.length >= 2, `${sri.length} signed`);
 
 // --- the bundle -----------------------------------------------------------
-const rawEntry = index.body.match(/src="([^"]*assets\/index-[^"]+\.js)"/)?.[1];
-// Vite emits relative asset URLs (`./assets/...`); make them absolute paths.
-const entry = rawEntry ? `/${rawEntry.replace(/^\.?\//, '')}` : null;
-if (entry) {
-  const bundle = await get(entry);
-  check('entry bundle served', bundle.res.status === 200, entry.split('/').pop());
+/**
+ * The alias can serve the previous deployment's HTML for a few seconds after a
+ * promotion, and old assets are not reachable from the new deployment. Fetch the
+ * page again on every attempt instead of trusting the first copy, otherwise a
+ * brand-new release is graded against a bundle that no longer exists.
+ */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function resolveBundle(attempts = 4) {
+  let lastPath = '';
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const page = await get(`/?probe=${Date.now()}`);
+    const raw = page.body.match(/src="([^"]*assets\/index-[^"]+\.js)"/)?.[1];
+    if (raw) {
+      // Vite emits relative asset URLs (`./assets/...`); make them absolute.
+      lastPath = `/${raw.replace(/^\.?\//, '')}`;
+      const bundle = await get(lastPath);
+      lastStatus = bundle.res.status;
+      if (lastStatus === 200) return { path: lastPath, bundle };
+    }
+    if (attempt < attempts - 1) await sleep(2500);
+  }
+  return { path: lastPath, bundle: { res: { status: lastStatus }, body: '' } };
+}
+
+const resolved = await resolveBundle();
+const entry = resolved.path;
+if (entry && resolved.bundle.res.status === 200) {
+  const bundle = resolved.bundle;
+  check('entry bundle served', true, entry.split('/').pop());
   // A dependency version can appear before ours, so look for the declared
   // version as a quoted literal instead of grabbing "the first semver".
   const version = bundle.body.match(/["'`](\d+\.\d+\.\d+)["'`]/)?.[1] ?? 'unknown';
@@ -96,7 +121,7 @@ if (entry) {
   check('rating block shipped', bundle.body.includes('KIRIM PENILAIAN') && bundle.body.includes('PRESET AKTIF'));
   check('bundle immutable', (bundle.res.headers.get('cache-control') || '').includes('immutable'));
 } else {
-  check('entry bundle served', false, 'entry script not found');
+  check('entry bundle served', false, entry ? `${entry.split('/').pop()} HTTP ${resolved.bundle.res.status}` : 'entry script not found');
 }
 
 // --- server ---------------------------------------------------------------
