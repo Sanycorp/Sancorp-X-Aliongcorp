@@ -79,8 +79,14 @@ const entry = rawEntry ? `/${rawEntry.replace(/^\.?\//, '')}` : null;
 if (entry) {
   const bundle = await get(entry);
   check('entry bundle served', bundle.res.status === 200, entry.split('/').pop());
-  const version = bundle.body.match(/["'`](8\.\d+\.\d+)["'`]/)?.[1] ?? 'unknown';
-  check('version 8.6.x', /^8\.6\./.test(version), version);
+  // A dependency version can appear before ours, so look for the declared
+  // version as a quoted literal instead of grabbing "the first semver".
+  const version = bundle.body.match(/["'`](\d+\.\d+\.\d+)["'`]/)?.[1] ?? 'unknown';
+  const declared =
+    bundle.body.includes(`"${PKG.version}"`) ||
+    bundle.body.includes(`'${PKG.version}'`) ||
+    bundle.body.includes(`\`${PKG.version}\``);
+  check(`version ${PKG.version}`, declared, version);
   check('operator app shipped', bundle.body.includes('AKSES OPERATOR') && bundle.body.includes('AEGIS OPS'));
   check('ledger shipped', bundle.body.includes('DAFTAR AKUN'));
   check('account sheet shipped', bundle.body.includes('AKTIFKAN PRO'));
