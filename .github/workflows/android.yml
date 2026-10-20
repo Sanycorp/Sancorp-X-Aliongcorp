@@ -81,24 +81,44 @@ jobs:
 
   probe:
     name: Probe deployed web build
-    # Runs only when the repository variable AEGIS_PROBE_URL is set, so normal
-    # pushes stay lean. Set it with: gh variable set AEGIS_PROBE_URL -b <url>
-    if: vars.AEGIS_PROBE_URL != ''
+    # The target lives in .vercel-url so it is reviewable in git. When the file
+    # is absent or still a placeholder the job exits cleanly instead of failing.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target
+        id: target
+        run: |
+          set -euo pipefail
+          url=$(head -n1 .vercel-url 2>/dev/null | tr -d '[:space:]' || true)
+          if [ -z "$url" ] || [ "${url#https://}" = "$url" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "no usable .vercel-url — probe skipped"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Fetch head and headers
+        if: steps.target.outputs.skip == 'false'
         env:
-          URL: ${{ vars.AEGIS_PROBE_URL }}
+          URL: ${{ steps.target.outputs.url }}
         run: |
           set -euo pipefail
           echo "== $URL =="
           code=$(curl -sS -o /tmp/index.html -D /tmp/headers.txt -w '%{http_code}' "$URL/")
           echo "status: $code"
           cat /tmp/headers.txt
+          echo "--- body head ---"
+          head -c 400 /tmp/index.html; echo
+          curl -sS -o /tmp/probe.bin -w 'probe.bin status:%{http_code} bytes:%{size_download}\n' "$URL/probe.bin" || true
+          test -s /tmp/probe.bin && { echo "probe.bin hex:"; xxd /tmp/probe.bin | head -2; } || echo "no probe.bin at root"
           test "$code" = "200"
 
       - name: Assert security headers
+        if: steps.target.outputs.skip == 'false'
         run: |
           set -euo pipefail
           h=/tmp/headers.txt
@@ -111,8 +131,9 @@ jobs:
           echo "CSP ok"
 
       - name: Assert shell assets
+        if: steps.target.outputs.skip == 'false'
         env:
-          URL: ${{ vars.AEGIS_PROBE_URL }}
+          URL: ${{ steps.target.outputs.url }}
         run: |
           set -euo pipefail
           for path in /sw.js /boot.css /manifest.webmanifest /.well-known/security.txt /icons/icon-512.png; do
@@ -122,8 +143,9 @@ jobs:
           done
 
       - name: Verify SRI against served bytes
+        if: steps.target.outputs.skip == 'false'
         env:
-          URL: ${{ vars.AEGIS_PROBE_URL }}
+          URL: ${{ steps.target.outputs.url }}
         run: |
           set -euo pipefail
           python3 - "$URL" <<'PY'
@@ -149,8 +171,9 @@ jobs:
           PY
 
       - name: Cache + security.txt policy
+        if: steps.target.outputs.skip == 'false'
         env:
-          URL: ${{ vars.AEGIS_PROBE_URL }}
+          URL: ${{ steps.target.outputs.url }}
         run: |
           set -euo pipefail
           ctl=$(curl -sS -I "$URL/sw.js" | tr -d '\r' | grep -i '^cache-control:' || true)
