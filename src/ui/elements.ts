@@ -216,6 +216,8 @@ export interface SegmentOption {
   value: string;
   label: string;
   sub?: string;
+  /** Renders a PRO lock and calls `onLocked` instead of `onPick`. */
+  locked?: boolean;
 }
 
 export interface Segmented {
@@ -227,14 +229,25 @@ export function segmented(
   options: SegmentOption[],
   value: string,
   onPick: (v: string) => void,
+  onLocked?: (option: SegmentOption) => void,
 ): Segmented {
   const buttons = options.map((o) => {
     const b = el(
       'button',
       {
-        attrs: { type: 'button', 'aria-pressed': String(o.value === value) },
+        class: o.locked ? 'is-locked' : undefined,
+        attrs: {
+          type: 'button',
+          'aria-pressed': String(o.value === value),
+          'aria-disabled': o.locked ? 'true' : null,
+          'data-locked': o.locked ? '1' : null,
+        },
         on: {
           click: () => {
+            if (o.locked) {
+              onLocked?.(o);
+              return;
+            }
             for (const other of buttons) other.setAttribute('aria-pressed', 'false');
             b.setAttribute('aria-pressed', 'true');
             onPick(o.value);
@@ -243,6 +256,7 @@ export function segmented(
       },
       el('span', { text: o.label }),
       o.sub ? el('em', { text: o.sub }) : null,
+      o.locked ? el('i', { class: 'lock', text: 'PRO' }) : null,
     );
     return b;
   });

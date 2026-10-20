@@ -3,15 +3,21 @@ import './styles/primitives.css';
 import './styles/controls.css';
 import './styles/app.css';
 import './styles/motion.css';
-import './styles/security.css';
+import './styles/account.css';
+import './styles/control.css';
 
 import { store } from './state/store';
 import { resolveFinish } from './model/settings';
+import type { AppSettings, EditSettings } from './model/settings';
+import { formatAllowed, isPro, targetAllowed } from './model/tiers';
 import { Haptics } from './ui/haptics';
 import { createDeck } from './ui/screens/deck';
 import { createLab } from './ui/screens/lab';
 import { createArsenal } from './ui/screens/arsenal';
 import { createSystem, APP_VERSION } from './ui/screens/system';
+import { createControl } from './ui/screens/control';
+import { accountButton } from './ui/account';
+import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
 import { isNativeApp } from './security/platform';
 import {
@@ -26,7 +32,7 @@ import type { Screen } from './ui/screens/deck';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
-type RouteId = 'deck' | 'lab' | 'arsenal' | 'system';
+type RouteId = 'deck' | 'lab' | 'arsenal' | 'system' | 'control';
 
 const ROUTES: { id: RouteId; label: string; icon: 'deck' | 'lab' | 'arsenal' | 'system' }[] = [
   { id: 'deck', label: 'DECK', icon: 'deck' },
@@ -34,6 +40,11 @@ const ROUTES: { id: RouteId; label: string; icon: 'deck' | 'lab' | 'arsenal' | '
   { id: 'arsenal', label: 'ARSENAL', icon: 'arsenal' },
   { id: 'system', label: 'SYSTEM', icon: 'system' },
 ];
+
+/** Operator console: reachable by hash only, never rendered into the tab bar. */
+const HIDDEN_ROUTES: RouteId[] = ['control'];
+
+const ALL_ROUTE_IDS: RouteId[] = [...ROUTES.map((r) => r.id), ...HIDDEN_ROUTES];
 
 function boot(): void {
   store.restore();
@@ -46,6 +57,7 @@ function boot(): void {
     lab: createLab(),
     arsenal: createArsenal(),
     system: createSystem(),
+    control: createControl(),
   };
 
   const navButtons = ROUTES.map((route) =>
@@ -83,7 +95,7 @@ function boot(): void {
   const starBtn = el(
     'button',
     {
-      class: 'chip',
+      class: 'chip finish-chip',
       style: 'cursor:pointer',
       attrs: { type: 'button', title: 'Ganti finish' },
       on: {
@@ -107,13 +119,13 @@ function boot(): void {
     'header',
     { class: 'app-header' },
     el('div', { class: 'brand' }, brandMark, el('div', { class: 'brand__text' }, brandName, brandSub)),
-    el('div', { class: 'header__meta' }, headerStatus, starBtn),
+    el('div', { class: 'header__meta' }, headerStatus, accountButton(), starBtn),
   );
 
   const aurora = el('div', { class: 'aurora', attrs: { 'aria-hidden': 'true' } }, el('i'), el('i'));
   const shell = el('div', { class: 'shell' }, aurora, header);
   const main = el('main', { style: 'flex:1;display:flex;flex-direction:column;position:relative;z-index:1' });
-  for (const route of ROUTES) {
+  for (const route of [...ROUTES, ...HIDDEN_ROUTES.map((id) => ({ id }))]) {
     const node = screens[route.id].el;
     node.setAttribute('role', 'tabpanel');
     node.setAttribute('aria-labelledby', `nav-${route.id}`);
@@ -122,7 +134,7 @@ function boot(): void {
   main.id = 'main-content';
   main.tabIndex = -1;
   shell.appendChild(main);
-  for (const route of ROUTES) {
+  for (const route of [...ROUTES, ...HIDDEN_ROUTES.map((id) => ({ id }))]) {
     const overlay = screens[route.id].overlay;
     if (overlay) shell.appendChild(overlay);
   }
@@ -210,10 +222,10 @@ function boot(): void {
 
   const commitRoute = (id: RouteId): void => {
     activeRoute = id;
-    for (const route of ROUTES) {
-      const screen = screens[route.id];
-      screen.el.classList.toggle('is-active', route.id === id);
-      if (route.id === id) {
+    for (const route of ALL_ROUTE_IDS) {
+      const screen = screens[route];
+      screen.el.classList.toggle('is-active', route === id);
+      if (route === id) {
         screen.el.removeAttribute('aria-hidden');
         screen.onEnter?.();
       } else {
@@ -225,8 +237,10 @@ function boot(): void {
     }
     document.documentElement.dataset.route = id;
     document.title = `EL TZY AEGIS-M · ${id.toUpperCase()}`;
-    routeAnnouncer.textContent = `Layar ${ROUTES.find((r) => r.id === id)?.label ?? id}`;
-    navPulse.move(ROUTES.findIndex((r) => r.id === id));
+    routeAnnouncer.textContent = `Layar ${ROUTES.find((r) => r.id === id)?.label ?? 'Kontrol'}`;
+    const navIndex = ROUTES.findIndex((r) => r.id === id);
+    if (navIndex >= 0) navPulse.move(navIndex);
+    else navPulse.hide();
     if (!kineticDone.has(id)) {
       kineticDone.add(id);
       const title = screens[id].el.querySelector<HTMLElement>('.screen__title');
@@ -261,10 +275,10 @@ function boot(): void {
   const parseHash = (): RouteId => {
     const raw = location.hash.replace(/^#\/?/, '').split('?')[0];
     if (!raw) return activeRoute;
-    const found = ROUTES.find((r) => r.id === raw);
+    const found = ALL_ROUTE_IDS.find((r) => r === raw);
     // Unknown hashes (skip links, deep links from older versions) keep the
     // current screen instead of yanking the user back to the deck.
-    return found ? found.id : activeRoute;
+    return found ?? activeRoute;
   };
 
   nav.addEventListener('keydown', (ev) => {
@@ -283,6 +297,47 @@ function boot(): void {
   // ------------------------------------------------------------------ state → UI
   store.subscribe(() => {
     applyTheme();
+
+  // ------------------------------------------------------------------ session
+  /**
+   * A downgrade has to close the doors the previous tier opened. Stored edits
+   * and settings survive a sign-out, so the paid engines are switched off here
+   * rather than trusted to the UI.
+   */
+  const applyTierLimits = (): void => {
+    if (isPro(session.tier)) return;
+    const edit: Partial<EditSettings> = {};
+    if (store.edit.spatial8d) edit.spatial8d = false;
+    if (store.edit.denoise) edit.denoise = false;
+    if (store.edit.voiceMode) edit.voiceMode = false;
+    if (Object.keys(edit).length > 0) store.patchEdit(edit);
+
+    const settings: Partial<AppSettings> = {};
+    if (!formatAllowed('free', store.settings.format)) settings.format = 'mp3';
+    if (!targetAllowed('free', store.settings.target)) settings.target = 'streaming';
+    if (Object.keys(settings).length > 0) store.patchSettings(settings);
+  };
+
+  let enforced = false;
+  const onSession = (): void => {
+    if (session.state.status === 'loading') return;
+    applyTierLimits();
+    if (!enforced) {
+      enforced = true;
+      if (session.state.status === 'offline' && session.state.tier === 'free') {
+        // No functions (static host / offline install): say so once, calmly.
+        console.info('[aegis] mode offline — tier FREE');
+      }
+    }
+  };
+  session.subscribe(onSession);
+  onSession();
+  void session.refresh();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const stale = !session.state.exp || session.state.exp - Date.now() < 86_400_000;
+    if (stale) void session.refresh();
+  });
     const busy = store.status.active;
     headerStatus.className = `chip ${busy ? '' : 'chip--live'}`;
     headerStatus.replaceChildren();

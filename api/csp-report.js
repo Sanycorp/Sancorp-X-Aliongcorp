@@ -7,7 +7,19 @@
  * floor after logging. A browser cannot use this endpoint to exfiltrate data
  * into our logs beyond a directive name.
  */
+import { json, requireAdmin } from './_lib/auth.js';
+
 const MAX_BYTES = 8192;
+const KEEP = 50;
+
+/** Per-instance ring buffer. Vercel instances are short-lived; this is a live
+ *  sample of recent violations, not an analytics warehouse. */
+const recent = [];
+
+function remember(entry) {
+  recent.unshift({ ...entry, at: Date.now() });
+  if (recent.length > KEEP) recent.length = KEEP;
+}
 
 const SAFE_DIRECTIVE = /^[a-z0-9-]{1,64}$/;
 
@@ -36,14 +48,25 @@ function pick(report) {
 }
 
 export default function handler(req, res) {
+  // Admin console reads the sample.
+  if (req.method === 'GET') {
+    if (!requireAdmin(req)) {
+      json(res, 403, { error: 'admin_required' });
+      return;
+    }
+    json(res, 200, { count: recent.length, reports: recent.slice(0, KEEP) });
+    return;
+  }
+
   if (req.method !== 'POST') {
-    res.status(405).setHeader('Allow', 'POST').end();
+    res.setHeader('Allow', 'POST');
+    json(res, 405, { error: 'method_not_allowed' });
     return;
   }
 
   const type = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
   if (type !== 'application/csp-report' && type !== 'application/reports+json') {
-    res.status(415).end();
+    json(res, 415, { error: 'unsupported_media_type' });
     return;
   }
 
@@ -55,7 +78,7 @@ export default function handler(req, res) {
     if (body.length > MAX_BYTES) {
       overflow = true;
       body = '';
-      res.status(413).end();
+      json(res, 413, { error: 'too_large' });
     }
   });
 
@@ -65,7 +88,7 @@ export default function handler(req, res) {
     try {
       parsed = JSON.parse(body);
     } catch {
-      res.status(400).end();
+      json(res, 400, { error: 'bad_request' });
       return;
     }
 
@@ -75,13 +98,17 @@ export default function handler(req, res) {
 
     for (const candidate of raw.slice(0, 10)) {
       const clean = pick(candidate);
-      if (clean) console.warn('[csp]', JSON.stringify(clean));
+      if (clean) {
+        remember(clean);
+        console.warn('[csp]', JSON.stringify(clean));
+      }
     }
 
-    res.status(204).end();
+    res.statusCode = 204;
+    res.end();
   });
 
   req.on('error', () => {
-    if (!res.headersSent) res.status(400).end();
+    if (!res.headersSent) json(res, 400, { error: 'bad_request' });
   });
 }

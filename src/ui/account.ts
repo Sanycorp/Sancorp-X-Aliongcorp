@@ -1,0 +1,398 @@
+import { el, icon, button, toast } from './elements';
+import { PLANS } from '../model/tiers';
+import type { Feature, Tier } from '../model/tiers';
+import { session } from '../state/session';
+import { Haptics } from './haptics';
+
+/**
+ * Account sheet + paywall.
+ *
+ * One overlay component, mounted once, opened from the header chip or from any
+ * locked control. It owns focus trapping, Escape, and the "return to what you
+ * were doing" behaviour, so screens never have to know it exists.
+ */
+
+let sheet: HTMLElement | null = null;
+let panel: HTMLElement | null = null;
+let opener: HTMLElement | null = null;
+let lastFeature: Feature | null = null;
+
+const PRICE_DISPLAY = PLANS.pro;
+
+function focusables(root: HTMLElement): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((n) => !n.hasAttribute('disabled') && n.offsetParent !== null);
+}
+
+function close(): void {
+  if (!sheet || !panel) return;
+  sheet.classList.remove('is-open');
+  panel.classList.remove('is-open');
+  document.body.classList.remove('sheet-open');
+  const restore = opener;
+  opener = null;
+  window.setTimeout(() => {
+    sheet?.setAttribute('hidden', '');
+    restore?.focus?.();
+  }, 220);
+}
+
+function ensureShell(): { sheet: HTMLElement; panel: HTMLElement } {
+  if (sheet && panel) return { sheet, panel };
+
+  panel = el('div', {
+    class: 'sheet',
+    attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'sheet-title' },
+  });
+  sheet = el(
+    'div',
+    {
+      class: 'sheet-scrim',
+      attrs: { hidden: '' },
+      on: {
+        click: (ev) => {
+          if (ev.target === sheet) close();
+        },
+      },
+    },
+    panel,
+  );
+  document.body.appendChild(sheet);
+
+  document.addEventListener('keydown', (ev) => {
+    if (!sheet?.classList.contains('is-open')) return;
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      close();
+      return;
+    }
+    if (ev.key !== 'Tab' || !panel) return;
+    const items = focusables(panel);
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (ev.shiftKey && document.activeElement === first) {
+      ev.preventDefault();
+      last.focus();
+    } else if (!ev.shiftKey && document.activeElement === last) {
+      ev.preventDefault();
+      first.focus();
+    }
+  });
+
+  return { sheet, panel };
+}
+
+function open(trigger?: HTMLElement): void {
+  const shell = ensureShell();
+  opener = trigger ?? (document.activeElement as HTMLElement | null);
+  shell.sheet.removeAttribute('hidden');
+  document.body.classList.add('sheet-open');
+  requestAnimationFrame(() => {
+    shell.sheet.classList.add('is-open');
+    shell.panel.classList.add('is-open');
+    const first = focusables(shell.panel)[0];
+    first?.focus();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Content
+// ---------------------------------------------------------------------------
+
+function tierBadge(tier: Tier): HTMLElement {
+  const plan = PLANS[tier];
+  return el(
+    'span',
+    { class: `tier-badge tier-badge--${tier}` },
+    el('i'),
+    el('b', { text: plan.label }),
+  );
+}
+
+function renderSignedIn(host: HTMLElement): void {
+  const state = session.state;
+  const plan = session.plan;
+  const expires = state.exp
+    ? new Date(state.exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
+  host.append(
+    el(
+      'div',
+      { class: 'sheet__head' },
+      el('div', {}, el('div', { class: 'sheet__kicker', text: 'AKUN' }), el('h2', { id: 'sheet-title', class: 'sheet__title', text: plan.label })),
+      tierBadge(state.tier),
+    ),
+    el(
+      'div',
+      { class: 'account-card' },
+      el('div', { class: 'account-card__row' }, el('span', { text: 'Status' }), el('b', { text: plan.tagline })),
+      el('div', { class: 'account-card__row' }, el('span', { text: 'Serial lisensi' }), el('b', { text: state.subject ?? '—' })),
+      el(
+        'div',
+        { class: 'account-card__row' },
+        el('span', { text: 'Berlaku sampai' }),
+        el('b', { text: expires ?? 'tanpa batas' }),
+      ),
+    ),
+    el(
+      'ul',
+      { class: 'perk-list' },
+      ...plan.perks.map((perk) =>
+        el('li', {}, el('span', { class: 'perk-check', html: '' }), el('span', { text: perk })),
+      ),
+    ),
+    el(
+      'div',
+      { class: 'sheet__actions' },
+      state.tier === 'admin'
+        ? button('BUKA KONSOL', {
+            tone: 'primary',
+            block: true,
+            icon: 'system',
+            onClick: () => {
+              close();
+              location.hash = '#/control';
+            },
+          })
+        : button('GANTI KUNCI', {
+            tone: 'ghost',
+            block: true,
+            icon: 'reset',
+            onClick: () => {
+              if (!panel) return;
+              panel.replaceChildren();
+              renderSignedOut(panel, { switching: true });
+              appendClose(panel);
+            },
+          }),
+      button('KELUAR', {
+        tone: 'ghost',
+        block: true,
+        onClick: () => {
+          void session.signOut().then(() => {
+            close();
+            toast('Kamu keluar — kembali ke FREE', 'info', 1800);
+          });
+        },
+      }),
+    ),
+  );
+}
+
+function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}): void {
+  const input = el('input', {
+    class: 'input input--key',
+    attrs: {
+      type: 'text',
+      inputmode: 'text',
+      autocomplete: 'one-time-code',
+      spellcheck: 'false',
+      placeholder: 'AEGIS-PRO-XXXX-XXXXXXXX-XXXXXX',
+      'aria-label': 'Kunci lisensi',
+    },
+  });
+
+  const error = el('p', { class: 'form-error', attrs: { role: 'alert' } });
+  const submit = button('AKTIFKAN', { tone: 'primary', block: true, icon: 'check' });
+
+  const run = async (): Promise<void> => {
+    const key = input.value.trim();
+    if (!key) {
+      error.textContent = 'Masukkan kunci lisensi.';
+      input.focus();
+      return;
+    }
+    submit.disabled = true;
+    submit.textContent = 'MEMERIKSA…';
+    const problem = await session.signIn(key);
+    submit.disabled = false;
+    submit.textContent = 'AKTIFKAN';
+    if (problem) {
+      error.textContent = problem;
+      input.select();
+      return;
+    }
+    error.textContent = '';
+    Haptics.success();
+    toast(`Lisensi aktif — ${session.plan.label}`, 'ok', 2200);
+    render();
+  };
+
+  submit.addEventListener('click', () => void run());
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') void run();
+  });
+
+  host.append(
+    el(
+      'div',
+      { class: 'sheet__head' },
+      el(
+        'div',
+        {},
+        el('div', { class: 'sheet__kicker', text: 'MASUK' }),
+        el('h2', { id: 'sheet-title', class: 'sheet__title', text: opts.switching ? 'GANTI KUNCI' : 'AKTIFKAN AKSES' }),
+      ),
+      tierBadge('free'),
+    ),
+    el('p', {
+      class: 'sheet__lede',
+      text: opts.switching
+        ? 'Tempel kunci lain untuk menggantikan sesi yang sedang aktif.'
+        : 'Tempel kunci lisensi yang kamu terima. Kunci disimpan sebagai sesi aman di cookie httpOnly — tanpa kata sandi, tanpa data pribadi.',
+    }),
+    el('div', { class: 'field' }, el('span', { class: 'label', text: 'KUNCI LISENSI' }), input),
+    error,
+    submit,
+    opts.switching ? el('div') : el(
+      'div',
+      { class: 'plan-compare' },
+      ...(['free', 'pro'] as Tier[]).map((id) => {
+        const plan = PLANS[id];
+        return el(
+          'div',
+          { class: `plan-card ${id === 'pro' ? 'plan-card--pro' : ''}` },
+          el(
+            'div',
+            { class: 'plan-card__head' },
+            el('b', { text: plan.label }),
+            el('span', { class: 'plan-card__price', text: plan.price }),
+            el('span', { class: 'plan-card__cadence', text: plan.cadence }),
+          ),
+          el('ul', { class: 'perk-list' }, ...plan.perks.slice(0, 5).map((p) => el('li', {}, el('span', { text: p })))),
+        );
+      }),
+    ),
+    opts.switching
+      ? button('BATAL', { tone: 'ghost', block: true, onClick: () => render() })
+      : el('p', {
+          class: 'sheet__note',
+          text: 'Belum punya kunci? Lisensi PRO membuka 14 preset, FLAC/WAV 24–32, 8D, repair, dan export tanpa batas.',
+        }),
+  );
+}
+
+function render(): void {
+  if (!panel) return;
+  panel.replaceChildren();
+  panel.classList.toggle('sheet--narrow', false);
+
+  if (session.state.status === 'loading') {
+    panel.append(el('div', { class: 'sheet__loading' }, el('span', { class: 'spinner' }), el('span', { text: 'MEMUAT SESI…' })));
+    return;
+  }
+
+  if (session.state.tier === 'free') renderSignedOut(panel);
+  else renderSignedIn(panel);
+
+  appendClose(panel);
+}
+
+function appendClose(host: HTMLElement): void {
+  host.append(
+    el(
+      'button',
+      {
+        class: 'sheet__close',
+        attrs: { type: 'button', 'aria-label': 'Tutup' },
+        on: { click: close },
+      },
+      icon('close', 16),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export function openAccount(trigger?: HTMLElement): void {
+  lastFeature = null;
+  open(trigger);
+  render();
+}
+
+/** Paywall: the same sheet, focused on why the control is locked. */
+export function openPaywall(reason: string, feature?: Feature, trigger?: HTMLElement): void {
+  lastFeature = feature ?? null;
+  open(trigger);
+
+  if (!panel) return;
+  if (session.state.tier !== 'free') {
+    // Already paid: tell them what happened instead of selling again.
+    panel.replaceChildren(
+      el('div', { class: 'sheet__head' }, el('h2', { id: 'sheet-title', class: 'sheet__title', text: 'SUDAH TERBUKA' })),
+      el('p', { class: 'sheet__lede', text: 'Paketmu sudah mencakup fitur ini.' }),
+      button('TUTUP', { block: true, onClick: close }),
+    );
+    return;
+  }
+
+  panel.replaceChildren(
+    el(
+      'div',
+      { class: 'sheet__head' },
+      el('div', {}, el('div', { class: 'sheet__kicker', text: 'PRO' }), el('h2', { id: 'sheet-title', class: 'sheet__title', text: 'BUKA SEMUA' })),
+      tierBadge('pro'),
+    ),
+    el('p', { class: 'sheet__lede', text: reason }),
+    el(
+      'div',
+      { class: 'price-block' },
+      el('span', { class: 'price-block__amount', text: PRICE_DISPLAY.price }),
+      el('span', { class: 'price-block__cadence', text: PRICE_DISPLAY.cadence }),
+    ),
+    el('ul', { class: 'perk-list perk-list--tight' }, ...PRICE_DISPLAY.perks.map((p) => el('li', {}, el('span', { text: p })))),
+    el(
+      'div',
+      { class: 'sheet__actions' },
+      button('PUNYA KUNCI? MASUK', {
+        tone: 'primary',
+        block: true,
+        icon: 'check',
+        onClick: () => {
+          render();
+          const input = panel?.querySelector<HTMLInputElement>('.input--key');
+          input?.focus();
+        },
+      }),
+      button('NANTI', { tone: 'ghost', block: true, onClick: close }),
+    ),
+    el('button', {
+      class: 'sheet__close',
+      attrs: { type: 'button', 'aria-label': 'Tutup' },
+      on: { click: close },
+    }),
+  );
+  const closeBtn = panel.querySelector('.sheet__close');
+  if (closeBtn) closeBtn.append(icon('close', 16));
+  panel.dataset.feature = lastFeature ?? '';
+}
+
+export function accountButton(): HTMLButtonElement {
+  const btn = el('button', {
+    class: 'chip account-chip',
+    attrs: { type: 'button', 'aria-label': 'Akun dan lisensi', title: 'Akun' },
+    on: {
+      click: () => openAccount(btn),
+    },
+  });
+
+  const paint = (): void => {
+    const tier = session.state.tier;
+    btn.className = `chip account-chip account-chip--${tier}`;
+    btn.replaceChildren(
+      el('i', { class: 'account-chip__dot' }),
+      el('b', { text: session.state.status === 'loading' ? '…' : tier.toUpperCase() }),
+    );
+  };
+
+  session.subscribe(paint);
+  paint();
+  return btn;
+}

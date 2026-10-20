@@ -423,7 +423,7 @@ export function installScrollChrome(header: HTMLElement): () => void {
 /**
  * Sliding highlight inside the tab bar (FLIP-style), replacing per-button bars.
  */
-export function installNavPulse(nav: HTMLElement): { move(index: number): void } {
+export function installNavPulse(nav: HTMLElement): { move(index: number): void; hide(): void } {
   const pulse = document.createElement('span');
   pulse.className = 'nav__pulse';
   pulse.setAttribute('aria-hidden', 'true');
@@ -440,7 +440,12 @@ export function installNavPulse(nav: HTMLElement): { move(index: number): void }
     pulse.classList.add('is-in');
   };
 
-  return { move };
+  return {
+    move,
+    hide() {
+      pulse.classList.remove('is-in');
+    },
+  };
 }
 
 /**

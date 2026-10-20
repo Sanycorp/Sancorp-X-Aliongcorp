@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — EL TZY AEGIS-M v8.4.1
+# PROJECT HANDOFF — EL TZY AEGIS-M v8.5.0
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -7,7 +7,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | | |
 | --- | --- |
 | Produk | EL TZY AEGIS-M |
-| Versi | 8.4.1 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.5.0 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -17,7 +17,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **123 test lulus** (dsp 27, engine 29, security 17, encode 7, android 6, motion 12, responsive 12, ui 12, probe 1)
+- `npx vitest run` → **151 test lulus** (12 file: dsp 27, engine 29, security 19, encode 7, android 6, motion 12, responsive 12, ui 15, probe 1, tiers 7, auth 14, control 3)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -32,7 +32,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-m-v8.4.1
+  sw.js                    # cache shell, versi aegis-m-v8.5.0
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 tools/make-icons.mjs       # generator PNG tanpa dependency + mipmap Android
 .github/workflows/android.yml
@@ -67,16 +67,23 @@ src/
   version.ts      APP_VERSION tunggal
   ui/
     motion.ts     tween, animateValue, scramble, ripple, magnet, tilt, burst,
-                  kineticTitle, installScrollChrome, installNavPulse
-    elements.ts   el(), fader/toggle/segmented/select/button, toast
+                  kineticTitle, installScrollChrome, installNavPulse (move/hide)
+    elements.ts   el(), fader/toggle/segmented(locks)/select/button, toast
+    account.ts    sheet akun + paywall, focus trap, accountButton()
     waveform.ts   canvas timeline + trim handles
     scope.ts      oscilloscope
     haptics.ts
-    screens/      deck.ts, lab.ts, arsenal.ts, system.ts
+    screens/      deck.ts, lab.ts, arsenal.ts, system.ts, control.ts (#/control)
+  model/
+    tiers.ts      PLANS free/pro/admin, ALL_PRESET_IDS, can/presetAllowed/
+                  formatAllowed/targetAllowed, upgradeHint
+  state/
+    session.ts    tier dari /api/auth, fallback FREE saat offline
   security/
     sanitize.ts   setHtml() + Trusted Types policy `aegis` (DOMPurify allowlist)
-    posture.ts    pembacaan header/probe runtime untuk panel SECURITY
-  styles/         base.css, primitives.css, controls.css, app.css, motion.css, security.css
+    posture.ts    pembacaan header/probe (dipakai konsol, bukan UI publik)
+  styles/         base.css, primitives.css, controls.css, app.css, motion.css,
+                  security.css, account.css, control.css
                   (token fluid, breakpoint 360/720/900/1080/1440, landscape,
                    safe-area, container query, view transition, scroll-driven,
                    kinetic/reveal/ripple/tilt/spark, reduced-motion kill sheet)
@@ -100,6 +107,12 @@ src/
 13. `npm run build` = `tsc --noEmit && vite build && node tools/sri.mjs`. SRI menghasilkan 3 tag bertanda tangan; kalau tool gagal menemukan aset, build gagal (disengaja).
 14. Header keamanan hidup di `vercel.json` dan diuji statis oleh `tests/security.test.ts` — ubah keduanya bersamaan.
 15. `vercel.json` memakai `rewrites` SPA `/((?!api/).*)`; jangan tambahkan rewrite yang menelan `/api/*`.
+16. **Panel/indikator keamanan tidak boleh kembali ke UI publik.** Postur web hanya hidup di `#/control` (tab SECURITY), dan hanya untuk sesi `admin`.
+17. Gating tier selalu lewat `src/model/tiers.ts`. Jangan menulis `if (tier === 'pro')` tersebar; pakai `can()` / `presetAllowed()` / `formatAllowed()` / `targetAllowed()`.
+18. Setiap kontrol yang bisa dikunci harus memanggil `openPaywall()` alih-alih diam-diam gagal.
+19. Konsol `#/control` tidak didaftarkan di `ROUTES` — hanya di `HIDDEN_ROUTES` (`ALL_ROUTE_IDS`). Tanpa tombol nav.
+20. `session.refresh()` yang gagal **wajib** jatuh ke `free`, bukan mempertahankan tier terakhir (uang tidak boleh hilang karena jaringan).
+21. Saat tier turun, `applyTierLimits()` di `main.ts` mematikan 8D/denoise/voiceMode dan mengembalikan format/target yang tidak sah.
 
 ## 5. Invarian DSP yang tidak boleh dilanggar
 
@@ -108,7 +121,7 @@ src/
 3. **Limiter selalu terakhir**, ceiling −1.2 dBTP, deteksi 4× Catmull (sama dengan meter).
 4. **Fade before reverb** supaya ekor reverb tidak ikut terpotong.
 5. **Output selalu stereo 48 kHz.**
-6. **Tidak ada upload.** Tidak ada `fetch` ke server di runtime aplikasi.
+6. **Tidak ada upload.** Audio tidak pernah dikirim. Satu-satunya `fetch` adalah `/api/auth` (sesi) dan, di konsol, `/api/health`, `/api/license`, `/api/csp-report`.
 7. **Clamp** selalu dari `buffer.ts`, jangan `Math.min/max` manual di DSP.
 8. `resampleByStep(step)` — `step < 1` = **lebih lambat/lebih panjang/pitch turun**. Jangan dibalik.
 9. FLAC = verbatim 24-bit. Jika nanti diganti encoder terkompresi, perbarui README + test parser.
@@ -181,7 +194,7 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sancorp-x-aliongcorp` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (commit `aefccad`, v8.4.1) |
+| Deployment aktif | `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (commit `aefccad`, v8.5.0) |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | job `probe` di `android.yml`, target dari `.vercel-url` |
 
@@ -200,7 +213,7 @@ Panel in-app di produksi melaporkan **GUARDED 5/7** saat kunjungan pertama: HTTP
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), lalu `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1).
+- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), lalu `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.5.0).
 
 ### Cara deploy berikutnya
 

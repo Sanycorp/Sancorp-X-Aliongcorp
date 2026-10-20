@@ -14,9 +14,9 @@ import {
   toggle,
 } from '../elements';
 import { clearSession } from '../../io/storage';
-import { postureOnce, postureVerdict } from '../../security/posture';
-import { isNativeApp } from '../../security/platform';
-import type { Posture, PostureState } from '../../security/posture';
+import { session } from '../../state/session';
+import { planFor } from '../../model/tiers';
+import { openAccount } from '../account';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
 
@@ -154,89 +154,74 @@ export function createSystem(): Screen {
     historyList,
   );
 
-  // ------------------------------------------------------------- security
-  const secChip = el('span', { class: 'chip', text: 'MEMINDAI' });
-  const secList = el('div', { class: 'posture-list' });
-  const native = isNativeApp();
-  const secNote = el('p', {
-    class: 'lab-group__note',
-    text: native
-      ? 'APK tidak punya server, jadi tidak ada header HTTP di sini. Yang diperiksa: sandbox WebView, Trusted Types, SRI, manifest anti-cleartext, larangan navigasi keluar, dan backup yang diblokir.'
-      : 'Edisi web: status dibaca langsung dari respons server — header CSP, enforcement Trusted Types, SRI, isolasi lintas-origin, dan cache shell.',
-  });
+  // ------------------------------------------------------------- account
+  const accountChip = el('span', { class: 'chip', text: 'FREE' });
+  const accountLine = el('p', { class: 'lab-group__note', style: 'margin-top:0' });
+  const accountCta = el('div', { style: 'display:grid; gap:8px; margin-top:10px' });
 
-  const securityGroup = el(
+  const accountGroup = el(
     'div',
     { class: 'plate settings-group' },
     el(
       'div',
       { class: 'row', style: 'align-items:center;gap:10px' },
-      el(
-        'div',
-        { style: 'flex:1;min-width:0' },
-        sectionHead('05', native ? 'SECURITY · APP' : 'SECURITY · WEB'),
-      ),
-      secChip,
+      el('div', { style: 'flex:1;min-width:0' }, sectionHead('04', 'AKUN & LISENSI')),
+      accountChip,
     ),
-    secList,
-    secNote,
+    accountLine,
+    accountCta,
   );
 
-  const STATE_LABEL: Record<PostureState, string> = { on: 'ON', partial: 'PART', off: 'OFF' };
+  function renderAccount(): void {
+    const tier = session.state.tier;
+    const plan = planFor(tier);
+    accountChip.className = `chip ${tier === 'free' ? '' : 'chip--live'}`;
+    accountChip.textContent = plan.label;
+    accountLine.textContent =
+      tier === 'free'
+        ? 'Kamu di paket FREE: 4 preset, MP3/WAV 16, export sampai 12 menit. Lisensi PRO membuka seluruh arsenal dan format lossless.'
+        : `Aktif sampai ${session.state.exp ? new Date(session.state.exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'tanpa batas'} · serial ${session.state.subject ?? '—'}`;
 
-  function renderPosture(p: Posture): void {
-    secChip.className = `chip ${p.score === p.total ? 'chip--live' : ''}`;
-    secChip.textContent = `${postureVerdict(p)} ${p.score}/${p.total}`;
-    const rows = p.items.map((item) =>
-      el(
-        'div',
-        { class: 'posture-row', dataset: { state: item.state } },
-        el('span', { class: 'posture-dot' }),
-        el(
-          'div',
-          { class: 'posture-copy' },
-          el('b', { text: item.label }),
-          el('span', { text: item.detail }),
-        ),
-        el('span', { class: 'posture-state', text: STATE_LABEL[item.state] }),
-      ),
+    accountCta.replaceChildren(
+      button(tier === 'free' ? 'AKTIFKAN LISENSI' : 'KELOLA AKUN', {
+        tone: tier === 'free' ? 'primary' : 'ghost',
+        size: 'sm',
+        block: true,
+        icon: 'check',
+        onClick: () => openAccount(),
+      }),
+      tier === 'admin'
+        ? button('BUKA KONSOL KONTROL', {
+            tone: 'ghost',
+            size: 'sm',
+            block: true,
+            icon: 'system',
+            onClick: () => {
+              location.hash = '#/control';
+            },
+          })
+        : el('span'),
     );
-    secList.replaceChildren(...rows);
-  }
-
-  async function refreshPosture(): Promise<void> {
-    try {
-      renderPosture(await postureOnce(true));
-    } catch {
-      secChip.textContent = 'TIDAK TERBACA';
-      secList.replaceChildren(
-        el('div', { class: 'posture-row', dataset: { state: 'off' } },
-          el('span', { class: 'posture-dot' }),
-          el('div', { class: 'posture-copy' }, el('b', { text: 'POSTURE' }), el('span', { text: 'gagal membaca status platform' })),
-          el('span', { class: 'posture-state', text: 'OFF' }),
-        ),
-      );
-    }
   }
 
   // ------------------------------------------------------------- about
   const aboutGroup = el(
     'div',
     { class: 'plate settings-group' },
-    sectionHead('04', 'TENTANG'),
+    sectionHead('05', 'TENTANG'),
     el(
       'div',
       { class: 'about-grid' },
       infoCell('APP', 'EL TZY AEGIS-M'),
       infoCell('VERSI', APP_VERSION),
       infoCell('ENGINE', 'TS 7 · Vite 8'),
-      infoCell('DSP', 'WebAudio-free · 32-bit'),
-      infoCell('SHELL', 'Capacitor 8'),
+      infoCell('DSP', 'Murni TS · 32-bit'),
+      infoCell('PLATFORM', 'Web / PWA'),
       infoCell('OUTPUT', '48 kHz stereo'),
     ),
     el('p', {
       class: 'lab-group__note',
-      text: 'Seluruh pemrosesan berjalan lokal di perangkat. Tidak ada upload, tidak ada server, tidak ada telemetry. Loudness memakai BS.1770-4 dengan true peak 4× oversampling.',
+      text: 'Seluruh pemrosesan audio berjalan lokal di perangkat — file tidak pernah diunggah dan tidak ada telemetry. Satu-satunya panggilan jaringan adalah pemeriksaan lisensi. Loudness memakai BS.1770-4 dengan true peak 4× oversampling.',
     }),
     el(
       'div',
@@ -286,7 +271,7 @@ export function createSystem(): Screen {
       uiGroup,
       outputGroup,
       historyGroup,
-      securityGroup,
+      accountGroup,
       aboutGroup,
     ),
     el('div', { class: 'footnote', text: `EL TZY AEGIS-M ${APP_VERSION} · dibuat untuk dipakai, bukan untuk di-upload` }),
@@ -298,7 +283,7 @@ export function createSystem(): Screen {
     emptyHistory.classList.toggle('hidden', has);
     historyList.classList.toggle('hidden', !has);
     if (!has) return;
-    const rows = store.history.slice(0, 12).map((rec) => {
+    const rows = store.history.slice(0, store.historyCap()).map((rec) => {
       const date = new Date(rec.createdAt);
       const stamp = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
       return el(
@@ -326,11 +311,16 @@ export function createSystem(): Screen {
     targetSelect.select.value = store.settings.target;
     updateNote();
     renderHistory();
+    renderAccount();
   }
 
   store.subscribe(update);
+  session.subscribe(() => {
+    store.trimHistory();
+    renderAccount();
+  });
+  store.trimHistory();
   update();
-  void refreshPosture();
 
-  return { el: screen, update, onEnter: () => void refreshPosture() };
+  return { el: screen, update };
 }

@@ -68,11 +68,19 @@ describe('app shell', () => {
     await import('../src/main');
   });
 
-  it('mounts four screens and the navigation', () => {
-    expect(document.querySelectorAll('.screen').length).toBe(4);
+  it('mounts four public screens, one hidden console, and the navigation', () => {
+    expect(document.querySelectorAll('.screen').length).toBe(5);
     expect(document.querySelectorAll('.nav__btn').length).toBe(4);
     expect(document.querySelector('#screen-deck.is-active')).not.toBeNull();
     expect(document.querySelector('#toast-host')).not.toBeNull();
+  });
+
+  it('keeps the operator console off the navigation', () => {
+    expect(document.querySelector('#screen-control')).not.toBeNull();
+    expect(document.querySelector('.nav__btn[data-route="control"]')).toBeNull();
+    expect(document.querySelector('#screen-control')!.classList.contains('is-active')).toBe(false);
+    // Deep link still resolves when the hash is typed.
+    expect(document.querySelector('#screen-control .ctrl-gate')).not.toBeNull();
   });
 
   it('renders all fourteen preset chips', () => {
@@ -111,8 +119,43 @@ describe('app shell', () => {
     expect(store.edit.speed).toBeCloseTo(1.35, 2);
   });
 
+  it('opens the account sheet from the header and closes on Escape', async () => {
+    await new Promise((r) => setTimeout(r, 20));
+    const chip = document.querySelector<HTMLButtonElement>('.account-chip');
+    expect(chip).not.toBeNull();
+    chip!.click();
+    await new Promise((r) => setTimeout(r, 30));
+
+    const scrim = document.querySelector('.sheet-scrim');
+    expect(scrim).not.toBeNull();
+    expect(scrim!.hasAttribute('hidden')).toBe(false);
+    expect(document.querySelector('.sheet')!.textContent).toMatch(/AKTIFKAN AKSES|PRO|FREE/);
+    expect(document.body.classList.contains('sheet-open')).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 260));
+    expect(scrim!.hasAttribute('hidden')).toBe(true);
+    expect(document.body.classList.contains('sheet-open')).toBe(false);
+  });
+
+  it('sells PRO instead of applying a locked preset', async () => {
+    window.location.hash = '#/arsenal';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise((r) => setTimeout(r, 10));
+
+    const locked = document.querySelector<HTMLButtonElement>('.preset-card.is-locked');
+    expect(locked).not.toBeNull();
+    const before = store.edit.activePreset;
+    locked!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.edit.activePreset).toBe(before);
+    expect(document.querySelector('.price-block__amount')?.textContent).toMatch(/79\.000/);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 260));
+  });
+
   it('cycles auto → armor → cockpit → auto from the header', () => {
-    const toggle = document.querySelector<HTMLButtonElement>('.app-header .header__meta button');
+    const toggle = document.querySelector<HTMLButtonElement>('.app-header .finish-chip');
     expect(toggle).not.toBeNull();
     store.patchSettings({ finish: 'auto' });
     expect(document.documentElement.dataset.finish).toBe('armor');

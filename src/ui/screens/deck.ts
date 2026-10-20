@@ -6,6 +6,9 @@ import { forgeExport, getPreviewStats, loadSource, renderPreview, shareLast } fr
 import { formatBytes, formatDuration, formatRate } from '../../io/audioFile';
 import { PreviewPlayer } from '../../io/player';
 import { Haptics } from '../haptics';
+import { session } from '../../state/session';
+import { formatAllowed, isPro, planFor, presetAllowed, targetAllowed, upgradeHint } from '../../model/tiers';
+import { openPaywall } from '../account';
 import {
   button,
   el,
@@ -28,6 +31,8 @@ export interface Screen {
   overlay?: HTMLElement;
   update(): void;
   onEnter?(): void;
+  /** Optional teardown for screens that own timers. */
+  destroy?(): void;
 }
 
 export function createDeck(): Screen {
@@ -163,14 +168,18 @@ export function createDeck(): Screen {
   });
 
   // ---------------------------------------------------------------- presets
-  const chips = PRESETS.map((preset) =>
-    el(
+  const chips = PRESETS.map((preset) => {
+    const chip = el(
       'button',
       {
         class: `preset-chip preset-chip--${preset.accent}`,
         attrs: { type: 'button', 'aria-pressed': 'false', title: preset.detail },
         on: {
           click: () => {
+            if (!presetAllowed(session.tier, preset.id)) {
+              openPaywall(upgradeHint('preset'), 'allPresets', chip);
+              return;
+            }
             store.applyPreset(preset.id, preset.apply);
             Haptics.medium();
             toast(`${preset.name} · ${preset.tagline}`, 'ok');
@@ -181,8 +190,21 @@ export function createDeck(): Screen {
       el('span', { class: 'preset-chip__tag', text: preset.tag }),
       el('span', { class: 'preset-chip__name', text: preset.name }),
       el('span', { class: 'preset-chip__sub', text: preset.tagline }),
-    ),
-  );
+      el('i', { class: 'lock', text: 'PRO' }),
+    );
+    chip.dataset.preset = preset.id;
+    return chip;
+  });
+
+  /** Locks follow the session, so signing in unlocks without a reload. */
+  function paintLocks(): void {
+    const pro = isPro(session.tier);
+    for (const chip of chips) {
+      const locked = !pro && !planFor(session.tier).presets.includes(chip.dataset.preset ?? '');
+      chip.classList.toggle('is-locked', locked);
+      chip.setAttribute('aria-disabled', locked ? 'true' : 'false');
+    }
+  }
 
   const rail = el('div', { class: 'rail' }, chips);
 
@@ -231,6 +253,7 @@ export function createDeck(): Screen {
       value: k,
       label: TARGET_META[k].label,
       sub: TARGET_META[k].lufs ? `${TARGET_META[k].lufs} LUFS` : 'BYPASS',
+      locked: !targetAllowed(session.tier, k),
     })),
     store.edit.target,
     (v) => {
@@ -238,6 +261,7 @@ export function createDeck(): Screen {
       Haptics.tap();
       update();
     },
+    () => openPaywall(upgradeHint('target'), 'clubTarget'),
   );
 
   const formatSeg = segmented(
@@ -245,6 +269,7 @@ export function createDeck(): Screen {
       value: f,
       label: FORMAT_META[f].label,
       sub: FORMAT_META[f].spec,
+      locked: !formatAllowed(session.tier, f),
     })),
     store.edit.format === 'wav16' || store.edit.format === 'wav32' ? 'wav24' : store.edit.format,
     (v) => {
@@ -253,6 +278,7 @@ export function createDeck(): Screen {
       Haptics.tap();
       update();
     },
+    () => openPaywall(upgradeHint('format'), 'lossless'),
   );
 
   const masterStrip = el(
@@ -272,6 +298,24 @@ export function createDeck(): Screen {
     );
   }
 
+  /**
+   * Free tier caps export length. Checked before the render starts so the user
+   * is told immediately rather than after two minutes of DSP.
+   */
+  function durationBlocked(): boolean {
+    const plan = planFor(session.tier);
+    if (!store.source) return false;
+    if (plan.limits.maxMinutes === Infinity) return false;
+    const end = store.edit.trimEnd > 0 ? store.edit.trimEnd : store.source.duration;
+    const seconds = end - store.edit.trimStart;
+    if (seconds <= plan.limits.maxMinutes * 60) return false;
+    openPaywall(
+      `Versi gratis dibatasi ${plan.limits.maxMinutes} menit per export. Rekam ini ${(seconds / 60).toFixed(1)} menit — PRO membuka durasi penuh.`,
+      'batchQueue',
+    );
+    return true;
+  }
+
   const forgingLabel = el('span', { class: 'forge__go', text: 'RENDER →' });
   const forgeSub = el('span', { class: 'forge__sub', text: 'SIAP' });
   const forgeBtn = el(
@@ -281,6 +325,7 @@ export function createDeck(): Screen {
       attrs: { type: 'button' },
       on: {
         click: () => {
+          if (durationBlocked()) return;
           Haptics.heavy();
           void forgeExport().then(() => update());
         },
@@ -439,6 +484,7 @@ export function createDeck(): Screen {
       attrs: { type: 'button', 'aria-label': 'Forge hasil' },
       on: {
         click: () => {
+          if (durationBlocked()) return;
           Haptics.heavy();
           void forgeExport().then(() => update());
         },
@@ -885,6 +931,11 @@ export function createDeck(): Screen {
   }
 
   store.subscribe(update);
+  session.subscribe(() => {
+    paintLocks();
+    update();
+  });
+  paintLocks();
   update();
 
   return {

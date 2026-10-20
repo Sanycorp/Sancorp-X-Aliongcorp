@@ -108,18 +108,22 @@ describe('security.txt', () => {
 describe('CSP report endpoint', () => {
   type Handler = (req: unknown, res: unknown) => void;
 
+  /** Minimal stand-in for Node's ServerResponse (statusCode + setHeader + end). */
   const makeRes = () => {
     const state = { status: 0, body: '', headers: {} as Record<string, string> };
     const res = {
-      status(code: number) {
+      get statusCode() {
+        return state.status;
+      },
+      set statusCode(code: number) {
         state.status = code;
-        return res;
       },
       setHeader(key: string, value: string) {
         state.headers[key] = value;
         return res;
       },
-      end() {
+      end(chunk?: string) {
+        if (chunk) state.body += chunk;
         return res;
       },
       get headersSent() {
@@ -144,8 +148,14 @@ describe('CSP report endpoint', () => {
     return state;
   };
 
-  it('rejects anything that is not a POST', async () => {
+  it('refuses to show the sample without an admin session', async () => {
     const state = await run('GET', 'application/csp-report', '{}');
+    expect(state.status).toBe(403);
+    expect(JSON.parse(state.body).error).toBe('admin_required');
+  });
+
+  it('rejects methods other than GET and POST', async () => {
+    const state = await run('PUT', 'application/csp-report', '{}');
     expect(state.status).toBe(405);
     expect(state.headers.Allow).toBe('POST');
   });

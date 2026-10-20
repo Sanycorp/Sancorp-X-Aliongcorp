@@ -2,6 +2,9 @@ import { SPEED_MODE_META, SPACE_META } from '../../model/settings';
 import type { EditSettings, ReverbType, SpeedMode } from '../../model/settings';
 import { store } from '../../state/store';
 import { Haptics } from '../haptics';
+import { session } from '../../state/session';
+import { can, upgradeHint } from '../../model/tiers';
+import { openPaywall } from '../account';
 import { button, el, fader, sectionHead, segmented, toast, toggle } from '../elements';
 import type { Screen } from './deck';
 
@@ -161,6 +164,11 @@ export function createLab(): Screen {
   const orbitInner = orbitGroup.querySelector('.lab-group__body') as HTMLElement;
 
   const orbitToggle = toggle('8D ORBIT', store.edit.spatial8d, (v) => {
+    if (v && !can(session.tier, 'orbit8d')) {
+      orbitToggle.set(false);
+      openPaywall(upgradeHint('orbit8d'), 'orbit8d');
+      return;
+    }
     store.patchEdit({ spatial8d: v });
     Haptics.tap();
   });
@@ -214,6 +222,11 @@ export function createLab(): Screen {
   const repairInner = repairGroup.querySelector('.lab-group__body') as HTMLElement;
 
   const denoiseToggle = toggle('DENOISE', store.edit.denoise, (v) => {
+    if (v && !can(session.tier, 'repair')) {
+      denoiseToggle.set(false);
+      openPaywall(upgradeHint('repair'), 'repair');
+      return;
+    }
     store.patchEdit({ denoise: v });
     Haptics.tap();
   });
@@ -221,6 +234,11 @@ export function createLab(): Screen {
   addFader(repairInner, 'denoiseAmount', 'AMOUNT', { min: 0, max: 1, step: 0.01, format: pct });
 
   const voiceToggle = toggle('VOICE FOCUS', store.edit.voiceMode, (v) => {
+    if (v && !can(session.tier, 'repair')) {
+      voiceToggle.set(false);
+      openPaywall(upgradeHint('repair'), 'repair');
+      return;
+    }
     store.patchEdit({ voiceMode: v });
     Haptics.tap();
   });
@@ -244,6 +262,10 @@ export function createLab(): Screen {
       attrs: { type: 'button' },
       on: {
         click: () => {
+          if (!can(session.tier, 'abMemory')) {
+            openPaywall(upgradeHint('abMemory'), 'abMemory');
+            return;
+          }
           if (store.slotA) {
             store.recallSlot('A');
             toast('Slot A dipanggil', 'ok', 1400);
@@ -267,6 +289,10 @@ export function createLab(): Screen {
       attrs: { type: 'button' },
       on: {
         click: () => {
+          if (!can(session.tier, 'abMemory')) {
+            openPaywall(upgradeHint('abMemory'), 'abMemory');
+            return;
+          }
           if (store.slotB) {
             store.recallSlot('B');
             toast('Slot B dipanggil', 'ok', 1400);
@@ -364,6 +390,16 @@ export function createLab(): Screen {
     for (const b of bindings) b.set(store.edit[b.key]);
     syncToggles();
   }
+
+  const paintLabLocks = (): void => {
+    const pro = session.tier !== 'free';
+    for (const node of [orbitToggle.wrap, denoiseToggle.wrap, voiceToggle.wrap, abGroup]) {
+      node.classList.toggle('is-locked', !pro);
+      node.setAttribute('aria-disabled', pro ? 'false' : 'true');
+    }
+  };
+  session.subscribe(paintLabLocks);
+  paintLabLocks();
 
   store.subscribe(update);
   update();

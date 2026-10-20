@@ -1,9 +1,12 @@
 # Security policy — EL TZY AEGIS-M
 
-AEGIS-M is a static, offline-first audio tool. There is no account system, no
-server-side audio processing and no telemetry. That removes most of the usual
-attack surface, so the remaining work is about making the delivery layer as
-hostile to injection as a browser currently allows.
+AEGIS-M is an offline-first audio tool with a thin license server. Audio never
+leaves the device and there is no telemetry, but the web build does talk to four
+small functions in `/api`: session, license issuance, health, and CSP reporting.
+There is no database and no user record — a license is a signed string and a
+session is a signed cookie. That keeps the server-side attack surface to
+"verify an HMAC or say no", and leaves the rest of the work to the delivery
+layer.
 
 ## Reporting a vulnerability
 
@@ -56,10 +59,10 @@ Applied by `tools/android-harden.mjs` right after `cap sync`, and asserted in CI
 | Integrity | Same sha384 SRI attributes; assets ship inside the APK |
 | Service worker | **Not registered** on native — bundled assets already exist, a SW would only add a stale-cache failure mode |
 
-The in-app panel (**System → 05 SECURITY**) changes its label and its checks
-depending on where it runs: `SECURITY · WEB` reads the live response headers,
-`SECURITY · APP` reports sandbox, manifest guarantees, and the absent service
-worker.
+The public in-app security panel was **removed in v8.5.0**. Nothing about the
+delivery posture is rendered for ordinary visitors anymore; the checks moved to
+the operator console at `#/control` (admin session required), which reads the
+live response headers and the CSP report feed.
 
 ### Why Trusted Types is enforced, not report-only
 Every HTML sink in `src/` goes through `setHtml()` in `src/security/sanitize.ts`.
@@ -70,12 +73,39 @@ or `href` attributes, no event handlers). With `require-trusted-types-for
 closed instead of silently becoming an XSS vector.
 
 
+## C. License and session model
+
+Deliberately database-free. The cost is that a key cannot be revoked
+individually; the benefit is that there is no user table to leak.
+
+| Layer | Control |
+| --- | --- |
+| License format | `AEGIS-<TIER>-<SERIAL4>-<YYYYMMDD>-<SIG6>`, `SIG6` = first 6 alphanumerics of `HMAC-SHA256(secret, "tier\|serial\|expires")` |
+| Verification | Constant-time compare; tier, serial and date re-derived from the signature, so editing any field invalidates the key |
+| Session | Cookie `aegis_sess`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, payload + HMAC signature, expiry inside the signed payload |
+| Revocation | Rotate `AEGIS_SECRET` — every session and every issued key dies at once |
+| Admin | Separate tier, only reachable by posting the password from `AEGIS_ADMIN_PASSWORD`; equal-length constant-time compare |
+| Abuse | Sliding-window rate limit per IP on login and on key issuance; 10 keys per request, 30 requests per minute |
+| Console | `#/control` is not linked in the navigation, requires an admin session, and every `/api/license` or `GET /api/csp-report` call is re-authorised server-side |
+| Storage | Nothing persisted server-side except a 50-entry in-memory CSP ring buffer per instance |
+
+**Client-side gating is not a security boundary**, and this document does not
+pretend otherwise: the DSP, the presets and the encoders ship in the bundle, so a
+determined user can patch the tier check. The license gates the *workflow* and
+keeps an honest person honest; the thing being protected is the product, not a
+secret. What the server does protect — minting keys and reading operator
+telemetry — is enforced server-side, on every call.
+
 ## Out of scope
 
 - Denial of service against your own device by feeding enormous files (the app
   decodes locally; memory limits are the browser's).
 - Anyone with physical access to an unlocked device reading exported audio.
 - The Android APK's signing key (debug builds are for sideloading only).
+- A user patching the tier check in their own browser. See section C. The paid
+  engines ship in the bundle by design; there is nothing server-side to steal.
+- Someone who already holds `AEGIS_SECRET` or `AEGIS_ADMIN_PASSWORD`. Rotate
+  both if either has been exposed outside the Vercel project.
 
 ## Supported versions
 

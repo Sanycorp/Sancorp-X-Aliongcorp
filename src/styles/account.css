@@ -1,0 +1,557 @@
+/* ==========================================================================
+   Account sheet, paywall, tier badges, locked controls
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Header chip
+   -------------------------------------------------------------------------- */
+
+.account-chip {
+  gap: 6px;
+  padding-inline: 9px;
+  cursor: pointer;
+  border-color: color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.account-chip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--muted) 14%, transparent);
+}
+
+.account-chip--pro .account-chip__dot,
+.account-chip--admin .account-chip__dot {
+  background: var(--amber);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 20%, transparent);
+  animation: dotPulse 2.4s var(--ease) infinite;
+}
+
+.account-chip--admin {
+  border-color: color-mix(in srgb, var(--cobalt) 40%, var(--line));
+}
+
+.account-chip b {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Tier badge
+   -------------------------------------------------------------------------- */
+
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.1em;
+}
+
+.tier-badge i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.tier-badge--pro {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--line));
+  color: var(--amber);
+}
+
+.tier-badge--pro i {
+  background: var(--amber);
+}
+
+.tier-badge--admin {
+  border-color: color-mix(in srgb, var(--cobalt) 55%, var(--line));
+  color: var(--cobalt);
+}
+
+.tier-badge--admin i {
+  background: var(--cobalt);
+}
+
+/* --------------------------------------------------------------------------
+   Sheet
+   -------------------------------------------------------------------------- */
+
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: end center;
+  background: color-mix(in srgb, #05080d 55%, transparent);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.22s var(--ease);
+}
+
+.sheet-scrim.is-open {
+  opacity: 1;
+}
+
+@media (min-width: 720px) {
+  .sheet-scrim {
+    place-items: center;
+  }
+}
+
+.sheet {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(88dvh, 760px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px 20px calc(22px + var(--safe-bottom));
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -24px 60px rgba(4, 10, 22, 0.28);
+  transform: translateY(28px);
+  opacity: 0;
+  transition:
+    transform 0.34s var(--spring),
+    opacity 0.24s var(--ease);
+}
+
+.sheet.is-open {
+  transform: none;
+  opacity: 1;
+}
+
+@media (min-width: 720px) {
+  .sheet {
+    border-radius: 18px;
+    padding: 26px 26px 24px;
+    transform: translateY(16px) scale(0.985);
+  }
+}
+
+.sheet__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sheet__kicker {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.22em;
+  color: var(--muted);
+}
+
+.sheet__title {
+  margin: 4px 0 0;
+  font-size: clamp(20px, 5vw, 26px);
+  letter-spacing: -0.01em;
+}
+
+.sheet__lede {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.sheet__note {
+  margin: 14px 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.sheet__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.sheet__close:hover {
+  border-color: var(--cobalt);
+  color: var(--cobalt);
+}
+
+.sheet__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sheet__loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0;
+  justify-content: center;
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--cobalt) 30%, transparent);
+  border-top-color: var(--cobalt);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Inputs */
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 1px;
+}
+
+.input--key {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.form-error {
+  min-height: 1em;
+  margin: 8px 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--crimson);
+}
+
+/* Account card */
+.account-card {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--line);
+  margin-bottom: 14px;
+}
+
+.account-card__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}
+
+.account-card__row span {
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.account-card__row b {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Perks */
+.perk-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perk-list li {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.perk-list li::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 0.5em;
+  border-radius: 1px;
+  background: var(--signal);
+  transform: rotate(45deg);
+}
+
+.perk-list--tight {
+  gap: 6px;
+}
+
+.perk-check {
+  display: none;
+}
+
+/* Price */
+.price-block {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 14px 0 10px;
+  border-block: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+
+.price-block__amount {
+  font-size: clamp(26px, 7vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.price-block__cadence {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Plan compare */
+.plan-compare {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@media (min-width: 520px) {
+  .plan-compare {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.plan-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-alt);
+}
+
+.plan-card--pro {
+  border-color: color-mix(in srgb, var(--amber) 45%, var(--line));
+  background: color-mix(in srgb, var(--amber) 6%, var(--panel));
+}
+
+.plan-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.plan-card__head b {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.1em;
+}
+
+.plan-card__price {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+.plan-card__cadence {
+  width: 100%;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+}
+
+.plan-card .perk-list li {
+  font-size: var(--fs-2xs);
+}
+
+/* --------------------------------------------------------------------------
+   Locked controls
+   -------------------------------------------------------------------------- */
+
+.lock {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-style: normal;
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
+  pointer-events: none;
+}
+
+.is-locked .lock {
+  opacity: 1;
+  transform: none;
+}
+
+.is-locked {
+  cursor: pointer;
+}
+
+.segment button.is-locked {
+  color: var(--muted);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 6px,
+    color-mix(in srgb, var(--amber) 7%, transparent) 6px 12px
+  );
+}
+
+.segment button.is-locked[aria-pressed='true'] {
+  color: var(--ink);
+}
+
+.preset-chip.is-locked,
+.preset-card.is-locked {
+  filter: saturate(0.55);
+}
+
+.preset-chip.is-locked:hover,
+.preset-card.is-locked:hover {
+  filter: saturate(0.85);
+  border-color: color-mix(in srgb, var(--amber) 45%, var(--line));
+}
+
+.preset-card .lock--card {
+  top: 10px;
+  right: 10px;
+}
+
+.lab-group.is-locked .lab-group__body {
+  opacity: 0.62;
+}
+
+/* Inline "upgrade" strip used by the account section */
+.upgrade-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--amber) 45%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--amber) 5%, transparent);
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+}
+
+.upgrade-strip b {
+  color: var(--amber);
+  letter-spacing: 0.06em;
+}
+
+/* Body lock while the sheet is open */
+body.sheet-open {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet-scrim,
+  .lock {
+    transition: none;
+  }
+  .account-chip__dot,
+  .spinner {
+    animation: none;
+  }
+}
+
+[data-motion='reduced'] .sheet,
+[data-motion='reduced'] .sheet-scrim,
+[data-motion='reduced'] .lock {
+  transition: none;
+}
+
+[data-motion='reduced'] .account-chip__dot,
+[data-motion='reduced'] .spinner {
+  animation: none;
+}
+
+/* --------------------------------------------------------------------------
+   Header fit — three chips plus the brand have to survive a 320 px phone
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 460px) {
+  .app-header {
+    gap: 8px;
+  }
+
+  .brand__sub {
+    display: none;
+  }
+
+  /* Keep the finish value, drop the label; the icon-less text reads fine. */
+  .finish-chip > span:first-child {
+    display: none;
+  }
+
+  .account-chip {
+    padding-inline: 7px;
+  }
+}
+
+@media (max-width: 359px) {
+  /* The account chip is the only way into a license, so it never hides. */
+  .app-header .chip:not(.chip--live):not(.account-chip) {
+    display: none;
+  }
+}

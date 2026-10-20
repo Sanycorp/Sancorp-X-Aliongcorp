@@ -3,6 +3,9 @@ import type { Preset, PresetTag } from '../../model/presets';
 import { NEUTRAL, SPACE_META, TARGET_META } from '../../model/settings';
 import { store } from '../../state/store';
 import { Haptics } from '../haptics';
+import { session } from '../../state/session';
+import { presetAllowed, upgradeHint } from '../../model/tiers';
+import { openPaywall } from '../account';
 import { el, sectionHead, toast } from '../elements';
 import type { Screen } from './deck';
 
@@ -87,6 +90,10 @@ export function createArsenal(): Screen {
         attrs: { type: 'button', 'data-active': String(store.edit.activePreset === preset.name) },
         on: {
           click: () => {
+            if (!presetAllowed(session.tier, preset.id)) {
+              openPaywall(upgradeHint('preset'), 'allPresets', card);
+              return;
+            }
             store.applyPreset(preset.id, preset.apply);
             Haptics.medium();
             toast(`${preset.name} dimuat · ${preset.tagline}`, 'ok', 2000);
@@ -102,6 +109,7 @@ export function createArsenal(): Screen {
       ),
       el('p', { class: 'preset-card__detail', text: preset.detail }),
       el('div', { class: 'preset-card__foot', text: summarize(preset) }),
+      el('i', { class: 'lock lock--card', text: 'PRO' }),
     );
     cards.set(preset.id, card);
     grid.appendChild(card);
@@ -135,7 +143,16 @@ export function createArsenal(): Screen {
     activeNote,
   );
 
+  function paintLocks(): void {
+    for (const [id, card] of cards) {
+      const locked = !presetAllowed(session.tier, id);
+      card.classList.toggle('is-locked', locked);
+      card.setAttribute('aria-disabled', locked ? 'true' : 'false');
+    }
+  }
+
   function update(): void {
+    paintLocks();
     const active = store.edit.activePreset;
     for (const [id, card] of cards) {
       card.setAttribute('data-active', String(presetById(id)?.name === active));

@@ -3,6 +3,8 @@ import { peaksFrom } from '../io/audioFile';
 import type { AppSettings, EditSettings, SourceInfo } from '../model/settings';
 import { APP_DEFAULTS, FORMAT_META, NEUTRAL, SPACE_META, TARGET_META, cloneSettings } from '../model/settings';
 import { loadSession, saveSession } from '../io/storage';
+import { planFor } from '../model/tiers';
+import { session } from './session';
 
 export interface ExportRecord {
   id: string;
@@ -170,9 +172,23 @@ export class Store {
     this.emit();
   }
 
+  /** Free keeps the last three renders; PRO keeps the full log. */
+  historyCap(): number {
+    return planFor(session.tier).limits.history;
+  }
+
   addHistory(record: ExportRecord): void {
     if (!this.settings.keepHistory) return;
-    this.history = [record, ...this.history.filter((r) => r.id !== record.id)].slice(0, 40);
+    this.history = [record, ...this.history.filter((r) => r.id !== record.id)].slice(0, this.historyCap());
+    this.persist();
+    this.emit();
+  }
+
+  /** Called when the session changes so a downgrade cannot keep PRO history. */
+  trimHistory(): void {
+    const cap = this.historyCap();
+    if (this.history.length <= cap) return;
+    this.history = this.history.slice(0, cap);
     this.persist();
     this.emit();
   }

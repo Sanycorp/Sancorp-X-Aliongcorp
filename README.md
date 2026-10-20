@@ -1,8 +1,13 @@
 # EL TZY · AEGIS-M
 
-**Offline mecha audio forge — v8.4.0**
+**Offline mecha audio forge — v8.5.0**
 
-Slowed + reverb, nightcore, 8D orbit, club masters. Semua diproses **di dalam perangkat**, nol upload, nol server, nol telemetry.
+> Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
+> sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.
+
+Slowed + reverb, nightcore, 8D orbit, club masters. Semua audio diproses **di
+dalam perangkat** — tidak ada file yang diunggah, tidak ada telemetry, dan satu-
+satunya panggilan jaringan adalah pemeriksaan lisensi dan probe kesehatan.
 
 <p align="center">
   <img src="store/icon-512.png" width="132" alt="AEGIS-M icon" />
@@ -89,10 +94,17 @@ src/
 │  └─ engine.ts    # render(): satu-satunya pipeline yang dipakai preview & export
 ├─ model/          # EditSettings, AppSettings, 14 preset
 ├─ io/             # decode, encode (WAV/FLAC/MP3), storage, WebAudio player
-├─ state/          # store observabel + forge (preview/export) + renderClient
+├─ state/          # store observabel + forge (preview/export) + session (tier)
 ├─ workers/        # render di Web Worker supaya UI tidak freeze
-├─ ui/             # 4 layar + komponen (elemen, waveform, scope, haptics)
+├─ ui/             # 4 layar publik + konsol #/control + account sheet + komponen
 └─ styles/         # design system mecha (tokens, primitives, controls, layout)
+
+api/               # Vercel functions (Node, ESM) — tanpa database
+├─ _lib/auth.js    # HMAC sesi & lisensi, cookie httpOnly, rate limit
+├─ auth.js         # GET/POST/DELETE sesi  (kunci lisensi atau kata sandi admin)
+├─ license.js      # POST generator kunci    (admin only)
+├─ health.js       # GET probe publik        (commit, region, uptime)
+└─ csp-report.js   # POST kolektor CSP + GET admin (ring buffer 50)
 ```
 
 **Kontrak inti:** preview dan export memakai `engine.render()` yang sama. Preview hanya memotong 24 detik pertama (dengan trim yang sama), jadi yang kamu dengar adalah hasil final, bukan simulasi.
@@ -114,11 +126,57 @@ Tidak ada loudness normalisation dinamis. Selisih 12 dB antara bagian keras dan 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 123 tes: DSP, engine, encoder, UI (jsdom), motion, audit responsive
+npm test           # 151 tes: DSP, engine, encoder, UI (jsdom), motion, audit responsive, tier & auth
 npm run typecheck
 npm run build      # bundle produksi di dist/
 npm run icons      # regenerate ikon PWA + Android mipmaps
 ```
+
+## Akses, lisensi, dan konsol
+
+Akses memakai **kunci lisensi**, bukan email dan bukan database. Satu kunci
+adalah string bertanda tangan HMAC-SHA256 yang bisa diverifikasi sendiri oleh
+server; sesi adalah cookie `HttpOnly` bertanda tangan yang sama. Tidak ada tabel
+user, tidak ada reset password, dan mencabut semua akses cukup dengan mengganti
+`AEGIS_SECRET`.
+
+```
+AEGIS-PRO-7F3K-20271120-9K2M4Q
+      │    │    └ tanggal  └ tanda tangan 6 karakter
+      │    └ serial acak
+      └ tier (pro / admin)
+```
+
+| | **FREE** | **PRO** — Rp 79.000 / tahun | **ADMIN** |
+| --- | --- | --- | --- |
+| Preset | 4 dari 14 | 14 tervalidasi | 14 |
+| Format | MP3 320, WAV 16 | + WAV 24/32, FLAC | semua |
+| Target | Bypass, −14 LUFS | −16…−9 LUFS | semua |
+| Panjang export | ≤ 12 menit | tanpa batas | tanpa batas |
+| Riwayat | 3 export | penuh | penuh |
+| 8D orbit | — | ✓ | ✓ |
+| Repair & voice focus | — | ✓ | ✓ |
+| A/B memory | — | ✓ | ✓ |
+| Konsol `#/control` | — | — | ✓ |
+
+Yang dibatasi sengaja adalah **alur kerja**, bukan kualitas: rantai DSP penuh,
+limiter, dan semua fader tetap bisa dipakai di FREE. Tidak ada watermark, tidak
+ada output yang diperkecil, dan tidak ada data yang dikirim ke mana pun.
+
+**Konsol operator** ada di `#/control` — tidak pernah muncul di navigasi, dan
+terkunci kata sandi admin. Isinya: kesehatan deployment (commit, region,
+uptime), probe header respons, feed pelanggaran CSP, dan generator kunci.
+
+### Variabel lingkungan
+
+| Nama | Wajib | Fungsi |
+| --- | --- | --- |
+| `AEGIS_SECRET` | produksi | Kunci HMAC untuk lisensi dan cookie sesi. Ganti = cabut semua sesi. |
+| `AEGIS_ADMIN_PASSWORD` | untuk konsol | Kata sandi masuk `#/control`. Kosong = konsol terkunci permanen. |
+
+Tanpa keduanya aplikasi tetap jalan penuh di tier FREE; yang hilang hanya
+kemampuan menerbitkan kunci. Salin `.env.example` untuk pengembangan lokal dan
+setel nilai yang sama di dashboard Vercel.
 
 ## Keamanan — dua target, dua model
 
@@ -140,9 +198,9 @@ permission berbahaya dihapus dari manifest (build gagal kalau ada),
 hanya `MainActivity` boleh exported, dan **service worker tidak didaftarkan**.
 Diterapkan oleh `tools/android-harden.mjs`, diuji 6 tes.
 
-Layar **System → 05 SECURITY** menyesuaikan diri: `SECURITY · WEB` membaca header
-respons yang benar-benar diterima, `SECURITY · APP` melaporkan sandbox, jaminan
-manifest, dan absennya service worker.
+Indikator postur keamanan **tidak lagi tampil di UI publik**. Semuanya pindah ke
+konsol operator `#/control` (tab SECURITY): probe header respons live, feed
+pelanggaran CSP, dan status sesi. Pengunjung biasa hanya melihat produknya.
 
 ### Deploy ke Vercel
 

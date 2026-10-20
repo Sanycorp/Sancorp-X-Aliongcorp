@@ -1,0 +1,396 @@
+/* ==========================================================================
+   Control console (#/control) — operator surface
+   ========================================================================== */
+
+#screen-control {
+  display: none;
+}
+
+[data-route='control'] #screen-control {
+  display: block;
+}
+
+/* The deck transport is meaningless on the console. Navigation stays so the
+   operator has a way back without typing a hash. */
+[data-route='control'] .dock {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Gate
+   -------------------------------------------------------------------------- */
+
+.ctrl-gate {
+  display: grid;
+  place-items: center;
+  padding: clamp(20px, 6vw, 56px) 0;
+}
+
+.ctrl-gate__card {
+  width: min(440px, 100%);
+  padding: clamp(20px, 4vw, 28px);
+  display: grid;
+  gap: 12px;
+}
+
+.ctrl-gate__title {
+  margin: 0;
+  font-size: clamp(20px, 5vw, 26px);
+  letter-spacing: -0.01em;
+}
+
+[data-gate='open'] .ctrl-gate {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Layout
+   -------------------------------------------------------------------------- */
+
+.ctrl-body {
+  display: grid;
+  gap: 12px;
+}
+
+.ctrl-tabs {
+  margin-bottom: 12px;
+}
+
+.ctrl-tabs .segment {
+  width: 100%;
+}
+
+.ctrl-tabs .segment button {
+  flex: 1;
+}
+
+.ctrl-plate {
+  padding: clamp(14px, 3vw, 20px);
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+/* --------------------------------------------------------------------------
+   Health
+   -------------------------------------------------------------------------- */
+
+.ctrl-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-alt);
+}
+
+.ctrl-hero > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.ctrl-hero__value {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: clamp(16px, 4vw, 20px);
+  letter-spacing: 0.08em;
+}
+
+.ctrl-hero__sub {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.ctrl-pulse {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.ctrl-pulse i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--crimson);
+  opacity: 0.5;
+}
+
+.ctrl-pulse i:last-child {
+  inset: 9px;
+  background: var(--crimson);
+  border: 0;
+  opacity: 1;
+}
+
+.ctrl-pulse.is-ok i {
+  border-color: var(--signal);
+  animation: ctrlPing 2.2s var(--ease) infinite;
+}
+
+.ctrl-pulse.is-ok i:last-child {
+  background: var(--signal);
+  animation: none;
+}
+
+@keyframes ctrlPing {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Key/value blocks
+   -------------------------------------------------------------------------- */
+
+.ctrl-kv {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.ctrl-kv__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 11px;
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}
+
+.ctrl-kv__row span {
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ctrl-kv__row b {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.ctrl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Header checks
+   -------------------------------------------------------------------------- */
+
+.ctrl-checks {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.ctrl-check {
+  display: grid;
+  grid-template-columns: 8px 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}
+
+.ctrl-check__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--crimson);
+}
+
+.ctrl-check[data-ok='true'] .ctrl-check__dot {
+  background: var(--signal);
+}
+
+.ctrl-check b {
+  letter-spacing: 0.08em;
+}
+
+.ctrl-check__value {
+  color: var(--muted);
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   CSP feed
+   -------------------------------------------------------------------------- */
+
+.ctrl-feed {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--line);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.ctrl-feed__row {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 11px;
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}
+
+.ctrl-feed__row b {
+  color: var(--amber);
+  letter-spacing: 0.06em;
+}
+
+.ctrl-feed__row span {
+  color: var(--muted);
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctrl-feed__row time {
+  color: var(--muted);
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+}
+
+.ctrl-empty {
+  margin: 0;
+  padding: 18px 12px;
+  text-align: center;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   Badges
+   -------------------------------------------------------------------------- */
+
+.ctrl-badge {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 1px solid currentcolor;
+  white-space: nowrap;
+}
+
+.ctrl-badge--ok {
+  color: var(--signal);
+}
+
+.ctrl-badge--warn {
+  color: var(--amber);
+}
+
+.ctrl-badge--bad {
+  color: var(--crimson);
+}
+
+/* --------------------------------------------------------------------------
+   License form + keys
+   -------------------------------------------------------------------------- */
+
+.ctrl-form {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 560px) {
+  .ctrl-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ctrl-form > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.key-list {
+  display: grid;
+  gap: 8px;
+}
+
+.key-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-alt);
+}
+
+.key-row code {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.key-row__meta {
+  grid-column: 1;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+}
+
+.key-row .icon-btn {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+
+/* --------------------------------------------------------------------------
+   Clock
+   -------------------------------------------------------------------------- */
+
+.ctrl-clock {
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion + desktop tweaks
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ctrl-pulse.is-ok i {
+    animation: none;
+  }
+}
+
+[data-motion='reduced'] .ctrl-pulse.is-ok i {
+  animation: none;
+}
+
