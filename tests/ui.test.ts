@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { segmented } from '../src/ui/elements';
 
 /**
  * Boots the real app inside jsdom. Canvas is not implemented there, so the
@@ -255,5 +256,38 @@ describe('app shell', () => {
     const parsed = JSON.parse(raw!) as { edit: { speed: number; activePreset: string | null } };
     expect(parsed.edit.speed).toBeCloseTo(store.edit.speed, 5);
     expect(parsed.edit.activePreset).toBe(store.edit.activePreset);
+  });
+});
+
+describe('segmented tier locks', () => {
+  it('locks, explains, and unlocks without rebuilding the control', () => {
+    const picked: string[] = [];
+    const blocked: string[] = [];
+    const seg = segmented(
+      [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+      ],
+      'a',
+      (v) => picked.push(v),
+      (o) => blocked.push(o.value),
+    );
+
+    const buttons = [...seg.wrap.querySelectorAll('button')];
+    seg.lock((v) => v === 'b');
+
+    expect(buttons[1].classList.contains('is-locked')).toBe(true);
+    expect(buttons[1].getAttribute('aria-disabled')).toBe('true');
+    expect(buttons[1].querySelector('.lock')?.textContent).toBe('PRO');
+
+    buttons[1].click();
+    expect(picked).toEqual([]);
+    expect(blocked).toEqual(['b']);
+
+    seg.lock(() => false);
+    expect(buttons[1].classList.contains('is-locked')).toBe(false);
+    expect(buttons[1].querySelector('.lock')).toBeNull();
+    buttons[1].click();
+    expect(picked).toEqual(['b']);
   });
 });

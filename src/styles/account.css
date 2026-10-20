@@ -555,3 +555,8 @@ body.sheet-open {
     display: none;
   }
 }
+
+/* The PRO badge inside a segmented control needs a positioned parent. */
+.segment button {
+  position: relative;
+}

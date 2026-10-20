@@ -126,7 +126,7 @@ Tidak ada loudness normalisation dinamis. Selisih 12 dB antara bagian keras dan 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 151 tes: DSP, engine, encoder, UI (jsdom), motion, audit responsive, tier & auth
+npm test           # 154 tes: DSP, engine, encoder, UI (jsdom), motion, audit responsive, tier, auth, konsol
 npm run typecheck
 npm run build      # bundle produksi di dist/
 npm run icons      # regenerate ikon PWA + Android mipmaps

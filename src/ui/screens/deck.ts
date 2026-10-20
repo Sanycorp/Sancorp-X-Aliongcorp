@@ -7,6 +7,7 @@ import { formatBytes, formatDuration, formatRate } from '../../io/audioFile';
 import { PreviewPlayer } from '../../io/player';
 import { Haptics } from '../haptics';
 import { session } from '../../state/session';
+import type { LoudnessTarget, OutputFormat } from '../../model/settings';
 import { formatAllowed, isPro, planFor, presetAllowed, targetAllowed, upgradeHint } from '../../model/tiers';
 import { openPaywall } from '../account';
 import {
@@ -204,6 +205,8 @@ export function createDeck(): Screen {
       chip.classList.toggle('is-locked', locked);
       chip.setAttribute('aria-disabled', locked ? 'true' : 'false');
     }
+    targetSeg.lock((v) => !targetAllowed(session.tier, v as LoudnessTarget));
+    formatSeg.lock((v) => !formatAllowed(session.tier, v as OutputFormat));
   }
 
   const rail = el('div', { class: 'rail' }, chips);

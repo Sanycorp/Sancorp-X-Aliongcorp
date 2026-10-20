@@ -17,7 +17,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **153 test lulus** (12 file: dsp 27, engine 29, security 19, encode 7, android 6, motion 12, responsive 12, ui 17, probe 1, tiers 7, auth 14, control 3)
+- `npx vitest run` → **154 test lulus** (12 file: dsp 27, engine 29, security 19, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 14, control 3)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -195,26 +195,31 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sancorp-x-aliongcorp` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (commit `aefccad`, v8.5.0) |
+| Deployment aktif | `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx` (commit `e643357`, v8.5.0) |
 | Protection | **mati** (`ssoProtection: null`) |
-| Prober | job `probe` di `android.yml`, target dari `.vercel-url` |
+| Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
-### Verifikasi eksternal (run `39387919243`, semua step success)
+### Verifikasi produksi (workflow `probe`, hijau)
 
-1. root 200, header terbaca
-2. CSP, HSTS, COOP, COEP, XCTO, Referrer-Policy, Permissions-Policy ada
-3. `require-trusted-types-for 'script'` + `frame-ancestors 'none'` terkonfirmasi
-4. `/sw.js`, `/boot.css`, `/manifest.webmanifest`, `/.well-known/security.txt`, `/icons/icon-512.png` → 200
-5. **SRI sha-384 dicocokkan dengan byte yang benar-benar disajikan** (≥2 aset)
-6. `sw.js` `no-store`, `security.txt` valid
+`node tools/probe-prod.mjs` memeriksa hal-hal yang hanya bisa dijawab produksi:
 
-Panel in-app di produksi melaporkan **GUARDED 5/7** saat kunjungan pertama: HTTPS, CSP, Trusted Types, isolasi, dan SRI semuanya ON. Sisa dua (service worker, storage persisten) baru menyala setelah reload pertama — itu memang perilaku SW, bukan kegagalan.
+1. root 200 + CSP `default-src 'none'`, `script-src 'self'`, Trusted Types, `frame-ancestors 'none'`
+2. HSTS preload, COOP, COEP, XCTO, Referrer, Permissions-Policy
+3. SRI sha-384 pada 3 aset masuk, `Cache-Control: immutable` untuk `/assets`
+4. versi `8.x` dibaca dari bundle, bukan dari HTML statis
+5. bundle benar-benar memuat konsol (`AKSES OPERATOR`), account sheet, dan copy paywall
+6. `/api/health` 200 + `env: production` + commit sha
+7. `/api/auth` → `tier: free`, **`devSecret: false`** (AEGIS_SECRET terpasang), **`adminEnabled: true`** (AEGIS_ADMIN_PASSWORD terpasang)
+8. `/api/license` & `GET /api/csp-report` menolak anonim (403), kunci palsu ditolak (401) tanpa Set-Cookie
+
+Kirim kegagalan sebagai annotation (`::error`) supaya tetap terbaca lewat API check-runs
+walaupun log job tidak bisa diunduh dari sandbox.
 
 ### Riwayat blocker (sudah selesai)
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), lalu `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.5.0).
+- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1), lalu `dpl_Fe2rvrszrxnGTraza5uBy4SEvg2V` dan `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx` (v8.5.0).
 
 ### Cara deploy berikutnya
 
@@ -230,5 +235,5 @@ Verifikasi selalu lewat job `probe` (target dari `.vercel-url`); jangan menganda
 ### Catatan
 
 - Tim `aegis-m-eltzy` (`team_MWFOZvHuvKThmyhWF8a2LqpP`) dibuat saat uji coba lepas dari default protection. Token connector tidak berizin menghapusnya — silakan hapus manual di dashboard, tidak dipakai.
-- `api/csp-report.js` adalah satu-satunya fungsi serverless; CSP mengirim laporan ke sana. Kalau laporan membanjir, itu tanda ada aset yang melanggar direktif.
+- Empat fungsi serverless: `auth`, `license`, `health`, `csp-report`. Semuanya berbagi `api/_lib/auth.js`. Kalau feed CSP membanjir, itu tanda ada aset yang melanggar direktif.
 

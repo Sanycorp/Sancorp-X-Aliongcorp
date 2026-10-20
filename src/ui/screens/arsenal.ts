@@ -163,6 +163,10 @@ export function createArsenal(): Screen {
   }
 
   store.subscribe(update);
+  session.subscribe(() => {
+    paintLocks();
+    update();
+  });
   update();
   applyFilter();
 

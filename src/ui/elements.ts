@@ -223,6 +223,8 @@ export interface SegmentOption {
 export interface Segmented {
   wrap: HTMLElement;
   set(value: string): void;
+  /** Re-evaluate which options are locked (tier changes without a reload). */
+  lock(test: (value: string) => boolean): void;
 }
 
 export function segmented(
@@ -265,6 +267,20 @@ export function segmented(
     wrap,
     set(v: string) {
       buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(options[i].value === v)));
+    },
+    lock(test: (value: string) => boolean) {
+      options.forEach((o, i) => {
+        const locked = test(o.value);
+        if (o.locked === locked) return;
+        o.locked = locked;
+        const b = buttons[i];
+        b.classList.toggle('is-locked', locked);
+        if (locked) b.setAttribute('aria-disabled', 'true');
+        else b.removeAttribute('aria-disabled');
+        let badge = b.querySelector<HTMLElement>('.lock');
+        if (locked && !badge) b.append(el('i', { class: 'lock', text: 'PRO' }));
+        if (!locked && badge) badge.remove();
+      });
     },
   };
 }
