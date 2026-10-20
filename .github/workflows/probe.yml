@@ -12,6 +12,17 @@ name: probe
 on:
   push:
     branches: ['arena/**']
+    # Doc-only pushes should not grade a deployment that was never created.
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vercel.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tools/probe-prod.mjs'
+      - '.github/workflows/probe.yml'
   workflow_dispatch:
     inputs:
       origin:

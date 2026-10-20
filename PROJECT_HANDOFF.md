@@ -211,7 +211,7 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sancorp-x-aliongcorp` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_8XhXi8od6p35T8b4DB8w4yrYCLzq` (commit `a0200c3`, v8.5.0) — digantikan build v8.6.0 pada commit berikutnya |
+| Deployment aktif | `dpl_8uR6fRoihDUxTA8n5VAR6owDmjNr` (commit `5457339`, v8.6.0) |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
@@ -219,14 +219,17 @@ ffmpeg -v error -i hasil.flac -f null -
 
 `node tools/probe-prod.mjs` memeriksa hal-hal yang hanya bisa dijawab produksi:
 
+0. tunggu `/api/health` melaporkan sha commit yang baru di-push (bukan build sebelumnya)
 1. root 200 + CSP `default-src 'none'`, `script-src 'self'`, Trusted Types, `frame-ancestors 'none'`
 2. HSTS preload, COOP, COEP, XCTO, Referrer, Permissions-Policy
 3. SRI sha-384 pada 3 aset masuk, `Cache-Control: immutable` untuk `/assets`
 4. versi `8.x` dibaca dari bundle, bukan dari HTML statis
-5. bundle benar-benar memuat konsol (`AKSES OPERATOR`), account sheet, dan copy paywall
+5. bundle memuat `AKSES OPERATOR` + `AEGIS OPS`, `DAFTAR AKUN`, `AKTIFKAN PRO`, `ElTzyy8`, `Rp 5.000`, dan copy paywall
 6. `/api/health` 200 + `env: production` + commit sha
 7. `/api/auth` → `tier: free`, **`devSecret: false`** (AEGIS_SECRET terpasang), **`adminEnabled: true`** (AEGIS_ADMIN_PASSWORD terpasang)
-8. `/api/license` & `GET /api/csp-report` menolak anonim (403), kunci palsu ditolak (401) tanpa Set-Cookie
+8. `/api/license` (GET meja & POST terbit) dan `GET /api/csp-report` menolak anonim (403), kunci palsu ditolak (401) tanpa Set-Cookie
+
+Catatan operasional: `probe` hanya jalan untuk push yang menyentuh `src/`, `api/`, `public/`, `index.html`, `vercel.json`, `package*.json`, atau `tools/probe-prod.mjs`. Deploy tetap manual lewat connector, jadi setelah push yang menyentuh build, buat deployment sebelum probe kehabisan waktu tunggu (4 menit). Kegagalan membuka/comment issue berlabel `monitor`.
 
 Kirim kegagalan sebagai annotation (`::error`) supaya tetap terbaca lewat API check-runs
 walaupun log job tidak bisa diunduh dari sandbox.
@@ -235,7 +238,7 @@ walaupun log job tidak bisa diunduh dari sandbox.
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1), lalu `dpl_Fe2rvrszrxnGTraza5uBy4SEvg2V`, `dpl_JDkgdgmpi5vQrJnNwoVVBpCDTJhj`, `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx`, dan `dpl_5wnMuwHHTHc32oxkjMZnUNix2yd6` (v8.5.0).
+- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1), `dpl_Fe2rvrszrxnGTraza5uBy4SEvg2V`, `dpl_JDkgdgmpi5vQrJnNwoVVBpCDTJhj`, `dpl_qiWVwUkzCXnwh5k2K29khpRgq9cx`, `dpl_5wnMuwHHTHc32oxkjMZnUNix2yd6` (v8.5.0), `dpl_8XhXi8od6p35T8b4DB8w4yrYCLzq` (a0200c3), lalu `dpl_Hirrjqr9cp5uWpMSpCX7VqA7CgEz` (cedbdee) dan `dpl_8uR6fRoihDUxTA8n5VAR6owDmjNr` (5457339, v8.6.0).
 
 ### Cara deploy berikutnya
 
