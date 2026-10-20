@@ -1,14 +1,12 @@
 /* EL TZY AEGIS-M service worker — app shell cache, no audio leaves the device. */
-const VERSION = 'aegis-m-v8.0.0';
+const VERSION = 'aegis-m-v8.0.1';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './assets/fonts/ChakraPetch-Regular.ttf',
-  './assets/fonts/ChakraPetch-SemiBold.ttf',
-  './assets/fonts/ShareTechMono-Regular.ttf',
+  './icons/favicon-64.png',
 ];
 
 self.addEventListener('install', (event) => {

@@ -301,7 +301,7 @@ export function createDeck(): Screen {
   });
   const progressPlate = el(
     'div',
-    { class: 'progress-plate hidden' },
+    { class: 'progress-plate hidden', attrs: { 'aria-live': 'polite' } },
     el('div', { class: 'progress-plate__head' }, progressStage, progressPct),
     el('div', { class: 'meter' }, progressFill),
     el('div', { class: 'stages' }, stagePips),

@@ -103,7 +103,7 @@ APK dibangun oleh GitHub Actions (`.github/workflows/android.yml`) setiap push:
 4. `./gradlew assembleDebug`
 5. artifact **aegis-m-debug-apk**
 
-Unduh dari tab **Actions**, lalu sideload APK-nya. Untuk Play Store, tambahkan keystore sendiri dan pakai `assembleRelease`/bundle.
+Unduh dari tab **Actions** (artifact `aegis-m-debug-apk`), lalu sideload APK-nya. Build pertama sudah terverifikasi: **sukses, 2m34s, APK ~4 MB**. Untuk Play Store, tambahkan keystore sendiri dan pakai `assembleRelease`/bundle.
 
 ---
 
