@@ -173,48 +173,48 @@ ffmpeg -v error -i hasil.flac -f null -
 - Commit message gaya `v8: <area> — <ringkasan>`
 - Jangan commit `node_modules/`, `dist/`, `android/` hasil generate, atau file audio besar.
 
-## 11. Deployment web (Vercel)
+## 11. Deployment web (Vercel) — LIVE
 
 | Hal | Nilai |
 | --- | --- |
+| **URL produksi** | **https://sancorp-x-aliongcorp.vercel.app** |
 | Project | `sancorp-x-aliongcorp` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` |
-| Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (plan Hobby) |
-| Framework | vite · install `npm ci` · build `npm run build` · output `dist` |
-| Region | `sin1` |
-| Header | 100% dari `vercel.json` (CSP, HSTS, COOP/COEP, CORP, Permissions-Policy, SRI) |
-| Prober | job `probe` di `android.yml`, target dibaca dari `.vercel-url` |
+| Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
+| Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
+| Deployment aktif | `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (commit `aefccad`, v8.4.1) |
+| Protection | **mati** (`ssoProtection: null`) |
+| Prober | job `probe` di `android.yml`, target dari `.vercel-url` |
 
-**Tiga jalur deploy yang sudah disiapkan**
+### Verifikasi eksternal (run `39387919243`, semua step success)
 
-1. **GitHub Login Connection** (paling rapi) — hubungkan sekali, lalu `create_deployment`
-   dengan `git_source` bekerja dan setiap push auto-build.
-2. **Token CI** — `.github/workflows/vercel.yml`: tambahkan secret `VERCEL_TOKEN`,
-   setiap push ke `arena/**` menjalankan `vercel pull → build → deploy --prebuilt --prod`.
-   Tanpa secret, job keluar dengan status sukses (tidak mengganggu fork/PR).
-3. **Custom domain** — proteksi tim bertipe `all_except_custom_domains`, jadi domain
-   sendiri otomatis publik tanpa mematikan apa pun.
+1. root 200, header terbaca
+2. CSP, HSTS, COOP, COEP, XCTO, Referrer-Policy, Permissions-Policy ada
+3. `require-trusted-types-for 'script'` + `frame-ancestors 'none'` terkonfirmasi
+4. `/sw.js`, `/boot.css`, `/manifest.webmanifest`, `/.well-known/security.txt`, `/icons/icon-512.png` → 200
+5. **SRI sha-384 dicocokkan dengan byte yang benar-benar disajikan** (≥2 aset)
+6. `sw.js` `no-store`, `security.txt` valid
 
-**Blocker yang butuh aksi pemilik akun** (tidak bisa dilakukan lewat API connector):
+Panel in-app di produksi melaporkan **GUARDED 5/7** saat kunjungan pertama: HTTPS, CSP, Trusted Types, isolasi, dan SRI semuanya ON. Sisa dua (service worker, storage persisten) baru menyala setelah reload pertama — itu memang perilaku SW, bukan kegagalan.
 
-1. **Deployment Protection** — team default `ssoProtection: all_except_custom_domains`
-   membuat semua URL `.vercel.app` redirect ke login Vercel (302 ke `vercel.com/sso-api`).
-   Matikan di Project → Settings → Deployment Protection → Vercel Authentication → Disabled.
-2. **GitHub Login Connection** — deploy berbasis git ditolak dengan
-   `You need to add a Login Connection to your GitHub account first`.
-   Hubungkan di Account Settings → Authentication → Login Connections → GitHub.
-   Setelah tersambung: `create_deployment` dengan `git_source` (JSON string, bukan object)
-   akan bekerja, dan setiap push otomatis membangun ulang.
+### Riwayat blocker (sudah selesai)
 
-**Catatan teknis penting**
+- ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
+- ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
+- Deploy yang berhasil: `dpl_J8jsTmGUB63ZguqY41gLiSeJpQzP` (v8.4.0), lalu `dpl_H59F8ztNZSNAPXUrp8QDoW7R7Eim` (v8.4.1).
 
-- Param `files` pada connector Vercel menerima **array of JSON strings**
-  (`["{\"file\":\"index.html\",\"data\":\"...\"}"]`), dan file yang di-upload mendarat
-  di direktori `src/` pada snapshot deployment. Untuk deploy statis tanpa git,
-  set `root_directory` project ke `src` lalu `output_directory` ke `.`.
-- Tim baru `aegis-m-eltzy` (`team_MWFOZvHuvKThmyhWF8a2LqpP`) sempat dibuat untuk menguji
-  apakah scope baru bebas dari default protection. Token connector tidak punya izin
-  menyentuhnya (Access denied), jadi tim itu **tidak terpakai** dan bisa dihapus manual.
-- Tanpa akses HTTP keluar ke `*.vercel.app`, verifikasi deploy dilakukan lewat job
-  `probe` di GitHub Actions; hasil diagnostik dibaca dari **annotations API**
-  (`gh api repos/.../check-runs/<job_id>/annotations`) karena log artifact diblokir.
+### Cara deploy berikutnya
+
+```bash
+# via connector / CLI
+vercel --prod
+# atau dari sesi: create_deployment dengan git_source JSON string
+#   {"type":"github","ref":"arena/985911e3-sancorp-x-aliongcorp","repoId":1426487883}
+```
+
+Verifikasi selalu lewat job `probe` (target dari `.vercel-url`); jangan mengandalkan curl lokal — sandbox ini tidak bisa membuka TLS ke `*.vercel.app`.
+
+### Catatan
+
+- Tim `aegis-m-eltzy` (`team_MWFOZvHuvKThmyhWF8a2LqpP`) dibuat saat uji coba lepas dari default protection. Token connector tidak berizin menghapusnya — silakan hapus manual di dashboard, tidak dipakai.
+- `api/csp-report.js` adalah satu-satunya fungsi serverless; CSP mengirim laporan ke sana. Kalau laporan membanjir, itu tanda ada aset yang melanggar direktif.
 
