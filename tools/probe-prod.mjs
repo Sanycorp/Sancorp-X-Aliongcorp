@@ -78,7 +78,9 @@ check('SRI on entry assets', sri.length >= 2, `${sri.length} signed`);
  * as the tab icon and the share card, and must not reappear as a plate inside a
  * screen. A 404 here is what a broken favicon looks like from the outside.
  */
-const svgIcon = index.body.match(/rel="icon" type="image\/svg\+xml" href="([^"]+)"/)?.[1];
+const svgIconRaw = index.body.match(/rel="icon" type="image\/svg\+xml" href="([^"]+)"/)?.[1];
+// Vite rewrites the reference to `./icons/seal.svg`; fetch() needs a path.
+const svgIcon = svgIconRaw ? `/${svgIconRaw.replace(/^\.?\//, '')}` : '';
 check('vector tab icon declared', Boolean(svgIcon), svgIcon || 'no svg icon in head');
 if (svgIcon) {
   const icon = await get(svgIcon);
@@ -89,9 +91,13 @@ if (svgIcon) {
   );
 }
 check('pinned-tab mask icon declared', index.body.includes('rel="mask-icon"'));
+// Absolute, on the deployed host, pointing at the company icon — a relative
+// og:image is silently ignored by every crawler that matters.
+const ogImage = index.body.match(/property="og:image" content="([^"]+)"/)?.[1] || '';
 check(
   'share card points at the company icon',
-  index.body.includes(`property="og:image" content="${ORIGIN}/icons/icon-512.png"`),
+  /^https:\/\/[^/]+\/icons\/icon-512\.png$/.test(ogImage) && ogImage.includes(new URL(ORIGIN).host),
+  ogImage || 'no og:image',
 );
 
 // --- the bundle -----------------------------------------------------------
