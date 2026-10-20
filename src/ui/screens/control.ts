@@ -116,6 +116,15 @@ export function createControl(): Screen {
   let linkKeyText = '';
   let linkNameText = '';
   let linkNoteText = '';
+  // Google accounts: the grant list lives in AEGIS_PREMIUM, so the console only
+  // mints the signed string and shows what is already active.
+  let googleRows: { email: string; exp: number; state: string; token: string; days: number }[] = [];
+  let googleBusy = false;
+  let googleLoaded = false;
+  let googleEmail = '';
+  let googleDays = '30';
+  let googleHint = '';
+
   let genTier: 'pro' | 'admin' = 'pro';
   let genDays = '30';
   let genCount = '1';
@@ -545,7 +554,10 @@ export function createControl(): Screen {
           text: 'Daftar ini hidup di perangkatmu, bukan di server. Ekspor JSON sebelum ganti HP. Yang menentukan akses tetap kunci bertanda tangan + daftar cabut di server.',
         }),
       ),
+      renderGoogle(),
     );
+
+    if (!googleLoaded && !googleBusy) void loadGoogle();
   }
 
 
@@ -905,6 +917,147 @@ export function createControl(): Screen {
           },
         }),
       ),
+    );
+  }
+
+  async function loadGoogle(): Promise<void> {
+    googleBusy = true;
+    render();
+    try {
+      const res = await fetch('/api/accounts', { headers: { accept: 'application/json' }, credentials: 'same-origin' });
+      const data = (await res.json().catch(() => ({}))) as {
+        accounts?: typeof googleRows;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? String(res.status));
+      googleRows = data.accounts ?? [];
+      googleLoaded = true;
+    } catch {
+      googleHint = 'Daftar akun Google tidak bisa dibaca. Masuk ulang sebagai operator.';
+    } finally {
+      googleBusy = false;
+      render();
+    }
+  }
+
+  async function grantGoogle(): Promise<void> {
+    const email = googleEmail.trim().toLowerCase();
+    if (!email.includes('@')) {
+      googleHint = 'Alamat email belum benar.';
+      render();
+      return;
+    }
+    googleBusy = true;
+    render();
+    try {
+      const res = await fetch('/api/accounts', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ op: 'grant', email, days: Number(googleDays) }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { token?: string; days?: number; error?: string };
+      if (!res.ok || !data.token) throw new Error(data.error ?? String(res.status));
+      copy(
+        data.token,
+        `Token ${email} disalin — tempel ke AEGIS_PREMIUM, lalu deploy ulang`,
+      );
+      googleHint = `Token untuk ${email} (${data.days} hari) sudah di clipboard. Tempel ke AEGIS_PREMIUM di Vercel, pisahkan dengan koma, lalu deploy ulang.`;
+      googleEmail = '';
+      await loadGoogle();
+    } catch {
+      googleHint = 'Token gagal dibuat. Coba lagi.';
+      googleBusy = false;
+      render();
+    }
+  }
+
+  function revokeGoogle(email: string): void {
+    copy(email, `Email ${email} disalin — tambahkan ke AEGIS_REVOKED lalu deploy`);
+    googleHint = `Tempel ${email} ke AEGIS_REVOKED (atau hapus tokennya dari AEGIS_PREMIUM), lalu deploy ulang. Grant yang masih bertanda tangan tidak bisa dicabut dari browser.`;
+    render();
+  }
+
+  function renderGoogle(): HTMLElement {
+    return el(
+      'div',
+      { class: 'plate ctrl-plate' },
+      sectionHead('03b', 'AKUN GOOGLE'),
+      el('p', {
+        class: 'ops-hint',
+        text: 'Akun Google yang masuk dengan sendirinya terdaftar di sini kalau sudah punya grant. Beri grant sekali, akun itu langsung PRO setiap kali masuk dari perangkat mana pun.',
+      }),
+      el(
+        'div',
+        { class: 'ops-toolbar' },
+        el('input', {
+          class: 'input',
+          attrs: { type: 'email', placeholder: 'nama@gmail.com', 'aria-label': 'Email Google', value: googleEmail },
+          on: { input: (ev) => { googleEmail = (ev.target as HTMLInputElement).value; } },
+        }),
+        segmented(
+          [
+            { value: '30', label: '30 HARI' },
+            { value: '90', label: '90 HARI' },
+            { value: '365', label: '1 TAHUN' },
+          ],
+          googleDays,
+          (value) => { googleDays = value; render(); },
+        ).wrap,
+        button(googleBusy ? 'MEMPROSES…' : 'BERI PREMIUM', {
+          tone: 'primary',
+          size: 'sm',
+          icon: 'bolt',
+          onClick: () => void grantGoogle(),
+        }),
+        button('MUAT ULANG', {
+          tone: 'ghost',
+          size: 'sm',
+          onClick: () => void loadGoogle(),
+        }),
+      ),
+      googleHint ? el('p', { class: 'ops-hint', text: googleHint }) : null,
+      googleRows.length === 0
+        ? el('p', {
+            class: 'ops-hint',
+            text: googleLoaded ? 'Belum ada akun Google yang diberi premium.' : 'Memuat daftar…',
+          })
+        : el(
+            'div',
+            { class: 'ops-list' },
+            ...googleRows.map((row) =>
+              el(
+                'div',
+                { class: 'ops-acct' },
+                el(
+                  'div',
+                  { class: 'ops-acct__head' },
+                  el(
+                    'div',
+                    { class: 'ops-acct__id' },
+                    el('b', { text: row.email }),
+                    el('span', { class: `ops-badge ops-badge--${row.state === 'active' ? 'ok' : 'bad'}`, text: row.state === 'active' ? `PRO ${row.days} HARI` : 'HABIS' }),
+                  ),
+                  el('code', { class: 'ops-acct__serial', text: fmtDate(row.exp) }),
+                ),
+                el(
+                  'div',
+                  { class: 'ops-acct__actions' },
+                  button('SALIN TOKEN', {
+                    tone: 'ghost',
+                    size: 'sm',
+                    icon: 'copy',
+                    onClick: () => copy(row.token, `Token ${row.email} disalin`),
+                  }),
+                  button('CABUT', {
+                    tone: 'danger',
+                    size: 'sm',
+                    onClick: () => revokeGoogle(row.email),
+                  }),
+                ),
+              ),
+            ),
+          ),
     );
   }
 

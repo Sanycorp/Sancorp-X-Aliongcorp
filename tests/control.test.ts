@@ -140,12 +140,37 @@ describe('operator console', () => {
     vi.unstubAllGlobals();
   });
 
-  it('never grants a tier when the endpoint is unreachable', async () => {
+  it('never invents a tier when the endpoint is unreachable', async () => {
     const { session } = await import('../src/state/session');
+    await session.signOut();
     vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))));
     await session.refresh();
     expect(session.tier).toBe('free');
     expect(session.state.status).toBe('offline');
     vi.unstubAllGlobals();
+  });
+
+  it('keeps a paid session through an outage instead of demoting it', async () => {
+    // The bug this guards: one dropped /api/auth call used to flip a paying
+    // user to FREE mid-session, because the catch block wrote tier:'free'.
+    const { session } = await import('../src/state/session');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ tier: 'pro', exp: Date.now() + 20 * 86_400_000, subject: 'AB12CD34EF' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    );
+    await session.refresh();
+    expect(session.tier).toBe('pro');
+
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))));
+    await session.refresh();
+    expect(session.tier).toBe('pro');
+    expect(session.state.status).toBe('offline');
+    vi.unstubAllGlobals();
+    await session.signOut();
   });
 });

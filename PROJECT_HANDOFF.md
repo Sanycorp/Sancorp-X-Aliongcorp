@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.3
+# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.4
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -9,7 +9,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | Produk | Aegis Sound Lab |
 | Perusahaan | Sanayacorp (logo & identitas induk) |
 | Master ikon | `brand/aegis-music-icon.png` → `npm run icons` → `public/icons/*` + `store/icon-512.png` |
-| Versi | 8.9.3 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.9.4 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -34,7 +34,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.3
+  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.4
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
 tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
@@ -306,6 +306,44 @@ ulang kanal; angka tetap tampil dari cache saat jaringan mati.
 
 Yang **tidak** dikirim: audio, nama file, kunci lisensi, tier, atau isi riwayat
 export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.
+
+## 12d. Masuk dengan Google & pagar tier (v8.9.4)
+
+**Login pertama.** `src/ui/gate.ts` membuka satu layar saat kunjungan pertama
+(bendera `aegis.gate.seen`): tombol Google, kotak **Ingat saya di perangkat ini**,
+"Punya kunci PRO?", dan "Lanjut tanpa akun". Tidak ada yang dipaksa.
+
+**Google.** Alur authorization-code lewat redirect, bukan Google Identity
+Services — CSP `script-src 'self'` tidak dilonggarkan, tidak ada skrip pihak
+ketiga, dan penukaran token terjadi di server.
+`GET /api/auth?google=start&remember=1` → `accounts.google.com` →
+`GET /api/auth?google=callback` → cookie sesi + redirect `/?masuk=ok`.
+`state` adalah nonce bertanda tangan HMAC, berlaku 10 menit, tanpa tabel sesi.
+Env yang dibutuhkan: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan redirect URI
+`https://sanayacorp-aegismusic.vercel.app/api/auth?google=callback`.
+
+**Premium per email.** Grant = `email:YYYYMMDD:HMAC(email|YYYYMMDD)`. Operator
+membuatnya di `#/control → AKUN → AKUN GOOGLE` (tombol BERI PREMIUM), lalu
+menempelkannya ke `AEGIS_PREMIUM` (dipisah koma) dan deploy ulang. Alamat tanpa
+tanda tangan tidak memberi apa pun. Cabut = masukkan email ke `AEGIS_REVOKED`.
+`GET /api/auth` membaca grant ulang pada setiap permintaan, jadi pemberian dan
+pencabutan berlaku pada permintaan berikutnya, bukan saat sesi kedaluwarsa.
+
+**Tiga bug yang diperbaiki**
+
+1. *Aplikasi macet, tidak bisa diklik.* `.sheet-scrim` punya `display:grid` yang
+   mengalahkan `[hidden]` dari UA, jadi scrim transparan menutupi seluruh layar
+   setelah sheet akun ditutup. Sekarang `[hidden]{display:none}` dan
+   `pointer-events:none` sampai `.is-open`. Timer tutup juga diberi token supaya
+   sheet yang dibuka ulang tidak disembunyikan oleh timer lama.
+2. *PRO tiba-tiba jadi FREE.* Blok `catch` di `session.load()` menulis
+   `tier:'free'`. Sekarang jawaban terakhir server disimpan dan dipakai saat
+   jaringan gagal (`status:'offline'`), dengan satu percobaan ulang 8 detik.
+   Satu permintaan yang gagal tidak lagi mencabut akses yang sudah dibayar.
+3. *FREE memakai fitur PRO.* `src/model/entitlements.ts` menegakkan aturan di
+   tiga pintu: boot/perubahan sesi (`main.ts`), tombol FORGE (preset dan format
+   diperiksa sebelum render), dan matriks `PLANS` sebagai satu-satunya sumber
+   daftar preset/format.
 
 ## 12c. ID akun premium (v8.9.3)
 

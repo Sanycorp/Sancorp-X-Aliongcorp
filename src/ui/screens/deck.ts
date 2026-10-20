@@ -9,6 +9,7 @@ import { Haptics } from '../haptics';
 import { session } from '../../state/session';
 import type { LoudnessTarget, OutputFormat } from '../../model/settings';
 import { formatAllowed, isPro, planFor, presetAllowed, targetAllowed, upgradeHint } from '../../model/tiers';
+import { presetLocked } from '../../model/entitlements';
 import { openPaywall } from '../account';
 import {
   button,
@@ -305,6 +306,30 @@ export function createDeck(): Screen {
    * Free tier caps export length. Checked before the render starts so the user
    * is told immediately rather than after two minutes of DSP.
    */
+  /**
+   * A stored preset from a PRO session must not survive a downgrade into a free
+   * export. The chips already show the lock; this is the door.
+   */
+  /** The last door: a paid format must not slip through on a stale setting. */
+  function formatBlocked(): boolean {
+    if (formatAllowed(session.tier, store.settings.format)) return false;
+    openPaywall(
+      `Format ${store.settings.format.toUpperCase()} termasuk PRO. Versi gratis mengekspor MP3 320 kbps dan WAV 16-bit.`,
+      'lossless',
+    );
+    return true;
+  }
+
+  function presetBlocked(): boolean {
+    const active = store.edit.activePreset ?? '';
+    if (!active || !presetLocked(session.tier, active)) return false;
+    openPaywall(
+      `Preset aktif termasuk arsenal PRO. Pilih satu dari empat preset gratis, atau buka PRO untuk memakai seluruh arsenal.`,
+      'allPresets',
+    );
+    return true;
+  }
+
   function durationBlocked(): boolean {
     const plan = planFor(session.tier);
     if (!store.source) return false;
@@ -328,6 +353,8 @@ export function createDeck(): Screen {
       attrs: { type: 'button' },
       on: {
         click: () => {
+          if (presetBlocked()) return;
+          if (formatBlocked()) return;
           if (durationBlocked()) return;
           Haptics.heavy();
           void forgeExport().then(() => update());

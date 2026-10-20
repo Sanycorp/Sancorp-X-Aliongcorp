@@ -97,6 +97,11 @@
   position: fixed;
   inset: 0;
   z-index: 90;
+  /* The class sets `display: grid`, which outranks the UA rule for [hidden], so
+     a closed sheet used to stay on top of the page and swallow every click.
+     Both rules below are load-bearing: hidden means gone, and a transparent
+     scrim is not a target. */
+  pointer-events: none;
   display: grid;
   place-items: end center;
   background: color-mix(in srgb, #05080d 55%, transparent);
@@ -107,6 +112,11 @@
 
 .sheet-scrim.is-open {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet-scrim[hidden] {
+  display: none;
 }
 
 @media (min-width: 720px) {
@@ -657,4 +667,112 @@ body.sheet-open {
   background: color-mix(in srgb, var(--amber) 12%, transparent);
   font-size: var(--fs-2xs);
   color: var(--ink);
+}
+
+
+/* --------------------------------------------------------------------------
+   First-visit gate
+   -------------------------------------------------------------------------- */
+
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, #05080d 62%, transparent);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.22s var(--ease);
+}
+
+.gate.is-open {
+  opacity: 1;
+}
+
+.gate__card {
+  width: min(430px, 100%);
+  padding: 26px 22px 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 30px 80px rgba(4, 10, 22, 0.32);
+}
+
+.gate__kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 2.4px;
+  color: var(--cobalt);
+}
+
+.gate__title {
+  margin: 6px 0 8px;
+  font-size: 1.5rem;
+  letter-spacing: 0.14em;
+}
+
+.gate__lede {
+  margin: 0 0 16px;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.gate__google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.gate__g {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.gate__note {
+  margin: 10px 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--warn, #b26a00);
+}
+
+.gate__remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 16px 0 4px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.gate__remember small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.gate__check {
+  margin-top: 3px;
+  accent-color: var(--cobalt);
+}
+
+.gate__alt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.gate__foot {
+  margin: 14px 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--muted);
 }

@@ -9,8 +9,7 @@ import './styles/control.css';
 
 import { store } from './state/store';
 import { resolveFinish } from './model/settings';
-import type { AppSettings, EditSettings } from './model/settings';
-import { formatAllowed, isPro, targetAllowed } from './model/tiers';
+import { clampForTier } from './model/entitlements';
 import { Haptics } from './ui/haptics';
 import { createDeck } from './ui/screens/deck';
 import { createLab } from './ui/screens/lab';
@@ -21,6 +20,7 @@ import { accountButton } from './ui/account';
 import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
 import { brandMark } from './ui/brand';
+import { gateSeen, openGate, readRedirect } from './ui/gate';
 import { isNativeApp } from './security/platform';
 import {
   installMagnets,
@@ -318,17 +318,9 @@ function boot(): void {
    * rather than trusted to the UI.
    */
   const applyTierLimits = (): void => {
-    if (isPro(session.tier)) return;
-    const edit: Partial<EditSettings> = {};
-    if (store.edit.spatial8d) edit.spatial8d = false;
-    if (store.edit.denoise) edit.denoise = false;
-    if (store.edit.voiceMode) edit.voiceMode = false;
-    if (Object.keys(edit).length > 0) store.patchEdit(edit);
-
-    const settings: Partial<AppSettings> = {};
-    if (!formatAllowed('free', store.settings.format)) settings.format = 'mp3';
-    if (!targetAllowed('free', store.settings.target)) settings.target = 'streaming';
-    if (Object.keys(settings).length > 0) store.patchSettings(settings);
+    const clamp = clampForTier(session.tier, store.settings, store.edit);
+    if (Object.keys(clamp.edit).length > 0) store.patchEdit(clamp.edit);
+    if (Object.keys(clamp.settings).length > 0) store.patchSettings(clamp.settings);
   };
 
   let enforced = false;
@@ -348,7 +340,10 @@ function boot(): void {
   };
   session.subscribe(onSession);
   onSession();
-  void session.refresh();
+  void session.refresh().then(() => {
+    readRedirect();
+    if (!session.signedIn && !gateSeen()) openGate();
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     const stale = !session.state.exp || session.state.exp - Date.now() < 86_400_000;

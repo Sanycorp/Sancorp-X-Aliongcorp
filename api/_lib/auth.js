@@ -29,20 +29,24 @@ export const TIERS = ['free', 'pro', 'admin'];
  * The union is checked on every session read, so a revoked serial loses access
  * on the next request, not at the next expiry.
  */
-const ENV_REVOKED = String(process.env.AEGIS_REVOKED || '')
-  .split(/[,\s]+/)
-  .map((s) => s.trim().toUpperCase())
-  .filter(Boolean);
+const envRevoked = () =>
+  String(process.env.AEGIS_REVOKED || '')
+    .split(/[,\s]+/)
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
 
 export const REVOKED_SERIALS = new Set([
   ...REVOKED.map((s) => String(s).trim().toUpperCase()),
-  ...ENV_REVOKED,
+  ...envRevoked(),
 ]);
 
 export function isRevoked(serial) {
   const value = String(serial ?? '').toUpperCase();
   if (!value) return false;
   if (REVOKED_SERIALS.has(value)) return true;
+  // Read the env list live too, so a warm instance picks up a revocation the
+  // moment it is set instead of waiting for a cold start.
+  if (envRevoked().includes(value)) return true;
   // Read the shipped array live as well, so a hot edit (or a test) takes effect
   // without rebuilding the Set.
   return REVOKED.some((entry) => String(entry).toUpperCase() === value);
@@ -83,8 +87,8 @@ export function adminPasswordMatches(input) {
 // Sessions
 // ---------------------------------------------------------------------------
 
-export function signSession({ tier, exp, subject }) {
-  const payload = b64url(JSON.stringify({ t: tier, e: exp, s: subject }));
+export function signSession({ tier, exp, subject, name }) {
+  const payload = b64url(JSON.stringify({ t: tier, e: exp, s: subject, n: name || '' }));
   return `${payload}.${hmac(payload)}`;
 }
 
@@ -105,19 +109,20 @@ export function readSession(token) {
   // A revoked licence must stop working immediately, even though its signature
   // and date are still valid.
   if (data.t !== 'admin' && isRevoked(subject)) return null;
-  return { tier: data.t, exp: data.e, subject };
+  return { tier: data.t, exp: data.e, subject, name: String(data.n ?? '') };
 }
 
-export function sessionCookie(session) {
+/**
+ * `remember: false` omits Max-Age, which makes it a browser-session cookie: it
+ * dies when the browser closes. That is the only honest meaning of "jangan
+ * ingat saya", and it is decided on the server so the client cannot upgrade it.
+ */
+export function sessionCookie(session, options = {}) {
+  const remember = options.remember !== false;
   const maxAge = Math.floor((session.exp - Date.now()) / 1000);
-  return [
-    `${COOKIE}=${signSession(session)}`,
-    'Path=/',
-    'HttpOnly',
-    'Secure',
-    'SameSite=Lax',
-    `Max-Age=${Math.max(60, maxAge)}`,
-  ].join('; ');
+  const parts = [`${COOKIE}=${signSession(session)}`, 'Path=/', 'HttpOnly', 'Secure', 'SameSite=Lax'];
+  if (remember) parts.push(`Max-Age=${Math.max(60, maxAge)}`);
+  return parts.join('; ');
 }
 
 export const CLEAR_COOKIE = `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;

@@ -32,6 +32,9 @@ function focusables(root: HTMLElement): HTMLElement[] {
   ).filter((n) => !n.hasAttribute('disabled') && n.offsetParent !== null);
 }
 
+let hideTimer = 0;
+let hideToken = 0;
+
 function close(): void {
   if (!sheet || !panel) return;
   sheet.classList.remove('is-open');
@@ -39,7 +42,13 @@ function close(): void {
   document.body.classList.remove('sheet-open');
   const restore = opener;
   opener = null;
-  window.setTimeout(() => {
+  // If the sheet is opened again before this fires, `open()` bumps `hideToken`
+  // and the stale hide is dropped. Without that, closing and immediately opening
+  // a paywall left the new sheet hidden behind an invisible scrim.
+  const token = ++hideToken;
+  window.clearTimeout(hideTimer);
+  hideTimer = window.setTimeout(() => {
+    if (token !== hideToken) return;
     sheet?.setAttribute('hidden', '');
     restore?.focus?.();
   }, 220);
@@ -93,6 +102,8 @@ function ensureShell(): { sheet: HTMLElement; panel: HTMLElement } {
 
 function open(trigger?: HTMLElement): void {
   const shell = ensureShell();
+  hideToken += 1;
+  window.clearTimeout(hideTimer);
   opener = trigger ?? (document.activeElement as HTMLElement | null);
   shell.sheet.removeAttribute('hidden');
   document.body.classList.add('sheet-open');
@@ -170,6 +181,9 @@ function renderSignedIn(host: HTMLElement): void {
       'div',
       { class: 'account-card' },
       el('div', { class: 'account-card__row' }, el('span', { text: 'Status' }), el('b', { text: plan.tagline })),
+      state.email
+        ? el('div', { class: 'account-card__row' }, el('span', { text: 'Akun Google' }), el('b', { text: state.email }))
+        : null,
       el('div', { class: 'account-card__row' }, el('span', { text: 'Serial' }), el('b', { text: state.subject ?? '—' })),
       el('div', { class: 'account-card__row' }, el('span', { text: 'Berlaku sampai' }), el('b', { text: expires ?? 'tanpa batas' })),
       left !== null
