@@ -114,6 +114,12 @@ describe('operator console', () => {
     expect(screen.el.textContent).toContain('DAFTAR AKUN');
     expect(screen.el.textContent).toContain('perangkat ini');
 
+    // Revocation and the live header probe live behind the fourth tab.
+    (tabs[3] as HTMLButtonElement).click();
+    expect(screen.el.textContent).toContain('PENCABUTAN');
+    expect(screen.el.textContent).toContain('HEADER LIVE');
+    expect(screen.el.textContent).toContain('LAPORAN CSP');
+
     screen.destroy?.();
     vi.unstubAllGlobals();
   });
