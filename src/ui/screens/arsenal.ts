@@ -126,15 +126,15 @@ export function createArsenal(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / LOADOUT' }),
-        el('h1', { class: 'screen__title', html: 'PRESET <em>ARSENAL</em>' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB · ARSENAL' }),
+        el('h1', { class: 'screen__title', html: 'ARSENAL <em>PRESET</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: '14' }), el('span', { text: 'VALIDATED' }))),
     ),
     el(
       'p',
       { class: 'screen__desc', style: 'margin-bottom:12px' },
-      'Empat belas loadout yang sudah diuji: semuanya mendarat di −14…−16 LUFS dengan true peak ≤ −1 dBFS dan nol NaN. Pilih satu, lalu tuning di lab.',
+      'Empat belas preset yang sudah diuji: semuanya mendarat di −14…−16 LUFS dengan true peak ≤ −1 dBFS dan nol NaN. Pilih satu, lalu geser sisanya di TUNING.',
     ),
     filterRow,
     grid,

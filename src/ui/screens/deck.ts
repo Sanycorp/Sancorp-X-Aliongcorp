@@ -1,4 +1,6 @@
 import { PRESETS, presetById } from '../../model/presets';
+import { CHAIN_GROUPS, CHAIN_STAGES, stageGroupIndex } from '../../model/chain';
+import type { ChainStage } from '../../model/chain';
 import { FORMAT_META, SPEED_MODE_META, TARGET_META, SPACE_META } from '../../model/settings';
 import type { SourceInfo } from '../../model/settings';
 import { store } from '../../state/store';
@@ -26,7 +28,7 @@ import { createScope } from '../scope';
 import { animateValue, burst, scramble } from '../motion';
 import { setHtml } from '../../security/sanitize';
 
-const STAGE_ORDER = ['CLEAN', 'TONE', 'SPACE', 'WARMTH', 'MASTER', 'LIMIT'];
+const STAGE_ORDER = CHAIN_GROUPS.map((g) => g.id);
 
 export interface Screen {
   el: HTMLElement;
@@ -246,13 +248,13 @@ export function createDeck(): Screen {
         onClick: () => {
           store.resetChain();
           update();
-          toast('Chain di-reset ke netral', 'info');
+          toast('Rantai di-reset ke netral', 'info');
         },
       }),
     ),
   );
 
-  // ---------------------------------------------------------------- master + forge
+  // ---------------------------------------------------------------- master + render
   const targetSeg = segmented(
     (Object.keys(TARGET_META) as (keyof typeof TARGET_META)[]).map((k) => ({
       value: k,
@@ -323,7 +325,7 @@ export function createDeck(): Screen {
   function formatBlocked(): boolean {
     if (formatAllowed(session.tier, store.edit.format)) return false;
     openPaywall(
-      `Format ${FORMAT_META[store.edit.format].label} termasuk PRO. Versi gratis mengekspor MP3 320 kbps dan WAV 16-bit.`,
+      `Format ${FORMAT_META[store.edit.format].label} termasuk PRO. Versi gratis memakai MP3 320 kbps dan WAV 16-bit.`,
       'lossless',
     );
     return true;
@@ -339,7 +341,7 @@ export function createDeck(): Screen {
     return true;
   }
 
-  /** One guard for both FORGE buttons (plate and mobile dock). */
+  /** One guard for both RENDER buttons (plate and mobile dock). */
   function exportBlocked(): boolean {
     return presetBlocked() || formatBlocked() || targetBlocked() || durationBlocked();
   }
@@ -362,7 +364,7 @@ export function createDeck(): Screen {
     const seconds = end - store.edit.trimStart;
     if (seconds <= plan.limits.maxMinutes * 60) return false;
     openPaywall(
-      `Versi gratis dibatasi ${plan.limits.maxMinutes} menit per export. Rekam ini ${(seconds / 60).toFixed(1)} menit — PRO membuka durasi penuh.`,
+      `Versi gratis dibatasi ${plan.limits.maxMinutes} menit per render. Rekam ini ${(seconds / 60).toFixed(1)} menit — PRO membuka durasi penuh.`,
       'batchQueue',
     );
     return true;
@@ -384,7 +386,7 @@ export function createDeck(): Screen {
       },
     },
     el('span', { class: 'forge__icon', html: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="miter"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg>` }),
-    el('span', { class: 'forge__body' }, el('span', { class: 'forge__title', text: 'FORGE' }), forgeSub),
+    el('span', { class: 'forge__body' }, el('span', { class: 'forge__title', text: 'RENDER' }), forgeSub),
     forgingLabel,
   );
 
@@ -527,13 +529,13 @@ export function createDeck(): Screen {
   const ringPct = el('span', { class: 'ring__pct', text: 'GO' });
   dockRingHost.appendChild(ringPct);
 
-  const dockPreset = el('span', { class: 'dock__preset', text: 'CUSTOM CHAIN' });
+  const dockPreset = el('span', { class: 'dock__preset', text: 'RANTAI KUSTOM' });
   const dockMeta = el('span', { class: 'dock__meta', text: 'SIAP' });
   const dockBtn = el(
     'button',
     {
       class: 'dock__btn',
-      attrs: { type: 'button', 'aria-label': 'Forge hasil' },
+      attrs: { type: 'button', 'aria-label': 'Render hasil' },
       on: {
         click: () => {
           if (exportBlocked()) return;
@@ -543,7 +545,7 @@ export function createDeck(): Screen {
       },
     },
     dockRingHost,
-    el('span', { text: 'FORGE' }),
+    el('span', { text: 'RENDER' }),
   );
 
   const dock = el(
@@ -556,15 +558,15 @@ export function createDeck(): Screen {
   // ---------------------------------------------------------------- screen
   const screen = el(
     'section',
-    { class: 'screen', id: 'screen-deck', attrs: { 'aria-label': 'Forge deck' } },
+    { class: 'screen', id: 'screen-deck', attrs: { 'aria-label': 'Render audio' } },
     el(
       'div',
       { class: 'screen__intro' },
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / FORGE DECK' }),
-        el('h1', { class: 'screen__title', html: 'FORGE <em>DECK</em>' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB · RENDER' }),
+        el('h1', { class: 'screen__title', html: 'RENDER <em>AUDIO</em>' }),
       ),
       el('div', { class: 'header__meta' },
         el('span', { class: 'chip chip--live' }, el('b', { text: 'OFFLINE DSP' })),
@@ -686,18 +688,66 @@ export function createDeck(): Screen {
     );
   }
 
-  function updatePipeline(): void {
+  /**
+   * One row per chain stage, in engine order. The labels come from `chain.ts`,
+   * so the rail and the landing page cannot name the same process differently.
+   */
+  function stageRow(stage: ChainStage): HTMLElement {
     const s = store.edit;
-    const rows = [
-      pipelineRow('TIME', Math.abs(s.speed - 1) > 0.001 ? `${s.speed.toFixed(2)}× ${SPEED_MODE_META[s.speedMode].label}` : 'BYPASS', Math.abs(s.speed - 1) > 0.001),
-      pipelineRow('SPACE', s.reverbEnabled ? `${SPACE_META[s.reverbType].label} ${Math.round(s.reverbLevel * 100)}%` : 'DRY', s.reverbEnabled),
-      pipelineRow('ORBIT', s.spatial8d ? `${s.spinRate.toFixed(2)} Hz · ${Math.round(s.depth * 100)}%` : 'OFF', s.spatial8d),
-      pipelineRow('TONE', toneSummary(), toneActive()),
-      pipelineRow('REPAIR', s.voiceMode ? 'VOICE FOCUS' : s.denoise ? `DENOISE ${Math.round(s.denoiseAmount * 100)}%` : 'OFF', s.denoise || s.voiceMode),
-      pipelineRow('DYNAMICS', s.warmth > 0.02 ? `TAPE ${Math.round(s.warmth * 100)}%` : s.deEsser ? 'DE-ESS' : 'CLEAN', s.warmth > 0.02 || s.deEsser || s.monoBass),
-      pipelineRow('MASTER', s.target === 'off' ? 'PEAK ONLY' : `${TARGET_META[s.target].label} LUFS`, true),
-      pipelineRow('LIMIT', '−1.2 dBTP', true),
-    ];
+    const dur = store.source?.duration ?? 0;
+    const end = s.trimEnd > 0 ? s.trimEnd : dur;
+    const trimmed = s.trimStart > 0.01 || (dur > 0 && end < dur - 0.01);
+    const timeOn = Math.abs(s.speed - 1) > 0.001;
+    switch (stage.id) {
+      case 'clean':
+        return pipelineRow(stage.label, 'HPF 24 Hz', true);
+      case 'repair':
+        return pipelineRow(
+          stage.label,
+          s.voiceMode ? 'VOICE FOCUS' : s.denoise ? `DENOISE ${Math.round(s.denoiseAmount * 100)}%` : 'OFF',
+          s.denoise || s.voiceMode,
+        );
+      case 'trim':
+        return pipelineRow(stage.label, trimmed ? `${formatDuration(s.trimStart)}–${formatDuration(end)}` : 'PENUH', trimmed);
+      case 'time':
+        return pipelineRow(
+          stage.label,
+          timeOn ? `${s.speed.toFixed(2)}× ${SPEED_MODE_META[s.speedMode].label}` : 'BYPASS',
+          timeOn,
+        );
+      case 'tone':
+        return pipelineRow(stage.label, toneSummary(), toneActive());
+      case 'space':
+        return pipelineRow(
+          stage.label,
+          s.reverbEnabled ? `${SPACE_META[s.reverbType].label} ${Math.round(s.reverbLevel * 100)}%` : 'DRY',
+          s.reverbEnabled,
+        );
+      case 'orbit':
+        return pipelineRow(
+          stage.label,
+          s.spatial8d ? `${s.spinRate.toFixed(2)} Hz · ${Math.round(s.depth * 100)}%` : 'OFF',
+          s.spatial8d,
+        );
+      case 'warmth':
+        return pipelineRow(stage.label, s.warmth > 0.02 ? `TAPE ${Math.round(s.warmth * 100)}%` : 'CLEAN', s.warmth > 0.02);
+      case 'mono':
+        return pipelineRow(stage.label, s.monoBass ? '≤ 120 Hz' : 'OFF', s.monoBass);
+      case 'deess':
+        return pipelineRow(stage.label, s.deEsser ? '5–9 kHz' : 'OFF', s.deEsser);
+      case 'master':
+        return pipelineRow(
+          stage.label,
+          s.target === 'off' ? 'PEAK ONLY' : `${TARGET_META[s.target].label} LUFS`,
+          true,
+        );
+      default:
+        return pipelineRow(stage.label, '−1.2 dBTP', true);
+    }
+  }
+
+  function updatePipeline(): void {
+    const rows = CHAIN_STAGES.map(stageRow);
     const pipeSig = rows.map((r) => r.textContent).join('|');
     if (pipeSig !== lastPipeSig) {
       lastPipeSig = pipeSig;
@@ -730,8 +780,13 @@ export function createDeck(): Screen {
       progressStage.textContent = status.stage;
       progressPct.textContent = `${Math.round(status.progress * 100)}%`;
       progressFill.style.width = `${status.progress * 100}%`;
-      const idx = STAGE_ORDER.indexOf(status.stage);
-      stagePips.forEach((pip, i) => pip.classList.toggle('is-done', idx >= 0 ? i <= idx : status.progress > 0.7));
+      // The chain has six groups and thirteen possible reports; map them in
+      // chain.ts so the bar cannot freeze on a stage the list forgot.
+      const idx = stageGroupIndex(status.stage);
+      const last = STAGE_ORDER.length - 1;
+      stagePips.forEach((pip, i) =>
+        pip.classList.toggle('is-done', idx >= 0 ? i <= Math.min(idx, last) : status.progress > 0.7),
+      );
       forgeBtn.setAttribute('disabled', 'true');
       forgeBtn.dataset.busy = 'true';
       forgeSub.textContent = `${status.stage} · ${Math.round(status.progress * 100)}%`;
@@ -781,7 +836,7 @@ export function createDeck(): Screen {
       el(
         'div',
         { class: 'report__head' },
-        el('span', { class: 'badge badge--signal' }, icon('check', 10), el('span', { text: 'FORGED' })),
+        el('span', { class: 'badge badge--signal' }, icon('check', 10), el('span', { text: 'SELESAI' })),
         el('strong', { class: 'report__title', text: 'MANIFEST' }),
         el('span', { class: 'spacer' }),
         el('span', { class: 'badge', text: report.format }),
@@ -886,7 +941,7 @@ export function createDeck(): Screen {
     if (store.edit.fadeIn > 0.05 || store.edit.fadeOut > 0.05) tags.push(tag('FADE', `${store.edit.fadeIn.toFixed(1)}/${store.edit.fadeOut.toFixed(1)}s`));
     if (Math.abs(store.edit.finalGain - 1) > 0.01) tags.push(tag('GAIN', `${(20 * Math.log10(store.edit.finalGain)).toFixed(1)}dB`));
     if (store.edit.denoise && store.edit.voiceMode) tags.push(tag('REPAIR', 'VOICE MODE'));
-    if (tags.length === 0) tags.push(el('span', { class: 'tag', text: 'CHAIN NETRAL' }));
+    if (tags.length === 0) tags.push(el('span', { class: 'tag', text: 'RANTAI NETRAL' }));
     if (tagSig !== lastTagSig) {
       lastTagSig = tagSig;
       tags.forEach((node, i) => node.style.setProperty('--i', String(i)));

@@ -120,6 +120,29 @@ describe('app shell', () => {
     expect(document.querySelector('#screen-control .ctrl-gate')).not.toBeNull();
   });
 
+  it('names the four studio screens by what they do', () => {
+    const labels = Array.from(document.querySelectorAll('.nav__btn')).map((b) => b.textContent?.trim());
+    expect(labels).toEqual(['RENDER', 'TUNING', 'ARSENAL', 'SISTEM']);
+    expect(document.querySelector('#screen-deck h1')?.textContent).toBe('RENDER AUDIO');
+    expect(document.querySelector('#screen-lab h1')?.textContent).toBe('TUNING RANTAI');
+    expect(document.querySelector('#screen-system h1')?.textContent).toBe('SISTEM PERANGKAT');
+  });
+
+  it('draws the pipeline in engine order, one row per stage', async () => {
+    const { CHAIN_STAGES } = await import('../src/model/chain');
+    const rows = Array.from(document.querySelectorAll('#screen-deck .pipeline .pipe-row .pipe-label'));
+    expect(rows.map((r) => r.textContent)).toEqual(CHAIN_STAGES.map((s) => s.label));
+    // The old rail had a made-up "DYNAMICS" row and no CLEAN/MONO/DE-ESS.
+    const rail = document.querySelector('#screen-deck .pipeline')?.textContent ?? '';
+    expect(rail).not.toContain('DYNAMICS');
+  });
+
+  it('retired the FORGE codename from every visible string', () => {
+    const text = document.body.textContent ?? '';
+    expect(text).not.toMatch(/FORGE|FORGED/);
+    expect(text).toContain('RENDER');
+  });
+
   it('renders all fourteen preset chips', () => {
     expect(document.querySelectorAll('.preset-chip').length).toBe(14);
     expect(document.querySelectorAll('.preset-card').length).toBe(14);

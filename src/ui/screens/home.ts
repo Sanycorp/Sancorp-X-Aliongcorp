@@ -77,7 +77,7 @@ const FAQ = [
   },
   {
     q: 'Browser apa yang didukung?',
-    a: 'Chrome dan Edge 111+, Safari 16.4+, Firefox 115+, di Android, iOS/iPadOS, Windows, macOS, dan Linux. Syarat teknisnya OfflineAudioContext dan Web Worker — keduanya tersedia di semua browser tersebut. Halaman SYSTEM menampilkan hasil deteksi perangkatmu apa adanya.',
+    a: 'Chrome dan Edge 111+, Safari 16.4+, Firefox 115+, di Android, iOS/iPadOS, Windows, macOS, dan Linux. Syarat teknisnya OfflineAudioContext dan Web Worker — keduanya tersedia di semua browser tersebut. Halaman SISTEM menampilkan hasil deteksi perangkatmu apa adanya.',
   },
   {
     q: 'Bagaimana satu kunci satu perangkat bekerja?',
@@ -89,7 +89,7 @@ const FAQ = [
   },
   {
     q: 'Apakah hasil render sama dengan preview?',
-    a: 'Ya. Preview adalah render pendek dari rantai yang sama, dengan penyetelan dan target yang sama. Yang berbeda hanya panjang berkas dan antrean worker, bukan algoritmanya — halaman LAB menyebut ini secara eksplisit.',
+    a: 'Ya. Preview adalah render pendek dari rantai yang sama, dengan penyetelan dan target yang sama. Yang berbeda hanya panjang berkas dan antrean worker, bukan algoritmanya — halaman TUNING menyebut ini secara eksplisit.',
   },
   {
     q: 'Apakah ada langganan otomatis?',
@@ -235,7 +235,7 @@ const STEPS = [
   {
     index: '02',
     title: 'Pilih arsenal, lalu tuning',
-    detail: 'Empat belas preset tervalidasi, atau geser sendiri di LAB. Setiap perubahan memakai rantai yang sama dengan hasil akhir.',
+    detail: 'Empat belas preset tervalidasi, atau geser sendiri di TUNING. Setiap perubahan memakai rantai yang sama dengan hasil akhir.',
   },
   {
     index: '03',
@@ -645,9 +645,7 @@ export function createHome(): { el: HTMLElement; update(): void } {
       el(
         'div',
         { class: 'lp-ticker', attrs: { 'aria-hidden': 'true' } },
-        ...['CLEAN', 'REPAIR', 'TIME', 'TONE', 'WIDTH', 'ORBIT', 'SPACE', 'WARMTH', 'MONO', 'DE-ESS', 'MASTER', 'LIMIT'].map((s) =>
-          el('span', { text: s }),
-        ),
+        ...CHAIN_STAGES.map((stage) => el('span', { text: stage.label })),
       ),
       howSection(),
       chainSection(),

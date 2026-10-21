@@ -635,3 +635,35 @@ EXPORT` → `… SETELAH RENDER`, `SAME DSP AS EXPORT` → `DSP SAMA DENGAN REND
 **Shell.** Di rute `home` chrome studio disembunyikan (`html[data-route='home']
 .app-header`, `.nav`), splash tidak menahan halaman publik, dan segel merek di
 header studio menjadi tombol kembali ke beranda.
+
+## 12h. Studio diberi nama sesuai pekerjaannya (v8.10.0)
+
+Empat layar studio masih memakai nama internal yang tidak berarti apa pun bagi
+pembeli, dan satu di antaranya mencampur dua metafora ("FORGE DECK" — tempa dan
+dek tape). Sekarang nama layar adalah pekerjaannya:
+
+| Hash | Navigasi | Judul | Isi |
+| --- | --- | --- | --- |
+| `#/deck` | **RENDER** | RENDER AUDIO | muat berkas, preset, target, format, render |
+| `#/lab` | **TUNING** | TUNING RANTAI | parameter rantai, A/B memory |
+| `#/arsenal` | **ARSENAL** | ARSENAL PRESET | empat belas preset |
+| `#/system` | **SISTEM** | SISTEM PERANGKAT | finish, format default, riwayat, akun, rating, perangkat |
+
+Hash tidak berubah, jadi tautan lama tetap sampai. Kata **FORGE** hilang dari
+antarmuka: tombol jadi RENDER, status hasil jadi SELESAI, dan preset "BASS
+FORGE" menjadi "BASS PRESSURE" supaya tidak ada dua arti untuk satu kata.
+"Loadout" → "preset", "CUSTOM CHAIN" → "RANTAI KUSTOM", "RESET CHAIN" →
+"RESET RANTAI", "hasil export" → "hasil render".
+
+### Bug yang ikut diperbaiki
+
+Bar progres render punya enam pip untuk enam kelompok rantai, tetapi kode
+memetakan nama tahap dengan `indexOf` pada daftar enam label sementara
+`engine.ts` melaporkan tiga belas nama. Setiap laporan yang tidak ada di daftar
+(DENOISE, VOICE, ORBIT, MONO, DEESS) mengembalikan −1 dan bar membeku. Pemetaan
+sekarang ada di `src/model/chain.ts` sebagai `stageGroupIndex()`, diuji untuk
+semua nama yang mungkin, urutannya monoton, dan ENCODE/WRITE/DONE menutup bar.
+
+Rail PIPELINE di deck juga dibangun dari `CHAIN_STAGES`: dua belas baris sesuai
+urutan mesin, dengan label yang sama dengan halaman depan. Baris karangan
+"DYNAMICS" hilang, dan CLEAN, MONO, serta DE-ESS kini terlihat statusnya.

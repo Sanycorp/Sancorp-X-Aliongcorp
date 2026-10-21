@@ -158,3 +158,35 @@ export const FORMAT_LADDER: { id: string; label: string; detail: string; pro?: b
   { id: 'wav32', label: 'WAV 32F', detail: '32-bit float · untuk DAW', pro: true },
   { id: 'flac', label: 'FLAC', detail: 'Lossless terkompresi', pro: true },
 ];
+
+/**
+ * Which of the six groups a progress report belongs to.
+ *
+ * `engine.ts` reports finer names than the deck can show (DENOISE, VOICE,
+ * DEESS…) and two steps that are not filters at all (ENCODE, WRITE). Leaving
+ * that mapping to `indexOf` on a short list meant the pips froze at MASTER for
+ * every stage the list did not know. Six groups, one number, no guessing.
+ */
+const GROUP_OF_STAGE: Record<string, number> = {
+  CLEAN: 0,
+  VOICE: 0,
+  DENOISE: 0,
+  TIME: 1,
+  TONE: 2,
+  SPACE: 3,
+  ORBIT: 3,
+  WARMTH: 4,
+  MONO: 4,
+  DEESS: 4,
+  MASTER: 5,
+  LIMIT: 5,
+  ENCODE: CHAIN_GROUPS.length,
+  WRITE: CHAIN_GROUPS.length,
+  DONE: CHAIN_GROUPS.length,
+};
+
+/** Group index for an engine stage name; -1 when the name is not a chain stage. */
+export function stageGroupIndex(stage: string): number {
+  const hit = GROUP_OF_STAGE[stage.toUpperCase()];
+  return hit === undefined ? -1 : hit;
+}

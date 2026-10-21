@@ -45,18 +45,18 @@ const PUBLIC_ROUTES = new Set<RouteId>(['home', 'control']);
 /** Page titles. The landing is the product sentence, not the route id. */
 const TITLES: Record<RouteId, string> = {
   home: 'Aegis Sound Lab — rantai mastering di perangkatmu',
-  deck: 'Aegis Sound Lab · FORGE',
-  lab: 'Aegis Sound Lab · TUNING',
-  arsenal: 'Aegis Sound Lab · ARSENAL',
-  system: 'Aegis Sound Lab · SYSTEM',
-  control: 'Aegis Sound Lab · AEGIS OPS',
+  deck: 'Aegis Sound Lab · Render',
+  lab: 'Aegis Sound Lab · Tuning',
+  arsenal: 'Aegis Sound Lab · Arsenal',
+  system: 'Aegis Sound Lab · Sistem',
+  control: 'Aegis Sound Lab · Konsol Operator',
 };
 
 const ROUTES: { id: RouteId; label: string; icon: 'deck' | 'lab' | 'arsenal' | 'system' }[] = [
-  { id: 'deck', label: 'DECK', icon: 'deck' },
-  { id: 'lab', label: 'LAB', icon: 'lab' },
+  { id: 'deck', label: 'RENDER', icon: 'deck' },
+  { id: 'lab', label: 'TUNING', icon: 'lab' },
   { id: 'arsenal', label: 'ARSENAL', icon: 'arsenal' },
-  { id: 'system', label: 'SYSTEM', icon: 'system' },
+  { id: 'system', label: 'SISTEM', icon: 'system' },
 ];
 
 /** Operator console: reachable by hash only, never rendered into the tab bar. */

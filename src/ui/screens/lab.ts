@@ -251,7 +251,7 @@ export function createLab(): Screen {
   repairInner.appendChild(normToggle.wrap);
 
   // ---------------------------------------------------------------- A / B
-  const abNote = el('div', { class: 'lab-group__note', text: 'Simpan dua versi chain lalu bandingkan tanpa kehilangan setelan.' });
+  const abNote = el('div', { class: 'lab-group__note', text: 'Simpan dua versi rantai lalu bandingkan tanpa kehilangan setelan.' });
   const slotALabel = el('span', { text: store.slotA ? 'TERISI' : 'KOSONG' });
   const slotBLabel = el('span', { text: store.slotB ? 'TERISI' : 'KOSONG' });
 
@@ -329,7 +329,7 @@ export function createLab(): Screen {
         slotBLabel.textContent = 'TERISI';
         toast('Chain disimpan ke B', 'ok', 1400);
       } }),
-      button('RESET CHAIN', { tone: 'ghost', size: 'sm', icon: 'reset', onClick: () => {
+      button('RESET RANTAI', { tone: 'ghost', size: 'sm', icon: 'reset', onClick: () => {
         store.resetChain();
         toast('Chain di-reset', 'info', 1400);
       } }),
@@ -345,15 +345,15 @@ export function createLab(): Screen {
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / ENGINEERING BAY' }),
-        el('h1', { class: 'screen__title', html: 'TUNING <em>LAB</em>' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB · TUNING' }),
+        el('h1', { class: 'screen__title', html: 'TUNING <em>RANTAI</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip', text: 'DSP SAMA DENGAN RENDER' })),
     ),
     el(
       'p',
       { class: 'screen__desc', style: 'margin-bottom:14px' },
-      'Setiap perubahan di sini memakai rantai DSP yang sama persis dengan hasil export. Geser → preview dihitung ulang saat kamu menekan play.',
+      'Setiap perubahan di sini memakai rantai DSP yang sama persis dengan hasil render. Geser → preview dihitung ulang saat kamu menekan play.',
     ),
     el(
       'div',

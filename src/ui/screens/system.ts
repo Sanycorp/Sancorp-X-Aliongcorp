@@ -332,15 +332,15 @@ export function createSystem(): Screen {
 
   const screen = el(
     'section',
-    { class: 'screen', id: 'screen-system', attrs: { 'aria-label': 'System settings' } },
+    { class: 'screen', id: 'screen-system', attrs: { 'aria-label': 'Sistem dan perangkat' } },
     el(
       'div',
       { class: 'screen__intro' },
       el(
         'div',
         {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / CONTROL ROOM' }),
-        el('h1', { class: 'screen__title', html: 'SYSTEM <em>CONTROL</em>' }),
+        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB · SISTEM' }),
+        el('h1', { class: 'screen__title', html: 'SISTEM <em>PERANGKAT</em>' }),
       ),
       el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'OFFLINE' }))),
     ),

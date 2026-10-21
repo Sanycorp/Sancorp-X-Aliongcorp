@@ -123,7 +123,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: 'bass_forge',
-    name: 'BASS FORGE',
+    name: 'BASS PRESSURE',
     tagline: 'Low end · club master',
     detail: 'Straight tempo, maximum low-end reinforcement. Built for subwoofers.',
     tag: 'BASS',
