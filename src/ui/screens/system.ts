@@ -215,7 +215,7 @@ export function createSystem(): Screen {
     accountLine.textContent =
       tier === 'free'
         ? `Kamu di paket FREE: 4 preset, MP3/WAV 16, export sampai 12 menit. PRO ${PRO_PRICE} per ${PRO_PASS_DAYS} hari membuka seluruh arsenal, format lossless, dan export tanpa batas.`
-        : `Aktif sampai ${session.state.exp ? new Date(session.state.exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'tanpa batas'} · serial ${session.state.subject ?? '—'}`;
+        : `Aktif sampai ${session.state.exp ? new Date(session.state.exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'tanpa batas'} · ${session.state.lic ? `serial ${session.state.lic}` : (session.state.email ?? 'akun Google')}`;
 
     accountCta.replaceChildren(
       button(tier === 'free' ? 'AKTIFKAN LISENSI' : 'KELOLA AKUN', {

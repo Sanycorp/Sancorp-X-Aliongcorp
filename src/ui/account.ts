@@ -186,7 +186,12 @@ function renderSignedIn(host: HTMLElement): void {
       state.email
         ? el('div', { class: 'account-card__row' }, el('span', { text: 'Akun Google' }), el('b', { text: state.email }))
         : null,
-      el('div', { class: 'account-card__row' }, el('span', { text: 'Serial' }), el('b', { text: state.subject ?? '—' })),
+      el(
+        'div',
+        { class: 'account-card__row' },
+        el('span', { text: 'Serial kunci' }),
+        el('b', { text: state.lic ?? 'belum ada kunci' }),
+      ),
       el(
         'div',
         { class: 'account-card__row' },
@@ -230,7 +235,7 @@ function renderSignedIn(host: HTMLElement): void {
             tone: 'primary',
             block: true,
             icon: 'bolt',
-            onClick: () => openRenew(state.subject ?? ''),
+            onClick: () => openRenew(state.lic ?? state.subject ?? ''),
           }),
       button('GANTI KUNCI', {
         tone: 'ghost',
