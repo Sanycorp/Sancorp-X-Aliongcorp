@@ -9,7 +9,6 @@ import './styles/control.css';
 
 import { store } from './state/store';
 import { resolveFinish } from './model/settings';
-import { clampForTier } from './model/entitlements';
 import { Haptics } from './ui/haptics';
 import { createDeck } from './ui/screens/deck';
 import { createLab } from './ui/screens/lab';
@@ -318,9 +317,13 @@ function boot(): void {
    * rather than trusted to the UI.
    */
   const applyTierLimits = (): void => {
-    const clamp = clampForTier(session.tier, store.settings, store.edit);
-    if (Object.keys(clamp.edit).length > 0) store.patchEdit(clamp.edit);
-    if (Object.keys(clamp.settings).length > 0) store.patchSettings(clamp.settings);
+    // One pass over the chain, the delivery decision and both A/B slots. The
+    // store owns this now, so nothing can be clamped in one place and missed in
+    // another (that is how a free session kept exporting FLAC).
+    const changed = store.clampToTier(session.tier);
+    if (changed) store.previewReady = false;
+    // History is capped by plan as well; a lapse trims it without a reload.
+    store.trimHistory();
   };
 
   let enforced = false;

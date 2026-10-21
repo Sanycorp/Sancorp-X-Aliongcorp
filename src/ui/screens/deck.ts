@@ -9,6 +9,7 @@ import { Haptics } from '../haptics';
 import { session } from '../../state/session';
 import type { LoudnessTarget, OutputFormat } from '../../model/settings';
 import { formatAllowed, isPro, planFor, presetAllowed, targetAllowed, upgradeHint } from '../../model/tiers';
+import { formatChoices } from '../../model/entitlements';
 import { presetLocked } from '../../model/entitlements';
 import { openPaywall } from '../account';
 import {
@@ -261,29 +262,33 @@ export function createDeck(): Screen {
     })),
     store.edit.target,
     (v) => {
-      store.patchEdit({ target: v as typeof store.edit.target });
+      store.setOutput({ target: v as typeof store.edit.target });
       Haptics.tap();
       update();
     },
     () => openPaywall(upgradeHint('target'), 'clubTarget'),
   );
 
+  // Every format SYSTEM offers, in the same order, with the same locks. The old
+  // row had three chips and drew WAV 16 as WAV 24, so a free user could pick a
+  // legal format and see a paid one highlighted here.
   const formatSeg = segmented(
-    (['mp3', 'wav24', 'flac'] as const).map((f) => ({
-      value: f,
-      label: FORMAT_META[f].label,
-      sub: FORMAT_META[f].spec,
-      locked: !formatAllowed(session.tier, f),
+    formatChoices(session.tier).map((c) => ({
+      value: c.value,
+      label: c.label,
+      locked: c.locked,
     })),
-    store.edit.format === 'wav16' || store.edit.format === 'wav32' ? 'wav24' : store.edit.format,
+    store.edit.format,
     (v) => {
-      store.patchEdit({ format: v as typeof store.edit.format });
-      store.patchSettings({ format: v as typeof store.edit.format });
+      store.setOutput({ format: v as OutputFormat });
       Haptics.tap();
       update();
     },
     () => openPaywall(upgradeHint('format'), 'lossless'),
   );
+
+  formatSeg.wrap.dataset.role = 'format';
+  targetSeg.wrap.dataset.role = 'target';
 
   const masterStrip = el(
     'div',
@@ -310,14 +315,33 @@ export function createDeck(): Screen {
    * A stored preset from a PRO session must not survive a downgrade into a free
    * export. The chips already show the lock; this is the door.
    */
-  /** The last door: a paid format must not slip through on a stale setting. */
+  /**
+   * The last door. It reads `store.edit` — the same object `forgeExport()` hands
+   * to the encoder — not `settings`. The old check looked at settings, so after
+   * a downgrade reset one and not the other, the gate passed and FLAC shipped.
+   */
   function formatBlocked(): boolean {
-    if (formatAllowed(session.tier, store.settings.format)) return false;
+    if (formatAllowed(session.tier, store.edit.format)) return false;
     openPaywall(
-      `Format ${store.settings.format.toUpperCase()} termasuk PRO. Versi gratis mengekspor MP3 320 kbps dan WAV 16-bit.`,
+      `Format ${FORMAT_META[store.edit.format].label} termasuk PRO. Versi gratis mengekspor MP3 320 kbps dan WAV 16-bit.`,
       'lossless',
     );
     return true;
+  }
+
+  /** Loudness targets are paid above -14 LUFS; SYSTEM used to let them through. */
+  function targetBlocked(): boolean {
+    if (targetAllowed(session.tier, store.edit.target)) return false;
+    openPaywall(
+      `Target ${TARGET_META[store.edit.target].label} LUFS termasuk PRO. Versi gratis memakai OFF atau −14 LUFS.`,
+      'clubTarget',
+    );
+    return true;
+  }
+
+  /** One guard for both FORGE buttons (plate and mobile dock). */
+  function exportBlocked(): boolean {
+    return presetBlocked() || formatBlocked() || targetBlocked() || durationBlocked();
   }
 
   function presetBlocked(): boolean {
@@ -353,9 +377,7 @@ export function createDeck(): Screen {
       attrs: { type: 'button' },
       on: {
         click: () => {
-          if (presetBlocked()) return;
-          if (formatBlocked()) return;
-          if (durationBlocked()) return;
+          if (exportBlocked()) return;
           Haptics.heavy();
           void forgeExport().then(() => update());
         },
@@ -514,7 +536,7 @@ export function createDeck(): Screen {
       attrs: { type: 'button', 'aria-label': 'Forge hasil' },
       on: {
         click: () => {
-          if (durationBlocked()) return;
+          if (exportBlocked()) return;
           Haptics.heavy();
           void forgeExport().then(() => update());
         },
@@ -718,7 +740,7 @@ export function createDeck(): Screen {
       forgeBtn.removeAttribute('disabled');
       forgeBtn.dataset.busy = 'false';
       forgeSub.textContent = store.source
-        ? `${FORMAT_META[store.edit.format].label} · ${store.edit.bitrate}K · ${TARGET_META[store.edit.target].label}${TARGET_META[store.edit.target].lufs ? ' LUFS' : ''}`
+        ? `${FORMAT_META[store.edit.format].label}${FORMAT_META[store.edit.format].lossy ? ` · ${store.edit.bitrate}K` : ''} · ${TARGET_META[store.edit.target].label}${TARGET_META[store.edit.target].lufs ? ' LUFS' : ''}`
         : 'MUAT AUDIO DULU';
       forgingLabel.textContent = 'RENDER →';
     }
@@ -872,7 +894,7 @@ export function createDeck(): Screen {
     }
 
     targetSeg.set(store.edit.target);
-    formatSeg.set(store.edit.format === 'wav16' || store.edit.format === 'wav32' ? 'wav24' : store.edit.format);
+    formatSeg.set(store.edit.format);
 
     const cells = masterStrip.querySelectorAll('.master-cell');
     setCell(cells[0], TARGET_META[store.edit.target].lufs ? `${TARGET_META[store.edit.target].lufs}` : 'OFF', TARGET_META[store.edit.target].lufs ? 'LUFS' : '');
@@ -884,7 +906,8 @@ export function createDeck(): Screen {
     setCell(sessionCells[1], store.source ? `${(store.source.sampleRate / 1000).toFixed(1)}k` : '—', 'Hz');
     setCell(sessionCells[2], store.previewReady ? 'FRESH' : store.previewBusy ? 'BUSY' : 'STALE', '');
 
-    hashLine.textContent = `PREVIEW ${store.previewReady ? 'READY' : store.previewBusy ? 'RENDERING' : 'STALE'} · ${Math.round(store.edit.speed * 100)}% · ${FORMAT_META[store.edit.format].label} ${store.edit.bitrate}K`;
+    const lossy = FORMAT_META[store.edit.format].lossy;
+    hashLine.textContent = `PREVIEW ${store.previewReady ? 'READY' : store.previewBusy ? 'RENDERING' : 'STALE'} · ${Math.round(store.edit.speed * 100)}% · ${FORMAT_META[store.edit.format].label}${lossy ? ` ${store.edit.bitrate}K` : ''}`;
 
     // decoding skeleton
     skeleton.hidden = !(store.status.stage === 'DECODE' && !store.source);

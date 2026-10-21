@@ -285,22 +285,73 @@ export function segmented(
   };
 }
 
+/**
+ * Native select with the same lock semantics as `segmented()`: a paid option is
+ * still listed (so the ladder is visible) and marked PRO, but choosing it opens
+ * the paywall instead of writing a value the tier cannot use. `lock()` repaints
+ * when the session changes.
+ */
 export function select(
   label: string,
   options: SegmentOption[],
   value: string,
   onPick: (v: string) => void,
-): { wrap: HTMLElement; select: HTMLSelectElement } {
-  const sel = el('select', { attrs: { 'aria-label': label } }, ...options.map((o) => el('option', { attrs: { value: o.value }, text: o.label })));
-  sel.value = value;
-  sel.addEventListener('change', () => onPick(sel.value));
+  onLocked?: (option: SegmentOption) => void,
+): {
+  wrap: HTMLElement;
+  select: HTMLSelectElement;
+  set: (v: string) => void;
+  lock: (test: (value: string) => boolean) => void;
+  relabel: (value: string, text: string) => void;
+} {
+  const nodes = options.map((o) =>
+    el('option', { attrs: { value: o.value, 'data-locked': o.locked ? '1' : null }, text: o.locked ? `${o.label} · PRO` : o.label }),
+  );
+  const sel = el('select', { attrs: { 'aria-label': label } }, ...nodes);
+  let current = value;
+  sel.value = current;
+  sel.addEventListener('change', () => {
+    const picked = options.find((o) => o.value === sel.value);
+    if (picked?.locked) {
+      // Revert first: the store must never hold a value the tier cannot export.
+      sel.value = current;
+      onLocked?.(picked);
+      return;
+    }
+    current = sel.value;
+    onPick(current);
+  });
   const wrap = el(
     'label',
     { class: 'field' },
     el('span', { class: 'label', text: label }),
     el('span', { class: 'select-wrap' }, sel),
   );
-  return { wrap, select: sel };
+  return {
+    wrap,
+    select: sel,
+    set(v: string) {
+      current = v;
+      sel.value = v;
+    },
+    lock(test: (value: string) => boolean) {
+      options.forEach((o, i) => {
+        const locked = test(o.value);
+        if (o.locked === locked) return;
+        o.locked = locked;
+        nodes[i].textContent = locked ? `${o.label} · PRO` : o.label;
+        if (locked) nodes[i].setAttribute('data-locked', '1');
+        else nodes[i].removeAttribute('data-locked');
+      });
+    },
+    /** For labels that carry live state, e.g. the MP3 bitrate. */
+    relabel(value: string, text: string) {
+      const i = options.findIndex((o) => o.value === value);
+      if (i < 0) return;
+      options[i].label = text;
+      nodes[i].textContent = options[i].locked ? `${text} · PRO` : text;
+    },
+  };
 }
 
 export function button(

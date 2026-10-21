@@ -123,6 +123,43 @@ describe('app shell', () => {
     expect(document.querySelectorAll('.preset-card').length).toBe(14);
   });
 
+  it('offers the same five formats in the deck as in SYSTEM, with paid ones locked', () => {
+    const chips = Array.from(document.querySelectorAll('#screen-deck [data-role="format"] button'));
+    expect(chips.map((c) => c.querySelector('span')?.textContent)).toEqual([
+      'MP3',
+      'WAV 16',
+      'WAV 24',
+      'WAV 32F',
+      'FLAC',
+    ]);
+    // FREE: the two lossy/CD-depth formats are open, the rest show the lock.
+    expect(chips.map((c) => c.classList.contains('is-locked'))).toEqual([false, false, true, true, true]);
+    expect(chips.find((c) => c.getAttribute('aria-pressed') === 'true')?.textContent).toContain('MP3');
+  });
+
+  it('shows the same ladder, and the same locks, in SYSTEM', () => {
+    const select = document.querySelector('#screen-system [data-role="format-default"] select') as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
+      'MP3 · 320K',
+      'WAV 16 · 44.1/48K',
+      'WAV 24 · 24-BIT · PRO',
+      'WAV 32F · FLOAT · PRO',
+      'FLAC · LOSSLESS · PRO',
+    ]);
+    expect(select.value).toBe('mp3');
+  });
+
+  it('keeps SYSTEM and the deck on the same format when one of them changes', () => {
+    const select = document.querySelector('#screen-system [data-role="format-default"] select') as HTMLSelectElement;
+    select.value = 'wav16';
+    select.dispatchEvent(new Event('change'));
+
+    const chips = Array.from(document.querySelectorAll('#screen-deck [data-role="format"] button'));
+    const pressed = chips.find((c) => c.getAttribute('aria-pressed') === 'true');
+    expect(pressed?.querySelector('span')?.textContent).toBe('WAV 16');
+    expect(store.edit.format).toBe('wav16');
+  });
+
   it('routes when the hash changes', async () => {
     window.location.hash = '#/lab';
     window.dispatchEvent(new HashChangeEvent('hashchange'));

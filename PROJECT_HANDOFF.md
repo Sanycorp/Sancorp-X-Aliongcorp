@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.4
+# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.5
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -9,7 +9,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | Produk | Aegis Sound Lab |
 | Perusahaan | Sanayacorp (logo & identitas induk) |
 | Master ikon | `brand/aegis-music-icon.png` → `npm run icons` → `public/icons/*` + `store/icon-512.png` |
-| Versi | 8.9.4 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.9.5 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -34,7 +34,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.4
+  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.5
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
 tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
@@ -306,6 +306,53 @@ ulang kanal; angka tetap tampil dari cache saat jaringan mati.
 
 Yang **tidak** dikirim: audio, nama file, kunci lisensi, tier, atau isi riwayat
 export. Kalimat privasi di blok RATING menyebutkan ini secara eksplisit.
+
+## 12e. Satu keputusan output (v8.9.5)
+
+**Gejala.** Di SYSTEM pengguna memilih WAV, di DECK yang tampil MP3; atau
+sebaliknya, deck menandai WAV 24 (yang terkunci) sementara SYSTEM menyimpan
+pilihan lain. Pada sesi FREE hal yang sama bisa berujung ekspor FLAC.
+
+**Sebab.** Format, bitrate, dan target disimpan **dua kali**: `store.settings`
+(diedit layar SYSTEM) dan `store.edit` (yang dibaca encoder di `forge.ts`).
+Keduanya ditulis terpisah oleh dua layar, dan `clampForTier()` hanya memangkas
+`settings`. Jadi setelah downgrade, gerbang ekspor memeriksa `settings` yang
+sudah jadi MP3 sementara encoder memakai `edit` yang masih FLAC. Target loudness
+tidak punya gerbang sama sekali di jalur render, dan chip deck hanya tiga
+(`mp3/wav24/flac`) sehingga WAV 16 digambar sebagai WAV 24.
+
+**Perbaikan.**
+
+- `store.setOutput({format?, bitrate?, target?})` adalah **satu-satunya penulis**
+  untuk keputusan output: kedua salinan diubah dalam satu transaksi.
+- `store.clampToTier(tier)` memangkas chain, keputusan output, **dan kedua slot
+  A/B** dalam satu lintasan. Dipanggil saat sesi berubah (`main.ts`), saat preset
+  dipakai, saat slot dipanggil ulang, dan sekali lagi tepat sebelum encoder
+  (`forge.ts`).
+- `clampForTier()` kini menulis ke `settings` **dan** `edit`; nilai terlarang
+  jatuh ke `mp3` / `streaming`, bukan dibiarkan.
+- `formatChoices(tier)` dan `targetChoices(tier)` menjadi satu daftar untuk deck
+  dan SYSTEM. Deck menampilkan lima format yang sama, tanpa pemetaan diam-diam.
+- `select()` mendapat semantik kunci yang sama dengan `segmented()`: opsi PRO
+  tetap terlihat dan diberi label `· PRO`, tetapi memilihnya membuka paywall dan
+  nilai lama dipulihkan — tidak pernah tersimpan.
+- Gerbang render membaca `store.edit` (field yang dipakai encoder), bukan
+  `settings`. Ditambah `targetBlocked()` dan satu `exportBlocked()` untuk kedua
+  tombol FORGE (plate dan dock).
+- `store.recallSlot()` tidak lagi memulihkan format/target dari slot: A/B
+  membandingkan chain, bukan keputusan pengiriman.
+- `store.restore()` menyelaraskan kedua salinan dan memvalidasi `settings`
+  (format/target/finish/bitrate) seperti `edit`, jadi data lokal lama atau rusak
+  tidak bisa menghasilkan label `undefined`.
+- Bitrate hanya ditampilkan sebagai bagian dari MP3; pada WAV/FLAC barisnya
+  diredupkan dan catatan menyebut bitrate tidak berlaku.
+
+**Invarian yang dijaga tes.** `settings.format === edit.format`,
+`settings.target === edit.target`, `settings.bitrate === edit.bitrate` setiap
+saat; `mayRender('free', …)` menolak flac/wav24/wav32, target −16/−11/−9, 8D,
+denoise, voice focus, dan preset non-gratis; `tests/tier-output.test.ts` (16 tes)
+dan tiga tes di `tests/ui.test.ts` mengunci perilaku ini dari sisi model maupun
+dari DOM yang benar-benar dirender.
 
 ## 12d. Masuk dengan Google & pagar tier (v8.9.4)
 

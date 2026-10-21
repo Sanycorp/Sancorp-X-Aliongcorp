@@ -11,6 +11,8 @@ import { presetById } from '../model/presets';
 import { APP_VERSION } from '../version';
 import type { ExportRecord } from './store';
 import { store } from './store';
+import { session } from './session';
+import { mayRender } from '../model/entitlements';
 
 let previewAudio: Stereo | null = null;
 let previewStats: { lufs: number | null; truePeak: number } | null = null;
@@ -123,12 +125,28 @@ export async function renderPreview(): Promise<Stereo | null> {
 // ---------------------------------------------------------------------------
 
 export async function forgeExport(): Promise<void> {
-  const { audio, source, edit, status } = store;
+  const { audio, source, status } = store;
   if (!audio || !source) {
     store.setStatus({ error: 'Belum ada sumber audio. Muat lagu dulu.' });
     return;
   }
   if (status.active) return;
+
+  // Backstop. The deck already refused a locked combination and the session
+  // clamp normally ran on boot, but the encoder is the last place a stale value
+  // could still ship a paid format, so the tier is applied again right here.
+  const tier = session.state.status === 'loading' ? 'pro' : session.tier;
+  store.clampToTier(tier);
+  const edit = store.edit;
+  if (!mayRender(tier, edit)) {
+    store.setStatus({
+      active: false,
+      stage: 'BLOCKED',
+      progress: 0,
+      error: 'Setelan ini termasuk PRO. Pilih MP3/WAV 16, target OFF/−14 LUFS, dan preset gratis.',
+    });
+    return;
+  }
 
   Haptics.heavy();
   store.setStatus({

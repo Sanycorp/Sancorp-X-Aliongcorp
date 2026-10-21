@@ -1,4 +1,4 @@
-import { APP_DEFAULTS, FORMAT_META, TARGET_META } from '../../model/settings';
+import { APP_DEFAULTS, FORMAT_META } from '../../model/settings';
 import type { FinishMode } from '../../model/settings';
 import type { LoudnessTarget, OutputFormat } from '../../model/settings';
 import { store } from '../../state/store';
@@ -15,8 +15,9 @@ import {
 } from '../elements';
 import { clearSession } from '../../io/storage';
 import { session } from '../../state/session';
-import { PRO_PASS_DAYS, PRO_PRICE, planFor } from '../../model/tiers';
-import { openAccount } from '../account';
+import { PRO_PASS_DAYS, PRO_PRICE, planFor, formatAllowed, targetAllowed, upgradeHint } from '../../model/tiers';
+import { formatChoices, targetChoices } from '../../model/entitlements';
+import { openAccount, openPaywall } from '../account';
 import { createRatingGroup } from '../rating';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
@@ -59,49 +60,78 @@ export function createSystem(): Screen {
   );
 
   // ------------------------------------------------------------- output
-  const formatKeys = Object.keys(FORMAT_META) as OutputFormat[];
+  // The same list and the same locks the deck shows: one source, so SYSTEM can
+  // never hold a format the deck is not allowed to export.
   const formatSelect = select(
     'FORMAT DEFAULT',
-    formatKeys.map((k) => ({ value: k, label: `${FORMAT_META[k].label} · ${FORMAT_META[k].spec}` })),
+    formatChoices(session.tier).map((c) => ({
+      value: c.value,
+      // MP3's spec is the bitrate, which is editable below, so it is live.
+      label: c.value === 'mp3' ? `${c.label} · ${store.settings.bitrate}K` : `${c.label} · ${c.spec}`,
+      locked: c.locked,
+    })),
     store.settings.format,
     (v) => {
-      store.patchSettings({ format: v as OutputFormat });
-      store.patchEdit({ format: v as OutputFormat });
+      store.setOutput({ format: v as OutputFormat });
       Haptics.tap();
       updateNote();
     },
+    () => openPaywall(upgradeHint('format'), 'lossless'),
   );
 
   const bitrateSeg = segmented(
     [128, 192, 256, 320].map((b) => ({ value: String(b), label: `${b}`, sub: 'KBPS' })),
     String(store.settings.bitrate),
     (v) => {
-      store.patchSettings({ bitrate: Number(v) });
-      store.patchEdit({ bitrate: Number(v) });
+      store.setOutput({ bitrate: Number(v) });
+      updateNote();
     },
   );
 
   const targetSelect = select(
     'TARGET LOUDNESS',
-    (Object.keys(TARGET_META) as LoudnessTarget[]).map((k) => ({
-      value: k,
-      label: `${TARGET_META[k].label} · ${TARGET_META[k].hint}`,
+    targetChoices(session.tier).map((c) => ({
+      value: c.value,
+      label: `${c.label} · ${c.hint}`,
+      locked: c.locked,
     })),
     store.settings.target,
     (v) => {
-      store.patchSettings({ target: v as LoudnessTarget });
-      store.patchEdit({ target: v as LoudnessTarget });
+      store.setOutput({ target: v as LoudnessTarget });
       Haptics.tap();
       updateNote();
     },
+    () => openPaywall(upgradeHint('target'), 'clubTarget'),
   );
+
+  formatSelect.wrap.dataset.role = 'format-default';
+  targetSelect.wrap.dataset.role = 'target-default';
+  bitrateSeg.wrap.dataset.role = 'bitrate';
 
   const noteEl = el('div', { class: 'lab-group__note' });
   const updateNote = (): void => {
     const meta = FORMAT_META[store.settings.format];
-    noteEl.textContent = `${meta.label}: ${meta.note} ${meta.lossy ? `Bitrate ${store.settings.bitrate} kbps.` : 'Lossless — bitrate tidak berlaku.'}`;
+    const bits = meta.lossy
+      ? `Bitrate ${store.settings.bitrate} kbps.`
+      : 'Lossless — bitrate tidak berlaku.';
+    formatSelect.relabel('mp3', `MP3 · ${store.settings.bitrate}K`);
+    const lock = formatAllowed(session.tier, store.settings.format)
+      ? ''
+      : ' Format ini butuh PRO; ekspor gratis memakai MP3 320 kbps atau WAV 16-bit.';
+    const tLock = targetAllowed(session.tier, store.settings.target) ? '' : ' Target ini butuh PRO.';
+    noteEl.textContent = `${meta.label}: ${meta.note} ${bits}${lock}${tLock}`;
+    // Bitrate only means something for a lossy container.
+    // Bitrate only means something for a lossy container; dim it, keep it usable
+    // so a value can be prepared before switching back to MP3.
+    bitrateSeg.wrap.classList.toggle('is-off', !meta.lossy);
   };
   updateNote();
+
+  /** Locks follow the session, so a grant or a lapse lands without a reload. */
+  function paintOutputLocks(): void {
+    formatSelect.lock((v) => !formatAllowed(session.tier, v as OutputFormat));
+    targetSelect.lock((v) => !targetAllowed(session.tier, v as LoudnessTarget));
+  }
 
   const shareToggle = toggle('SHARE SHEET SETELAH EXPORT', store.settings.shareAfterExport, (v) => {
     store.patchSettings({ shareAfterExport: v });
@@ -312,9 +342,10 @@ export function createSystem(): Screen {
     hapticToggle.set(store.settings.haptics);
     shareToggle.set(store.settings.shareAfterExport);
     historyToggle.set(store.settings.keepHistory);
-    formatSelect.select.value = store.settings.format;
+    paintOutputLocks();
+    formatSelect.set(store.settings.format);
     bitrateSeg.set(String(store.settings.bitrate));
-    targetSelect.select.value = store.settings.target;
+    targetSelect.set(store.settings.target);
     updateNote();
     renderHistory();
     renderAccount();
@@ -323,7 +354,8 @@ export function createSystem(): Screen {
   store.subscribe(update);
   session.subscribe(() => {
     store.trimHistory();
-    renderAccount();
+    // A tier change repaints the locks, the values and the account strip.
+    update();
   });
   store.trimHistory();
   update();

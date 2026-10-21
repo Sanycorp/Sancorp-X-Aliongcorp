@@ -283,6 +283,15 @@
   letter-spacing: 0.4px;
 }
 
+/* A control that does not apply to the current choice (bitrate under WAV/FLAC). */
+.segment.is-off {
+  opacity: 0.45;
+}
+
+.segment.is-off button {
+  color: var(--ink-faint);
+}
+
 /* Buttons ----------------------------------------------------------------- */
 
 .btn {

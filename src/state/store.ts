@@ -1,10 +1,19 @@
 import type { Stereo } from '../dsp/buffer';
 import { peaksFrom } from '../io/audioFile';
-import type { AppSettings, EditSettings, SourceInfo } from '../model/settings';
+import type { AppSettings, EditSettings, LoudnessTarget, OutputFormat, SourceInfo } from '../model/settings';
 import { APP_DEFAULTS, FORMAT_META, NEUTRAL, SPACE_META, TARGET_META, cloneSettings } from '../model/settings';
 import { loadSession, saveSession } from '../io/storage';
 import { planFor } from '../model/tiers';
+import type { Tier } from '../model/tiers';
+import { clampForTier } from '../model/entitlements';
 import { session } from './session';
+
+/** The delivery decision. One object, mirrored into settings and edit. */
+export interface OutputPatch {
+  format?: OutputFormat;
+  bitrate?: number;
+  target?: LoudnessTarget;
+}
 
 export interface ExportRecord {
   id: string;
@@ -123,15 +132,72 @@ export class Store {
     this.emit();
   }
 
+  /**
+   * The only writer for format/bitrate/target.
+   *
+   * They live in two shapes because the encoder reads `edit` while SYSTEM edits
+   * `settings`. Writing both in one transaction is what stops a free session
+   * from showing MP3 in one screen and exporting FLAC from the other.
+   */
+  setOutput(patch: OutputPatch): void {
+    this.settings = { ...this.settings, ...patch };
+    this.edit = {
+      ...this.edit,
+      format: this.settings.format,
+      bitrate: this.settings.bitrate,
+      target: this.settings.target,
+    };
+    this.previewReady = false;
+    this.persist();
+    this.emit();
+  }
+
+  /**
+   * Strips everything the tier cannot use, in one pass: the chain, the delivery
+   * decision, and both A/B slots. Called on every session change and again right
+   * before a render, so no stored value can outlive the tier that allowed it.
+   * Returns true when something had to change.
+   */
+  clampToTier(tier: Tier): boolean {
+    const clamp = clampForTier(tier, this.settings, this.edit);
+    let changed = Object.keys(clamp.settings).length > 0 || Object.keys(clamp.edit).length > 0;
+    if (changed) {
+      this.settings = { ...this.settings, ...clamp.settings };
+      this.edit = { ...this.edit, ...clamp.edit };
+    }
+    for (const slot of ['A', 'B'] as const) {
+      const stored = slot === 'A' ? this.slotA : this.slotB;
+      if (!stored) continue;
+      const fix = clampForTier(tier, this.settings, stored).edit;
+      if (Object.keys(fix).length === 0) continue;
+      const next = { ...stored, ...fix };
+      if (slot === 'A') this.slotA = next;
+      else this.slotB = next;
+      changed = true;
+    }
+    if (changed) {
+      this.previewReady = false;
+      this.persist();
+      this.emit();
+    }
+    return changed;
+  }
+
+  /** The tier the server confirmed, or null while loading / after an outage. */
+  private confirmedTier(): Tier | null {
+    return session.state.status === 'ready' ? session.tier : null;
+  }
+
   applyPreset(name: string, apply: (s: EditSettings) => void): void {
     const next = cloneSettings(NEUTRAL);
     // Preserve the engineer's output decisions across preset changes.
-    next.target = this.edit.target;
-    next.format = this.edit.format;
-    next.bitrate = this.edit.bitrate;
+    next.target = this.settings.target;
+    next.format = this.settings.format;
+    next.bitrate = this.settings.bitrate;
     apply(next);
     next.activePreset = name;
     this.edit = next;
+    this.clampToTier(this.confirmedTier() ?? 'pro');
     this.previewReady = false;
     this.persist();
     this.emit();
@@ -139,10 +205,11 @@ export class Store {
 
   resetChain(): void {
     const next = cloneSettings(NEUTRAL);
-    next.target = this.edit.target;
-    next.format = this.edit.format;
-    next.bitrate = this.edit.bitrate;
+    next.target = this.settings.target;
+    next.format = this.settings.format;
+    next.bitrate = this.settings.bitrate;
     this.edit = next;
+    this.clampToTier(this.confirmedTier() ?? 'pro');
     this.previewReady = false;
     this.persist();
     this.emit();
@@ -154,10 +221,21 @@ export class Store {
     this.emit();
   }
 
+  /**
+   * A/B compares the chain, never the delivery decision: recalling a slot must
+   * not silently switch the export format, and a slot saved during a PRO month
+   * must not carry its paid engines past a downgrade.
+   */
   recallSlot(slot: 'A' | 'B'): void {
     const stored = slot === 'A' ? this.slotA : this.slotB;
     if (!stored) return;
-    this.edit = cloneSettings(stored);
+    this.edit = {
+      ...cloneSettings(stored),
+      format: this.settings.format,
+      bitrate: this.settings.bitrate,
+      target: this.settings.target,
+    };
+    this.clampToTier(this.confirmedTier() ?? 'pro');
     this.previewReady = false;
     this.persist();
     this.emit();
@@ -238,8 +316,16 @@ export class Store {
       this.edit = sanitizeEdit({ ...NEUTRAL, ...(data.edit as EditSettings) });
     }
     if (data.settings && typeof data.settings === 'object') {
-      this.settings = { ...APP_DEFAULTS, ...(data.settings as AppSettings) };
+      this.settings = sanitizeSettings({ ...APP_DEFAULTS, ...(data.settings as AppSettings) });
     }
+    // The delivery decision is one value stored in two shapes. SYSTEM owns it,
+    // so it wins on load; the deck follows instead of drifting.
+    this.edit = {
+      ...this.edit,
+      format: this.settings.format,
+      bitrate: this.settings.bitrate,
+      target: this.settings.target,
+    };
     if (Array.isArray(data.history)) this.history = data.history as ExportRecord[];
     this.slotA = (data.slotA as EditSettings | null) ?? null;
     this.slotB = (data.slotB as EditSettings | null) ?? null;
@@ -251,6 +337,16 @@ export class Store {
  * versions). Coerce anything unknown back to a safe default instead of
  * crashing the deck on boot.
  */
+/** Same guard for the SYSTEM defaults, which are also restored from disk. */
+function sanitizeSettings(settings: AppSettings): AppSettings {
+  const safe = { ...settings };
+  if (!FORMAT_META[safe.format]) safe.format = 'mp3';
+  if (!(safe.target in TARGET_META)) safe.target = 'streaming';
+  if (!['auto', 'armor', 'cockpit'].includes(safe.finish)) safe.finish = 'auto';
+  if (![128, 192, 256, 320].includes(safe.bitrate)) safe.bitrate = 320;
+  return safe;
+}
+
 function sanitizeEdit(edit: EditSettings): EditSettings {
   const safe = { ...edit };
   if (!FORMAT_META[safe.format]) safe.format = 'mp3';
