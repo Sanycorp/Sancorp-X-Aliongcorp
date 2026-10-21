@@ -53,7 +53,7 @@ beforeAll(() => {
 });
 
 describe('cold boot', () => {
-  it('mounts the shell, tags the platform and opens the gate', async () => {
+  it('opens on the public front page, with no gate over it', async () => {
     await import('../src/main');
     await new Promise((resolve) => setTimeout(resolve, 600));
 
@@ -63,10 +63,21 @@ describe('cold boot', () => {
     expect(html.dataset.os).toBeTruthy();
     expect(html.dataset.perf).toBeTruthy();
 
+    // A commercial page nobody can read is not a commercial page.
+    expect(html.dataset.route).toBe('home');
+    expect(document.querySelector('#screen-home.is-active')).toBeTruthy();
+    expect(document.querySelector('.gate')).toBeNull();
+    expect(document.getElementById('app')?.hasAttribute('inert')).toBe(false);
+  });
+
+  it('demands an account the moment the studio is opened', async () => {
+    location.hash = '#/deck';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
     const gate = document.querySelector('.gate');
     expect(gate).toBeTruthy();
     expect(document.body.classList.contains('gate-open')).toBe(true);
-    // Nothing behind the gate is reachable.
     expect(document.getElementById('app')?.hasAttribute('inert')).toBe(true);
     // The only door is Google.
     expect(gate?.textContent).toContain('MASUK DENGAN GOOGLE');

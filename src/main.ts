@@ -7,6 +7,7 @@ import './styles/account.css';
 import './styles/rating.css';
 import './styles/control.css';
 import './styles/adaptive.css';
+import './styles/landing.css';
 
 import { store } from './state/store';
 import { resolveFinish } from './model/settings';
@@ -16,6 +17,7 @@ import { createLab } from './ui/screens/lab';
 import { createArsenal } from './ui/screens/arsenal';
 import { createSystem, APP_VERSION } from './ui/screens/system';
 import { createControl } from './ui/screens/control';
+import { createHome } from './ui/screens/home';
 import { accountButton } from './ui/account';
 import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
@@ -35,7 +37,20 @@ import type { Screen } from './ui/screens/deck';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
-type RouteId = 'deck' | 'lab' | 'arsenal' | 'system' | 'control';
+type RouteId = 'home' | 'deck' | 'lab' | 'arsenal' | 'system' | 'control';
+
+/** Routes a visitor may see without an account. */
+const PUBLIC_ROUTES = new Set<RouteId>(['home', 'control']);
+
+/** Page titles. The landing is the product sentence, not the route id. */
+const TITLES: Record<RouteId, string> = {
+  home: 'Aegis Sound Lab — rantai mastering di perangkatmu',
+  deck: 'Aegis Sound Lab · FORGE',
+  lab: 'Aegis Sound Lab · TUNING',
+  arsenal: 'Aegis Sound Lab · ARSENAL',
+  system: 'Aegis Sound Lab · SYSTEM',
+  control: 'Aegis Sound Lab · AEGIS OPS',
+};
 
 const ROUTES: { id: RouteId; label: string; icon: 'deck' | 'lab' | 'arsenal' | 'system' }[] = [
   { id: 'deck', label: 'DECK', icon: 'deck' },
@@ -45,7 +60,7 @@ const ROUTES: { id: RouteId; label: string; icon: 'deck' | 'lab' | 'arsenal' | '
 ];
 
 /** Operator console: reachable by hash only, never rendered into the tab bar. */
-const HIDDEN_ROUTES: RouteId[] = ['control'];
+const HIDDEN_ROUTES: RouteId[] = ['home', 'control'];
 
 const ALL_ROUTE_IDS: RouteId[] = [...ROUTES.map((r) => r.id), ...HIDDEN_ROUTES];
 
@@ -60,6 +75,7 @@ function boot(): void {
   if (!app) throw new Error('#app missing');
 
   const screens: Record<RouteId, Screen> = {
+    home: createHome() as unknown as Screen,
     deck: createDeck(),
     lab: createLab(),
     arsenal: createArsenal(),
@@ -122,10 +138,24 @@ function boot(): void {
     el('b', { text: store.settings.finish.toUpperCase() }),
   );
 
-  const header = el(
-    'header',
-    { class: 'app-header' },
-    el('div', { class: 'brand' }, mark, el('div', { class: 'brand__text' }, brandName, brandSub)),
+  // The seal is the way back to the front page from anywhere in the studio.
+  const brand = el(
+    'button',
+    {
+      class: 'brand',
+      attrs: { type: 'button', 'aria-label': 'Kembali ke beranda' },
+      on: {
+        click: () => {
+          if (location.hash === '#/home') window.scrollTo({ top: 0, behavior: 'smooth' });
+          else location.hash = '#/home';
+        },
+      },
+    },
+    mark,
+    el('div', { class: 'brand__text' }, brandName, brandSub),
+  );
+
+  const header = el('header', { class: 'app-header' }, brand,
     el('div', { class: 'header__meta' }, headerStatus, accountButton(), starBtn),
   );
 
@@ -228,7 +258,7 @@ function boot(): void {
   }
 
   // ------------------------------------------------------------------ router
-  let activeRoute: RouteId = 'deck';
+  let activeRoute: RouteId = 'home';
 
   const commitRoute = (id: RouteId): void => {
     activeRoute = id;
@@ -246,8 +276,9 @@ function boot(): void {
       btn.setAttribute('aria-selected', String(btn.dataset.route === id));
     }
     document.documentElement.dataset.route = id;
-    document.title = `AEGIS SOUND LAB · ${id.toUpperCase()}`;
-    routeAnnouncer.textContent = `Layar ${ROUTES.find((r) => r.id === id)?.label ?? 'Kontrol'}`;
+    document.title = TITLES[id] ?? 'Aegis Sound Lab';
+    routeAnnouncer.textContent =
+      id === 'home' ? 'Beranda' : `Layar ${ROUTES.find((r) => r.id === id)?.label ?? 'Kontrol'}`;
     const navIndex = ROUTES.findIndex((r) => r.id === id);
     if (navIndex >= 0) navPulse.move(navIndex);
     else navPulse.hide();
@@ -347,7 +378,10 @@ function boot(): void {
    */
   const syncGate = (): void => {
     if (session.state.status === 'loading') return;
-    if (activeRoute === 'control') {
+    // The front page is public on purpose: you should be able to read what the
+    // product is and what it costs before handing over an account. The studio
+    // behind it is not.
+    if (PUBLIC_ROUTES.has(activeRoute)) {
       closeGate();
       return;
     }
@@ -389,11 +423,18 @@ function boot(): void {
   const answered = session.refresh().then((result) => {
     const redirect = readRedirect();
     if (redirect === 'gagal') toast('Masuk dengan Google gagal. Coba lagi.', 'err', 2600);
-    if (redirect === 'ok') toast('Masuk — akun terbaca', 'ok', 2200);
-    if (redirect === 'ok') void session.refresh();
+    if (redirect === 'ok') {
+      toast('Masuk — akun terbaca', 'ok', 2200);
+      void session.refresh();
+      // They pressed sign-in to get into the studio, not to come back to the pitch.
+      location.hash = '#/deck';
+    }
     void result;
     syncGate();
   });
+  // The landing needs no session to be correct, so it never waits behind the
+  // splash. Gated routes do: they must not flash before the gate covers them.
+  if (activeRoute === 'home') dismissSplash();
   // A dead function must not hold the splash forever; the gate says the rest.
   void Promise.race([answered, new Promise((r) => setTimeout(r, 2000))]).finally(() => {
     dismissSplash();
@@ -418,6 +459,9 @@ function boot(): void {
   // ------------------------------------------------------------------ shortcuts
   window.addEventListener('keydown', (ev) => {
     if (gateOpen()) return;
+    // Tab navigation only exists inside the studio; on the landing the browser
+    // keeps its own shortcuts.
+    if (ROUTES.every((r) => r.id !== activeRoute)) return;
     if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement) return;
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     switch (ev.key) {

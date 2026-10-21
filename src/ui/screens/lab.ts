@@ -348,7 +348,7 @@ export function createLab(): Screen {
         el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / ENGINEERING BAY' }),
         el('h1', { class: 'screen__title', html: 'TUNING <em>LAB</em>' }),
       ),
-      el('div', { class: 'header__meta' }, el('span', { class: 'chip', text: 'SAME DSP AS EXPORT' })),
+      el('div', { class: 'header__meta' }, el('span', { class: 'chip', text: 'DSP SAMA DENGAN RENDER' })),
     ),
     el(
       'p',

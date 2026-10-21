@@ -162,8 +162,11 @@ describe('the gate is mandatory', () => {
     expect(gate).toContain('gate-open');
   });
 
-  it('leaves the operator console as the only exception', () => {
-    expect(main).toMatch(/activeRoute === 'control'[\s\S]{0,80}closeGate\(\)/);
+  it('keeps only the front page and the operator console open to visitors', () => {
+    // The commercial page has to be readable before sign-in; the studio behind
+    // it does not.
+    expect(main).toMatch(/PUBLIC_ROUTES = new Set<RouteId>\(\['home', 'control'\]\)/);
+    expect(main).toMatch(/PUBLIC_ROUTES\.has\(activeRoute\)[\s\S]{0,80}closeGate\(\)/);
   });
 
   it('blocks keyboard shortcuts while it is up', () => {

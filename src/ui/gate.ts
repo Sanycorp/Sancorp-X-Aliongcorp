@@ -191,6 +191,23 @@ export function openGate(reason = ''): void {
     el(
       'p',
       { class: 'gate__help' },
+      // The front page is public, so the gate must never be a dead end: a
+      // visitor who only wanted to read the price can step back out.
+      el(
+        'button',
+        {
+          class: 'gate__back',
+          attrs: { type: 'button' },
+          text: '← Kembali ke beranda',
+          on: {
+            click: () => {
+              closeGate();
+              location.hash = '#/home';
+            },
+          },
+        },
+      ),
+      el('span', { text: ' · ' }),
       el('a', { attrs: { href: '#/control' }, text: 'Operator: buka konsol' }),
     ),
   );

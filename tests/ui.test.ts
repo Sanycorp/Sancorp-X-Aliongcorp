@@ -90,10 +90,12 @@ describe('app shell', () => {
     await new Promise((r) => setTimeout(r, 30));
   });
 
-  it('mounts four public screens, one hidden console, and the navigation', () => {
-    expect(document.querySelectorAll('.screen').length).toBe(5);
+  it('mounts the front page, four studio screens, one hidden console and the navigation', () => {
+    expect(document.querySelectorAll('.screen').length).toBe(6);
     expect(document.querySelectorAll('.nav__btn').length).toBe(4);
-    expect(document.querySelector('#screen-deck.is-active')).not.toBeNull();
+    // A visitor lands on the commercial page, not inside the studio.
+    expect(document.querySelector('#screen-home.is-active')).not.toBeNull();
+    expect(document.querySelector('#screen-home .lp-hero')).not.toBeNull();
     expect(document.querySelector('#toast-host')).not.toBeNull();
   });
 

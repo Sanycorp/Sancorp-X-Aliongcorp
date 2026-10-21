@@ -2,6 +2,15 @@
    Shell, navigation, screens
    ========================================================================== */
 
+.app-header button.brand {
+  text-align: left;
+  border-radius: 8px;
+}
+
+.app-header .brand:hover .brand__name {
+  color: var(--cobalt);
+}
+
 .app-header {
   position: sticky;
   top: 0;

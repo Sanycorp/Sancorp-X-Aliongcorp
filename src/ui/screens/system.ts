@@ -134,7 +134,7 @@ export function createSystem(): Screen {
     targetSelect.lock((v) => !targetAllowed(session.tier, v as LoudnessTarget));
   }
 
-  const shareToggle = toggle('SHARE SHEET SETELAH EXPORT', store.settings.shareAfterExport, (v) => {
+  const shareToggle = toggle('SHARE SHEET SETELAH RENDER', store.settings.shareAfterExport, (v) => {
     store.patchSettings({ shareAfterExport: v });
   });
   // A toggle that cannot work is worse than no toggle: hide it where the
@@ -163,7 +163,7 @@ export function createSystem(): Screen {
   const historyList = el('div', { class: 'history-list' });
   const emptyHistory = el('div', {
     class: 'lab-group__note',
-    text: 'Belum ada export di perangkat ini. Hasil render akan muncul di sini beserta LUFS dan true peak-nya.',
+    text: 'Belum ada render di perangkat ini. Hasilnya muncul di sini beserta LUFS dan true peak.',
   });
 
   const clearBtn = button('HAPUS SEMUA', {
@@ -182,7 +182,7 @@ export function createSystem(): Screen {
     el(
       'div',
       { class: 'row', style: 'align-items:center' },
-      el('div', { style: 'flex:1;min-width:0' }, sectionHead('03', 'RIWAYAT EXPORT')),
+      el('div', { style: 'flex:1;min-width:0' }, sectionHead('03', 'RIWAYAT RENDER')),
       clearBtn,
     ),
     emptyHistory,
@@ -214,7 +214,7 @@ export function createSystem(): Screen {
     accountChip.textContent = plan.label;
     accountLine.textContent =
       tier === 'free'
-        ? `Kamu di paket FREE: 4 preset, MP3/WAV 16, export sampai 12 menit. PRO ${PRO_PRICE} per ${PRO_PASS_DAYS} hari membuka seluruh arsenal, format lossless, dan export tanpa batas.`
+        ? `Kamu di paket FREE: 4 preset, MP3/WAV 16, render sampai 12 menit. PRO ${PRO_PRICE} per ${PRO_PASS_DAYS} hari membuka seluruh arsenal, format lossless, dan render tanpa batas.`
         : `Aktif sampai ${session.state.exp ? new Date(session.state.exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'tanpa batas'} · ${session.state.lic ? `serial ${session.state.lic}` : (session.state.email ?? 'akun Google')}`;
 
     accountCta.replaceChildren(

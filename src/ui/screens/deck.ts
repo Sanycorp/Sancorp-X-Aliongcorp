@@ -772,7 +772,7 @@ export function createDeck(): Screen {
       const anchorVisible = anchor.width > 0 && anchor.bottom > 0 && anchor.top < window.innerHeight;
       const rect = anchorVisible ? anchor : forgeBtn.getBoundingClientRect();
       burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 40);
-      scramble(dockPreset, 'EXPORT READY', 520);
+      scramble(dockPreset, 'RENDER READY', 520);
     }
 
     const card = el(

@@ -1,6 +1,6 @@
 # AEGIS SOUND LAB · SANAYACORP
 
-**Offline mecha audio forge — v8.9.6**
+**Offline mecha audio forge — v8.10.0**
 
 > Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
 > sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.
@@ -20,6 +20,18 @@ dari berkas itu lewat `npm run icons`, jadi jangan pernah mengedit PNG di
 </p>
 
 ---
+
+## Halaman depan
+
+Rute pertama (`#/home`) adalah halaman komersil yang bisa dibaca tanpa akun:
+klaim produk, panel rantai DSP, alur kerja tiga langkah, urutan rantai enam
+kelompok, angka mesin, harga FREE/PRO dengan kalkulator pass 30/90/365 hari, dan
+tujuh pertanyaan yang biasa ditanyakan. Studio di baliknya tetap wajib akun
+Google; konsol operator tetap di `#/control`.
+
+Istilahnya satu untuk satu hal: **render** = proses DSP menghasilkan audio,
+**ekspor** = menulis berkas ke disk, **target loudness** dalam LUFS, **true
+peak** dalam dBTP, **rantai** untuk urutan prosesor, **arsenal** untuk preset.
 
 ## Kenapa v8?
 

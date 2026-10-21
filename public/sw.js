@@ -9,7 +9,7 @@
  *  - a version bump is the only way to invalidate, so stale shells cannot serve
  *    markup that references retired asset hashes.
  */
-const VERSION = 'aegis-sound-lab-v8.9.6';
+const VERSION = 'aegis-sound-lab-v8.10.0';
 const SHELL = [
   './',
   './index.html',
