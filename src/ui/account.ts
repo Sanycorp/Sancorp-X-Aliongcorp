@@ -4,6 +4,7 @@ import type { Feature, Tier } from '../model/tiers';
 import { session } from '../state/session';
 import { deviceShort } from '../state/device';
 import { Haptics } from './haptics';
+import { openGate } from './gate';
 import { CONTACT_HANDLE, PURCHASE_NOTE, TELEGRAM_HANDLE, openPurchase, openRenew, orderCode } from '../model/contact';
 
 /**
@@ -551,17 +552,34 @@ export function accountButton(): HTMLButtonElement {
     class: 'chip account-chip',
     attrs: { type: 'button', 'aria-label': 'Akun dan lisensi', title: 'Akun' },
     on: {
-      click: () => openAccount(btn),
+      // Signed out, this chip is the same door the front page uses. One entry
+      // point for "enter", one for "your plan" — never two labels for one state.
+      click: () => {
+        if (!session.signedIn) openGate('Masuk dengan Google untuk membuka studio.');
+        else openAccount(btn);
+      },
     },
   });
 
   const paint = (): void => {
+    if (session.state.status === 'loading') {
+      btn.className = 'chip account-chip';
+      btn.setAttribute('aria-label', 'Memeriksa sesi');
+      btn.replaceChildren(el('b', { text: '…' }));
+      return;
+    }
+    if (!session.signedIn) {
+      btn.className = 'chip account-chip account-chip--guest';
+      btn.setAttribute('aria-label', 'Masuk dengan Google');
+      btn.title = 'Masuk dengan Google';
+      btn.replaceChildren(el('i', { class: 'account-chip__dot' }), el('b', { text: 'MASUK' }));
+      return;
+    }
     const tier = session.state.tier;
     btn.className = `chip account-chip account-chip--${tier}`;
-    btn.replaceChildren(
-      el('i', { class: 'account-chip__dot' }),
-      el('b', { text: session.state.status === 'loading' ? '…' : tier.toUpperCase() }),
-    );
+    btn.setAttribute('aria-label', `Akun ${tier.toUpperCase()} dan lisensi`);
+    btn.title = 'Akun dan lisensi';
+    btn.replaceChildren(el('i', { class: 'account-chip__dot' }), el('b', { text: tier.toUpperCase() }));
   };
 
   session.subscribe(paint);

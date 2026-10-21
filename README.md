@@ -1,6 +1,6 @@
 # AEGIS SOUND LAB · SANAYACORP
 
-**Offline mecha audio forge — v8.10.0**
+**Offline mecha audio forge — v8.11.0**
 
 > Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
 > sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.
@@ -20,6 +20,13 @@ dari berkas itu lewat `npm run icons`, jadi jangan pernah mengedit PNG di
 </p>
 
 ---
+
+## Satu header untuk semuanya
+
+Header di `src/main.ts` dipakai di semua rute: segel (ke beranda), anchor seksi
+(hanya di halaman depan), status `DI PERANGKAT`, dan chip akun yang sama —
+`MASUK` saat belum masuk, tier saat sudah. Tab bar berisi lima tujuan termasuk
+BERANDA dan hanya muncul di rute studio.
 
 ## Halaman depan
 

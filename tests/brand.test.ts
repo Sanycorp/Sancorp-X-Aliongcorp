@@ -134,14 +134,17 @@ describe('manifest', () => {
 });
 
 describe('brand mark', () => {
-  it('renders the seal as vector with an accessible name', async () => {
+  it('renders the seal as vector, decorative next to the wordmark', async () => {
     const { brandMark } = await import('../src/ui/brand');
     const mark = brandMark(30);
     expect(mark.className).toBe('brand__mark');
+    // The name is already written next to it; a second "Sanayacorp" would be
+    // read out twice by a screen reader.
+    expect(mark.getAttribute('aria-hidden')).toBe('true');
     const svg = mark.querySelector('svg');
     expect(svg).not.toBeNull();
-    expect(svg?.getAttribute('aria-label')).toBe('Sanayacorp');
-    expect(svg?.querySelector('title')?.textContent).toBe('Sanayacorp');
+    expect(svg?.getAttribute('aria-label')).toBeNull();
+    expect(svg?.querySelector('title')).toBeNull();
     expect(svg?.querySelector('.brand-seal__shield')).not.toBeNull();
     expect(svg?.querySelector('.brand-seal__letter')).not.toBeNull();
   });

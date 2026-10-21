@@ -121,11 +121,29 @@ function scrollTo(id: string): void {
 
 function anchor(label: string, id: string): HTMLElement {
   return el('button', {
-    class: 'lp-nav__link',
+    class: 'header__link',
     text: label,
     attrs: { type: 'button' },
     on: { click: () => scrollTo(id) },
   });
+}
+
+/** The page in reading order — one list, used by the header and the footer. */
+export const SECTIONS = [
+  { id: 'cara', label: 'Cara kerja' },
+  { id: 'alur', label: 'Rantai' },
+  { id: 'produk', label: 'Mesin' },
+  { id: 'harga', label: 'Harga' },
+  { id: 'faq', label: 'Pertanyaan' },
+];
+
+/** Section jumps, mounted in the app header so the page has no second nav. */
+export function sectionNav(): HTMLElement {
+  return el(
+    'nav',
+    { class: 'header__links', attrs: { 'aria-label': 'Bagian halaman' } },
+    ...SECTIONS.map((section) => anchor(section.label, section.id)),
+  );
 }
 
 /** The product surface: a still of the chain monitor, built from the real order. */
@@ -169,7 +187,7 @@ function consoleMock(): HTMLElement {
   );
 }
 
-function hero(): HTMLElement {
+function hero(cta: HTMLElement): HTMLElement {
   return el(
     'section',
     { class: 'lp-hero', attrs: { 'aria-labelledby': 'lp-title' } },
@@ -180,7 +198,7 @@ function hero(): HTMLElement {
         'p',
         { class: 'lp-eyebrow' },
         el('i', { class: 'lp-eyebrow__dot' }),
-        el('span', { text: 'OFFLINE DSP · 48 kHz · TANPA UPLOAD' }),
+        el('span', { text: 'DI PERANGKAT · 48 kHz · TANPA UPLOAD' }),
       ),
       el(
         'h1',
@@ -195,12 +213,7 @@ function hero(): HTMLElement {
       el(
         'div',
         { class: 'lp-hero__actions' },
-        button(session.signedIn ? 'BUKA STUDIO' : 'MASUK DENGAN GOOGLE', {
-          tone: 'primary',
-          size: 'md',
-          icon: 'check',
-          onClick: goStudio,
-        }),
+        cta,
         el(
           'button',
           {
@@ -567,10 +580,14 @@ function footer(): HTMLElement {
     el(
       'div',
       { class: 'lp-footer__links' },
-      el('button', { class: 'lp-footer__link', text: 'Alur kerja', attrs: { type: 'button' }, on: { click: () => scrollTo('cara') } }),
-      el('button', { class: 'lp-footer__link', text: 'Rantai DSP', attrs: { type: 'button' }, on: { click: () => scrollTo('alur') } }),
-      el('button', { class: 'lp-footer__link', text: 'Harga', attrs: { type: 'button' }, on: { click: () => scrollTo('harga') } }),
-      el('button', { class: 'lp-footer__link', text: 'Pertanyaan', attrs: { type: 'button' }, on: { click: () => scrollTo('faq') } }),
+      ...SECTIONS.map((section) =>
+        el('button', {
+          class: 'lp-footer__link',
+          text: section.label,
+          attrs: { type: 'button' },
+          on: { click: () => scrollTo(section.id) },
+        }),
+      ),
       el('a', {
         class: 'lp-footer__link',
         text: 'Telegram',
@@ -581,54 +598,18 @@ function footer(): HTMLElement {
     el(
       'p',
       { class: 'lp-footer__note' },
-      el('span', { text: `Aegis Sound Lab ${APP_VERSION} · dibangun dan diuji di repo ini` }),
-      el('span', { text: 'Format terdengar sama di setiap browser karena mesinnya satu.' }),
+      el('span', { text: `Aegis Sound Lab ${APP_VERSION} · Sanayacorp` }),
+      el('span', { text: `Pertanyaan dan pembelian: Telegram ${CONTACT_HANDLE}` }),
     ),
   );
 }
 
 export function createHome(): { el: HTMLElement; update(): void } {
-  const cta = button(session.signedIn ? 'BUKA STUDIO' : 'MASUK', {
+  const heroCta = button(session.signedIn ? 'BUKA STUDIO' : 'MASUK DENGAN GOOGLE', {
     tone: 'primary',
-    size: 'sm',
+    size: 'md',
     onClick: goStudio,
   });
-
-  const nav = el(
-    'header',
-    { class: 'lp-nav' },
-    el(
-      'div',
-      { class: 'lp-nav__brand' },
-      brandMark(24),
-      el(
-        'div',
-        { class: 'lp-nav__name' },
-        el('b', { text: 'AEGIS SOUND LAB' }),
-        el('span', { text: 'SANAYACORP' }),
-      ),
-    ),
-    el(
-      'nav',
-      { class: 'lp-nav__links', attrs: { 'aria-label': 'Bagian halaman' } },
-      anchor('Cara kerja', 'cara'),
-      anchor('Rantai', 'alur'),
-      anchor('Mesin', 'produk'),
-      anchor('Harga', 'harga'),
-      anchor('Pertanyaan', 'faq'),
-    ),
-    el(
-      'div',
-      { class: 'lp-nav__end' },
-      el(
-        'span',
-        { class: 'lp-nav__status' },
-        el('i', { class: 'lp-nav__status-dot' }),
-        el('span', { text: 'mesin lokal aktif' }),
-      ),
-      cta,
-    ),
-  );
 
   const root = el(
     'section',
@@ -640,8 +621,7 @@ export function createHome(): { el: HTMLElement; update(): void } {
     el(
       'div',
       { class: 'lp' },
-      nav,
-      hero(),
+      hero(heroCta),
       el(
         'div',
         { class: 'lp-ticker', attrs: { 'aria-hidden': 'true' } },
@@ -658,8 +638,8 @@ export function createHome(): { el: HTMLElement; update(): void } {
   );
 
   const update = (): void => {
-    const label = session.signedIn ? 'BUKA STUDIO' : 'MASUK';
-    const span = cta.querySelector('span');
+    const label = session.signedIn ? 'BUKA STUDIO' : 'MASUK DENGAN GOOGLE';
+    const span = heroCta.querySelector('span');
     if (span) span.textContent = label;
   };
 

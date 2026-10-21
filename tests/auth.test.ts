@@ -130,7 +130,13 @@ describe('sessions', () => {
     const [payload, sig] = raw.split('.');
     const forged = Buffer.from(JSON.stringify({ ...session, tier: 'admin' })).toString('base64url');
     expect(readSession(`${forged}.${sig}`)).toBeNull();
-    expect(readSession(`${payload}.${sig.slice(0, -1)}A`)).toBeNull();
+    // Flip the last character to one it is not: appending "A" blindly produced
+    // an identical token whenever the signature already ended in A, which made
+    // this assertion fail roughly once in sixty runs.
+    const last = sig.slice(-1);
+    const flipped = sig.slice(0, -1) + (last === 'A' ? 'B' : 'A');
+    expect(flipped).not.toBe(sig);
+    expect(readSession(`${payload}.${flipped}`)).toBeNull();
   });
 
   it('rejects expired and malformed tokens', () => {

@@ -56,4 +56,29 @@ describe('boot with a session', () => {
     expect(document.getElementById('app')?.hasAttribute('inert')).toBe(false);
     expect(document.body.classList.contains('gate-open')).toBe(false);
   });
+
+  it('shows the plan in the header, and the sheet opens from it', async () => {
+    const chip = document.querySelector<HTMLButtonElement>('.account-chip');
+    expect(chip?.textContent).toContain('PRO');
+    chip!.click();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const scrim = document.querySelector('.sheet-scrim');
+    expect(scrim).not.toBeNull();
+    expect(scrim!.hasAttribute('hidden')).toBe(false);
+    expect(document.querySelector('.sheet')!.textContent).toMatch(/PRO/);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    expect(scrim!.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('lets a signed-in account step into the studio from the front page', async () => {
+    location.hash = '#/home';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const cta = document.querySelector<HTMLButtonElement>('#screen-home .lp-hero__actions .btn');
+    expect(cta?.textContent).toContain('BUKA STUDIO');
+    cta!.click();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(location.hash).toBe('#/deck');
+  });
 });

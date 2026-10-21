@@ -70,6 +70,15 @@ describe('cold boot', () => {
     expect(document.getElementById('app')?.hasAttribute('inert')).toBe(false);
   });
 
+  it('offers the same sign-in door in the header as on the page', async () => {
+    const chip = document.querySelector<HTMLButtonElement>('.account-chip');
+    expect(chip?.textContent).toContain('MASUK');
+    chip!.click();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(document.querySelector('.gate')).toBeTruthy();
+    expect(document.body.classList.contains('gate-open')).toBe(true);
+  });
+
   it('demands an account the moment the studio is opened', async () => {
     location.hash = '#/deck';
     window.dispatchEvent(new HashChangeEvent('hashchange'));

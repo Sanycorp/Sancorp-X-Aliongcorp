@@ -17,7 +17,7 @@ import { createLab } from './ui/screens/lab';
 import { createArsenal } from './ui/screens/arsenal';
 import { createSystem, APP_VERSION } from './ui/screens/system';
 import { createControl } from './ui/screens/control';
-import { createHome } from './ui/screens/home';
+import { createHome, sectionNav } from './ui/screens/home';
 import { accountButton } from './ui/account';
 import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
@@ -52,15 +52,20 @@ const TITLES: Record<RouteId, string> = {
   control: 'Aegis Sound Lab · Konsol Operator',
 };
 
-const ROUTES: { id: RouteId; label: string; icon: 'deck' | 'lab' | 'arsenal' | 'system' }[] = [
+const ROUTES: { id: RouteId; label: string; icon: 'home' | 'deck' | 'lab' | 'arsenal' | 'system' }[] = [
+  { id: 'home', label: 'BERANDA', icon: 'home' },
   { id: 'deck', label: 'RENDER', icon: 'deck' },
   { id: 'lab', label: 'TUNING', icon: 'lab' },
   { id: 'arsenal', label: 'ARSENAL', icon: 'arsenal' },
   { id: 'system', label: 'SISTEM', icon: 'system' },
 ];
 
-/** Operator console: reachable by hash only, never rendered into the tab bar. */
-const HIDDEN_ROUTES: RouteId[] = ['home', 'control'];
+/**
+ * Operator console: reachable by hash only, never rendered into the tab bar.
+ * The front page is a normal route now — it has a tab like everything else, it
+ * is just outside the gate.
+ */
+const HIDDEN_ROUTES: RouteId[] = ['control'];
 
 const ALL_ROUTE_IDS: RouteId[] = [...ROUTES.map((r) => r.id), ...HIDDEN_ROUTES];
 
@@ -114,7 +119,7 @@ function boot(): void {
   const mark = brandMark(30);
   const brandName = el('div', { class: 'brand__name', text: 'AEGIS SOUND LAB' });
   const brandSub = el('div', { class: 'brand__sub', html: `SANAYACORP <b>${APP_VERSION}</b>` });
-  const headerStatus = el('span', { class: 'chip chip--live' }, el('b', { text: 'READY' }));
+  const headerStatus = el('span', { class: 'chip chip--live' }, el('b', { text: 'DI PERANGKAT' }));
   const starBtn = el(
     'button',
     {
@@ -155,7 +160,14 @@ function boot(): void {
     el('div', { class: 'brand__text' }, brandName, brandSub),
   );
 
-  const header = el('header', { class: 'app-header' }, brand,
+  // One header for the whole site: same seal, same status, same account door,
+  // whether you are reading the price or rendering a file. The section links
+  // only exist on the front page; the tab bar is the studio's navigation.
+  const header = el(
+    'header',
+    { class: 'app-header' },
+    brand,
+    sectionNav(),
     el('div', { class: 'header__meta' }, headerStatus, accountButton(), starBtn),
   );
 
@@ -347,7 +359,7 @@ function boot(): void {
     const busy = store.status.active;
     headerStatus.className = `chip ${busy ? '' : 'chip--live'}`;
     headerStatus.replaceChildren();
-    const chipText = busy ? store.status.stage : 'READY';
+    const chipText = busy ? store.status.stage : 'DI PERANGKAT';
     const chipLabel = el('b', { text: chipText });
     if (headerStatus.textContent !== chipText) chipLabel.classList.add('chip-flip');
     headerStatus.append(chipLabel);
@@ -397,6 +409,10 @@ function boot(): void {
     // their settings on a flaky connection.
     if (session.state.status === 'ready') applyTierLimits();
     syncGate();
+    // The front page is built before the session answers, so its call to action
+    // ("MASUK DENGAN GOOGLE") has to be rewritten once the answer arrives.
+    screens.home.update();
+    screens[activeRoute].update();
     if (!enforced) {
       enforced = true;
       if (session.state.status === 'offline' && !session.signedIn) {

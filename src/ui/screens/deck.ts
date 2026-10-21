@@ -569,7 +569,7 @@ export function createDeck(): Screen {
         el('h1', { class: 'screen__title', html: 'RENDER <em>AUDIO</em>' }),
       ),
       el('div', { class: 'header__meta' },
-        el('span', { class: 'chip chip--live' }, el('b', { text: 'OFFLINE DSP' })),
+        el('span', { class: 'chip' }, el('b', { text: '48 kHz · 32-BIT FLOAT' })),
       ),
     ),
     el(

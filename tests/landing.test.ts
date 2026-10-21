@@ -125,13 +125,14 @@ describe('the front page is wired into the shell', () => {
   it('imports its stylesheet', () => {
     const main = read('src/main.ts');
     expect(main).toContain("import './styles/landing.css'");
-    expect(main).toContain("import { createHome } from './ui/screens/home'");
+    expect(main).toContain("import { createHome, sectionNav } from './ui/screens/home'");
     expect(main).toMatch(/PUBLIC_ROUTES = new Set<RouteId>\(\['home', 'control'\]\)/);
   });
 
-  it('hides the studio chrome on the public page', () => {
+  it('keeps one header and hides only the studio tab bar', () => {
     const css = read('src/styles/landing.css');
-    expect(css).toMatch(/html\[data-route='home'\] \.app-header/);
     expect(css).toMatch(/html\[data-route='home'\] \.nav/);
+    // The header is shared: it must never be hidden on the front page.
+    expect(css).not.toMatch(/html\[data-route='home'\] \.app-header\s*,\s*html\[data-route='home'\] \.nav\s*\{/);
   });
 });

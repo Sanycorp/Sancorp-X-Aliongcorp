@@ -342,7 +342,7 @@ export function createSystem(): Screen {
         el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB · SISTEM' }),
         el('h1', { class: 'screen__title', html: 'SISTEM <em>PERANGKAT</em>' }),
       ),
-      el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'OFFLINE' }))),
+      el('div', { class: 'header__meta' }, el('span', { class: 'chip chip--live' }, el('b', { text: 'DI PERANGKAT' }))),
     ),
     el(
       'div',

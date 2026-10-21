@@ -97,9 +97,20 @@ function seal(size: number, title: string): SVGSVGElement {
 }
 
 /** Header mark: the seal at chrome size. */
+/**
+ * The seal next to the wordmark is decoration: the name is already written out,
+ * so it is hidden from the accessibility tree instead of being announced twice
+ * ("Sanayacorp AEGIS SOUND LAB").
+ */
 export function brandMark(size = 30): HTMLElement {
   const host = document.createElement('div');
   host.className = 'brand__mark';
-  host.appendChild(seal(size, 'Sanayacorp'));
+  host.setAttribute('aria-hidden', 'true');
+  const mark = seal(size, 'Sanayacorp');
+  mark.removeAttribute('role');
+  mark.removeAttribute('aria-label');
+  const title = mark.querySelector('title');
+  if (title) title.remove();
+  host.appendChild(mark);
   return host;
 }

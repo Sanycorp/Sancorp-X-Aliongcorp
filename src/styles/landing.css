@@ -30,11 +30,57 @@
   isolation: isolate;
 }
 
-/* The marketing shell replaces the app chrome entirely. */
-html[data-route='home'] .app-header,
+/* The front page keeps the app header — one brand, one account door, one way
+   home — and hides only the studio's tab bar and the finish switch, because the
+   page is dark in every finish. */
 html[data-route='home'] .nav,
 html[data-route='home'] .finish-chip {
   display: none;
+}
+
+/* Header painted in the page's palette, not the finish's. */
+html[data-route='home'] .app-header {
+  background: color-mix(in srgb, #05070b 82%, transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  color: #f1f5fb;
+}
+
+html[data-route='home'] .app-header .brand__sub,
+html[data-route='home'] .app-header .brand__sub b {
+  color: #6b7789;
+}
+
+html[data-route='home'] .app-header .brand:hover .brand__name {
+  color: #7be0ff;
+}
+
+html[data-route='home'] .app-header .header__link {
+  color: #9aa7ba;
+}
+
+html[data-route='home'] .app-header .header__link:hover,
+html[data-route='home'] .app-header .header__link:focus-visible {
+  color: #f1f5fb;
+}
+
+html[data-route='home'] .app-header .chip {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.13);
+  color: #9aa7ba;
+}
+
+html[data-route='home'] .app-header .chip b {
+  color: #e6edf8;
+}
+
+html[data-route='home'] .app-header .chip--live {
+  border-color: rgba(56, 211, 159, 0.42);
+  color: #38d39f;
+}
+
+html[data-route='home'] .app-header .account-chip--guest {
+  border-color: rgba(61, 123, 255, 0.6);
+  color: #7be0ff;
 }
 
 html[data-route='home'] .screen {
@@ -80,109 +126,6 @@ html[data-route='home'] {
   padding: 0 clamp(16px, 4vw, 40px);
 }
 
-/* --------------------------------------------------------------------------
-   Nav
-   -------------------------------------------------------------------------- */
-
-.lp-nav {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 2vw, 26px);
-  height: 62px;
-  margin: 0 calc(-1 * clamp(16px, 4vw, 40px));
-  padding: 0 clamp(16px, 4vw, 40px);
-  background: color-mix(in srgb, #05070b 78%, transparent);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  border-bottom: 1px solid var(--lp-line-soft);
-}
-
-.lp-nav__brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-
-.lp-nav__brand .brand-seal {
-  color: var(--lp-ink);
-}
-
-.lp-nav__name {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.05;
-  min-width: 0;
-}
-
-.lp-nav__name b {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  white-space: nowrap;
-}
-
-.lp-nav__name span {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  color: var(--lp-faint);
-}
-
-.lp-nav__links {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: clamp(4px, 2vw, 22px);
-}
-
-.lp-nav__link {
-  padding: 8px 11px;
-  font-size: 12px;
-  color: var(--lp-soft);
-  border-radius: 8px;
-  transition: color 0.18s var(--ease), background-color 0.18s var(--ease);
-}
-
-.lp-nav__link:hover {
-  color: var(--lp-ink);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.lp-nav__end {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.lp-nav__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 10px;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  color: var(--lp-soft);
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid var(--lp-line-soft);
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.lp-nav__status-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--lp-ok);
-  box-shadow: 0 0 0 3px rgba(56, 211, 159, 0.16);
-}
-
-/* The app's button tokens are sized for a console; the page needs its own. */
 .screen--home .btn {
   min-height: 38px;
   padding: 0 16px;
@@ -1173,18 +1116,6 @@ html[data-route='home'] {
 @media (max-width: 720px) {
   .lp-formats__row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .lp-nav {
-    height: 56px;
-  }
-
-  .lp-nav__links {
-    display: none;
-  }
-
-  .lp-nav__status {
-    display: none;
   }
 
   .lp-chain {

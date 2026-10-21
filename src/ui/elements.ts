@@ -84,6 +84,7 @@ export const ICONS = {
   bolt: '<path d="M12 2L6 13h5l-1 9 7-12h-5z"/>',
   wave: '<path d="M2 12h3l2-6 3 12 3-9 2 5 2-3h5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/>',
 };
 
 export function icon(name: keyof typeof ICONS, size = 16): HTMLElement {

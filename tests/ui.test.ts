@@ -90,9 +90,9 @@ describe('app shell', () => {
     await new Promise((r) => setTimeout(r, 30));
   });
 
-  it('mounts the front page, four studio screens, one hidden console and the navigation', () => {
+  it('mounts the front page, four studio screens, one hidden console and five tabs', () => {
     expect(document.querySelectorAll('.screen').length).toBe(6);
-    expect(document.querySelectorAll('.nav__btn').length).toBe(4);
+    expect(document.querySelectorAll('.nav__btn').length).toBe(5);
     // A visitor lands on the commercial page, not inside the studio.
     expect(document.querySelector('#screen-home.is-active')).not.toBeNull();
     expect(document.querySelector('#screen-home .lp-hero')).not.toBeNull();
@@ -103,7 +103,9 @@ describe('app shell', () => {
     // Guards a real regression: the session block was once nested inside
     // store.subscribe(), so /api/auth was never called at boot.
     expect(seen).toContain('/api/auth');
-    expect(document.querySelector('.account-chip b')?.textContent).toBe('FREE');
+    // Signed out, the header chip is the sign-in door — never a plan you do not have.
+    expect(document.querySelector('.account-chip b')?.textContent).toBe('MASUK');
+    expect(document.querySelector('.account-chip')?.getAttribute('aria-label')).toBe('Masuk dengan Google');
   });
 
   it('tells the console whether the admin password is configured', () => {
@@ -120,9 +122,11 @@ describe('app shell', () => {
     expect(document.querySelector('#screen-control .ctrl-gate')).not.toBeNull();
   });
 
-  it('names the four studio screens by what they do', () => {
+  it('names every screen by what it does, and keeps one way home', () => {
     const labels = Array.from(document.querySelectorAll('.nav__btn')).map((b) => b.textContent?.trim());
-    expect(labels).toEqual(['RENDER', 'TUNING', 'ARSENAL', 'SISTEM']);
+    expect(labels).toEqual(['BERANDA', 'RENDER', 'TUNING', 'ARSENAL', 'SISTEM']);
+    // The seal in the header is the second way home, and it says so.
+    expect(document.querySelector('.app-header .brand')?.getAttribute('aria-label')).toBe('Kembali ke beranda');
     expect(document.querySelector('#screen-deck h1')?.textContent).toBe('RENDER AUDIO');
     expect(document.querySelector('#screen-lab h1')?.textContent).toBe('TUNING RANTAI');
     expect(document.querySelector('#screen-system h1')?.textContent).toBe('SISTEM PERANGKAT');
@@ -216,23 +220,13 @@ describe('app shell', () => {
     expect(store.edit.speed).toBeCloseTo(1.35, 2);
   });
 
-  it('opens the account sheet from the header and closes on Escape', async () => {
-    await new Promise((r) => setTimeout(r, 20));
-    const chip = document.querySelector<HTMLButtonElement>('.account-chip');
-    expect(chip).not.toBeNull();
-    chip!.click();
-    await new Promise((r) => setTimeout(r, 30));
-
-    const scrim = document.querySelector('.sheet-scrim');
-    expect(scrim).not.toBeNull();
-    expect(scrim!.hasAttribute('hidden')).toBe(false);
-    expect(document.querySelector('.sheet')!.textContent).toMatch(/AKTIFKAN PRO|BELI LEWAT TELEGRAM|FREE/);
-    expect(document.body.classList.contains('sheet-open')).toBe(true);
-
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await new Promise((r) => setTimeout(r, 260));
-    expect(scrim!.hasAttribute('hidden')).toBe(true);
-    expect(document.body.classList.contains('sheet-open')).toBe(false);
+  it('keeps the header identical on the front page and in the studio', () => {
+    const header = document.querySelector('.app-header');
+    expect(header?.querySelector('.brand')).not.toBeNull();
+    expect(header?.querySelector('.account-chip')).not.toBeNull();
+    // The section jumps live in the same header, not in a second nav bar.
+    expect(header?.querySelectorAll('.header__link').length).toBe(5);
+    expect(document.querySelectorAll('.lp-nav').length).toBe(0);
   });
 
   it('sells PRO instead of applying a locked preset', async () => {

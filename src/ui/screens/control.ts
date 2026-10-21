@@ -1518,11 +1518,12 @@ export function createControl(): Screen {
         el('div', { class: 'field' }, el('span', { class: 'label', text: 'KUNCI OPERATOR' }), adminInput),
         error,
         submit,
-        button('KEMBALI KE APLIKASI', {
+        button('KEMBALI KE BERANDA', {
           tone: 'ghost',
           block: true,
           onClick: () => {
-            location.hash = '#/deck';
+            // The console has its own credential; the deck would ask for Google.
+            location.hash = '#/home';
           },
         }),
       ),
