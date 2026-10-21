@@ -11,18 +11,23 @@
 import {
   ADMIN_PASSWORD,
   adminPasswordMatches,
+  COOKIE,
   IS_DEV_SECRET,
   SESSION_DAYS,
   CLEAR_COOKIE,
   currentSession,
   json,
+  parseCookies,
   rateLimit,
   readJsonBody,
+  readSession,
+  requestDevice,
   sessionCookie,
   verifyLicense,
 } from './_lib/auth.js';
 import { authorizeUrl, exchangeCode, googleConfigured, googleSession, makeState, readState } from './_lib/google.js';
 import { premiumFor } from './_lib/premium.js';
+import { claimDevice, DEVICE_SHAPE } from './_lib/devices.js';
 
 export default async function handler(req, res) {
   res.setHeader('Vary', 'Cookie');
@@ -39,11 +44,13 @@ export default async function handler(req, res) {
       return;
     }
     const remember = url.searchParams.get('remember') !== '0';
+    const deviceRaw = String(url.searchParams.get('dev') || '').trim();
+    const device = DEVICE_SHAPE.test(deviceRaw) ? deviceRaw : requestDevice(req);
     res.statusCode = 302;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader(
       'Location',
-      authorizeUrl({ origin: `https://${req.headers.host}`, state: makeState(remember) }),
+      authorizeUrl({ origin: `https://${req.headers.host}`, state: makeState(remember, device) }),
     );
     res.end();
     return;
@@ -66,8 +73,20 @@ export default async function handler(req, res) {
       return;
     }
     const premium = premiumFor(identity.email);
-    const built = googleSession(identity, premium, state.remember);
-    res.setHeader('Set-Cookie', sessionCookie({ tier: built.payload.tier, exp: built.payload.exp, subject: built.payload.subject, name: built.payload.name }, { remember: state.remember }));
+    const built = googleSession(identity, premium, state.remember, state.device);
+    res.setHeader(
+      'Set-Cookie',
+      sessionCookie(
+        {
+          tier: built.payload.tier,
+          exp: built.payload.exp,
+          subject: built.payload.subject,
+          name: built.payload.name,
+          dev: built.payload.dev,
+        },
+        { remember: state.remember },
+      ),
+    );
     res.statusCode = 302;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Location', '/?masuk=ok');
@@ -77,6 +96,26 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const session = currentSession(req);
+    // A cookie minted for another device is not an error the visitor can act
+    // on: drop it and answer "signed out" so the gate appears.
+    const rawCookie = readSession(parseCookies(req.headers?.cookie ?? '')[COOKIE]);
+    if (rawCookie && !session) {
+      res.setHeader('Set-Cookie', CLEAR_COOKIE);
+      json(res, 200, {
+        tier: 'free',
+        exp: null,
+        subject: null,
+        name: '',
+        email: null,
+        lic: null,
+        signedIn: false,
+        deviceMismatch: true,
+        adminEnabled: Boolean(ADMIN_PASSWORD),
+        devSecret: IS_DEV_SECRET,
+        google: googleConfigured(),
+      });
+      return;
+    }
     // A Google account can be premiumed or cut off while a session is open, so
     // the grant is re-read on every status call instead of frozen in the cookie.
     const email = session?.subject && session.subject.includes('@') ? session.subject : null;
@@ -98,6 +137,7 @@ export default async function handler(req, res) {
       subject: session?.subject ?? null,
       name: session?.name ?? '',
       email,
+      lic: session?.lic ?? null,
       signedIn: Boolean(session?.subject),
       adminEnabled: Boolean(ADMIN_PASSWORD),
       devSecret: IS_DEV_SECRET,
@@ -146,22 +186,59 @@ export default async function handler(req, res) {
       json(res, 401, { error: 'invalid_credentials' });
       return;
     }
-    const session = { tier: 'admin', exp, subject: 'console', name: 'Operator' };
+    const session = { tier: 'admin', exp, subject: 'console', name: 'Operator', dev: requestDevice(req) };
     res.setHeader('Set-Cookie', sessionCookie(session, { remember }));
     json(res, 200, { tier: 'admin', exp, subject: 'console', name: 'Operator', email: null });
     return;
   }
 
-  // License key sign-in.
+  // License key redemption.
+  //
+  // A key is a claim on an account, not an alternative to signing in: the app
+  // requires Google, and the key then upgrades that account. Keeping the email
+  // as the session subject is what lets the same person open the app on another
+  // device as FREE instead of handing out a second copy of the licence.
+  const account = currentSession(req);
+  if (!account || !String(account.subject || '').includes('@')) {
+    json(res, 403, { error: 'google_required' });
+    return;
+  }
+
   const license = verifyLicense(body.key);
   if (!license) {
     json(res, 401, { error: 'invalid_license' });
     return;
   }
 
-  const session = { tier: license.tier, exp: Math.min(exp, license.exp), subject: license.serial, name: '' };
+  const device = requestDevice(req) || (DEVICE_SHAPE.test(String(body.device || '')) ? String(body.device) : '');
+  const claim = await claimDevice({ serial: license.serial, device, email: account.subject });
+  if (!claim.ok) {
+    if (claim.reason === 'device_bound') {
+      json(res, 409, { error: 'key_in_use', ledger: claim.mode });
+      return;
+    }
+    json(res, 400, { error: claim.reason || 'key_rejected', ledger: claim.mode });
+    return;
+  }
+
+  const session = {
+    tier: license.tier,
+    exp: Math.min(exp, license.exp),
+    subject: account.subject,
+    name: account.name,
+    lic: license.serial,
+    dev: device,
+  };
   res.setHeader('Set-Cookie', sessionCookie(session, { remember }));
-  json(res, 200, { tier: session.tier, exp: session.exp, subject: session.subject, name: '', email: null });
+  json(res, 200, {
+    tier: session.tier,
+    exp: session.exp,
+    subject: session.subject,
+    name: session.name,
+    email: account.subject,
+    lic: license.serial,
+    ledger: claim.mode,
+  });
 }
 
 

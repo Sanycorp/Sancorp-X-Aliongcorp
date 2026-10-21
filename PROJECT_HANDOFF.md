@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.5
+# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.9.6
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -9,7 +9,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 | Produk | Aegis Sound Lab |
 | Perusahaan | Sanayacorp (logo & identitas induk) |
 | Master ikon | `brand/aegis-music-icon.png` → `npm run icons` → `public/icons/*` + `store/icon-512.png` |
-| Versi | 8.9.5 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
+| Versi | 8.9.6 (`package.json` + `src/version.ts` → `APP_VERSION`, jangan duplikasi) |
 | App ID | `com.eltzy.app` (`capacitor.config.ts`) |
 | Basis | TypeScript 7.0.2 · Vite 8.3.4 · Vitest 5.0.5 |
 | Native | Capacitor 8.5.3 (core/cli/android, app 8.1.2, filesystem 8.1.5, share 8.0.3, haptics 8.0.2, status-bar 8.0.4) |
@@ -19,7 +19,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **192 test lulus** (15 file: dsp 27, engine 29, security 18, encode 7, android 6, motion 12, responsive 12, ui 18, probe 1, tiers 7, auth 18, control 3, ops 8, rating 14, brand 12)
+- `npx vitest run` → **272 test lulus** (22 file; tambahan v8.9.6: adaptive 18, device 13, boot 1, boot-signed 1)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -34,7 +34,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.5
+  sw.js                    # cache shell, versi aegis-sound-lab-v8.9.6
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
 tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
@@ -489,3 +489,92 @@ sekitar 12 karakter, jadi nama pendek dipakai khusus untuk ikon).
 Ikon **tidak** memuat teks, jadi mengganti nama tidak memerlukan gambar baru.
 Kalau nama berubah lagi, cukup `grep -ri "Aegis Sound Lab"` dan ganti; tidak ada
 jalur render yang membakar nama ke dalam PNG.
+
+## 12f. Adaptif per perangkat, akun wajib, satu kunci satu perangkat (v8.9.6)
+
+**Tujuan.** Satu bundel yang sama harus terasa dibuat untuk perangkat yang sedang
+dipakai: PC 27", laptop 14", tablet, dan HP dengan OS berbeda. Tidak ada pemilih
+mode manual — semuanya dibaca dari browser saat boot.
+
+### Deteksi (`src/model/platform.ts`)
+
+| Fakta | Sumber | Ditulis ke |
+| --- | --- | --- |
+| Bentuk | `maxTouchPoints`, `userAgentData.mobile`, lebar viewport | `html[data-form="phone|tablet|desktop"]` |
+| OS | UA + `userAgentData.platform`; iPadOS dikenali dari `maxTouchPoints > 1` walau UA-nya "Macintosh" | `html[data-os]` |
+| Mesin | Blink / WebKit / Gecko | `html[data-engine]` |
+| Input | sentuh atau mouse | `html[data-input]` |
+| Performa | `saveData`, `hardwareConcurrency ≤ 4`, `deviceMemory ≤ 4` → `lite` | `html[data-perf]` |
+| Kapabilitas | audio, worker, share, file picker, `dvh`, backdrop-filter | `html[data-no-*]` |
+
+`bootPlatform()` dipanggil sebelum layar dibangun, jadi paint pertama sudah benar.
+Resize hanya mengevaluasi ulang bentuk perangkat (debounce 180 ms), bukan OS.
+
+**`data-perf="lite"` tidak pernah menurunkan kualitas audio.** Yang dimatikan:
+`backdrop-filter`, lapisan aurora/grain, bayangan besar, animasi masuk layar, dan
+efek magnet/tilt. DSP berjalan di jalur yang sama persis.
+
+### CSS (`src/styles/adaptive.css`, diimpor dari `main.ts`)
+
+- `-webkit-text-size-adjust: 100%` + `font-size: max(16px, 1em)` pada input di
+  WebKit: Safari iOS memperbesar viewport setiap kali field < 16 px difokuskan.
+- `@media (pointer: coarse)`: target sentuh ≥ 44 px, efek hover dimatikan.
+- `html[data-no-dvh="1"]` memakai `--vh` yang diukur dari `innerHeight`
+  (diperbarui saat resize) untuk WebView lama.
+- Safe area iPhone/iPad (atas untuk header di mode terpasang, bawah untuk dock).
+- `@media (hover: none)` menampilkan aksi baris yang biasanya hanya muncul saat
+  hover — di layar sentuh hover tidak pernah terjadi.
+- Landscape HP (`max-height: 500px`) menyembunyikan dock dan sub-merek.
+- `.screen` 1240 px di desktop, 980 px di tablet; `scrollbar-gutter: stable`.
+
+### Akun wajib (`src/ui/gate.ts`)
+
+Tidak ada "lanjut tanpa akun", tidak ada tutup lewat klik luar, tidak ada Escape.
+`#app` diberi `inert` selama gate terbuka, fokus terjebak di kartu, dan
+`main.ts` hanya memanggil `closeGate()` setelah `/api/auth` menjawab
+`subject != null`. Satu pengecualian: rute `#/control` — konsol operator punya
+kredensial sendiri dan harus bisa dibuka saat belum ada sesi.
+
+Kunci PRO **bukan** jalan masuk alternatif. `POST /api/auth` menolak kunci tanpa
+akun (`403 google_required`); kunci ditempel di AKUN setelah masuk, dan sesi
+memakai email Google sebagai `subject` sehingga akun yang sama bisa masuk di
+perangkat lain sebagai FREE tanpa menggandakan lisensi.
+
+### Satu kunci, satu perangkat (`src/state/device.ts` + `api/_lib/devices.js`)
+
+- Setiap browser membuat id acak `d` + 32 hex di `localStorage`
+  (`aegis.device.v1`) dan mengirimnya sebagai `x-aegis-device` pada setiap
+  panggilan `/api/auth`. Ini **bukan** fingerprint: layar, font, dan canvas tidak
+  dibaca, karena nilainya berubah antar kunjungan dan akan mengunci pelanggan.
+- Cookie sesi menyimpan `dev`; `currentSession()` menolak cookie yang dibawa
+  perangkat lain (`GET /api/auth` menjawab `signedIn:false`, `deviceMismatch:true`,
+  dan menghapus cookie itu).
+- Ikatan kunci→perangkat dicatat di salah satu dari tiga tempat:
+  | Mode | Syarat | Perilaku |
+  | --- | --- | --- |
+  | `github` | env `AEGIS_LEDGER_TOKEN` (+ opsional `AEGIS_FEEDBACK_REPO`) → `store/devices.json` lewat Contents API | otomatis, bisa dilepas dari konsol |
+  | `lock` | env `AEGIS_DEVICE_LOCK="SERIAL:deviceId,…"` | manual, untuk pemeriksaan cepat |
+  | `session` | tanpa keduanya | jujur: tidak ada penyimpanan ikatan antar kunjungan |
+- GitHub tidak terjangkau → `degraded`: pembelian baru **tidak** dikunci. Jangan
+  pernah menahan pelanggan karena infrastruktur kita yang mati.
+- Konsol `#/control` → tab AKUN → panel **03c IKATAN PERANGKAT** menampilkan mode,
+  jumlah ikatan, daftar serial + id pendek (`0123-4567`), dan tombol LEPAS
+  IKATAN (`POST /api/license {op:'unbind', serial}`).
+
+### Kinerja
+
+- `src/ui/scope.ts` mengukur ukuran kanvas lewat `ResizeObserver` dan warna tema
+  lewat `MutationObserver`; sebelumnya `getComputedStyle` + `getBoundingClientRect`
+  dipanggil **setiap frame**, yang memaksa style recalc + layout pass di tiap
+  frame. Loop berhenti saat panel keluar viewport atau tab disembunyikan, dan
+  turun ke 30 fps dengan `data-perf="lite"`.
+- `src/ui/waveform.ts` tidak lagi memasang `window.resize` (tidak pernah dilepas
+  dan menggambar dua kali); `ResizeObserver` sudah menangani rotasi.
+- `content-visibility`, `will-change`, dan efek magnet/tilt hanya dipasang di
+  tier penuh.
+
+### Tes
+
+`tests/adaptive.test.ts` (18) · `tests/device.test.ts` (13) ·
+`tests/boot.test.ts` (gate wajib, jsdom) · `tests/boot-signed.test.ts` (akun
+masuk tidak diblokir).

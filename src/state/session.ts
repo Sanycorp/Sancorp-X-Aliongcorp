@@ -1,5 +1,6 @@
 import { PLANS, daysLeft } from '../model/tiers';
 import type { Plan, Tier } from '../model/tiers';
+import { deviceHeaders, deviceId } from './device';
 
 /**
  * Client-side session mirror.
@@ -24,6 +25,8 @@ export interface SessionState {
   email: string | null;
   /** True when the server has Google sign-in configured. */
   google: boolean;
+  /** Licensed serial when the account redeemed a key (device-bound). */
+  lic: string | null;
   adminEnabled: boolean;
   devSecret: boolean;
   error: string | null;
@@ -32,6 +35,53 @@ export interface SessionState {
 type Listener = () => void;
 
 const DEV_KEY = 'aegis.dev.tier';
+/**
+ * Last confirmed sign-in, kept only so an installed PWA still works with no
+ * network. It never grants anything on its own: the tier it stores is exactly
+ * the one the server sent, the entry expires with the session, and a fresh
+ * online answer always overwrites it. Signing out erases it.
+ */
+const CACHE_KEY = 'aegis.session.last';
+
+interface SessionAnswer {
+  tier: Tier;
+  exp: number | null;
+  subject: string | null;
+  name: string;
+  email: string | null;
+  lic?: string | null;
+}
+
+function readCache(): SessionAnswer | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as SessionAnswer & { savedAt?: number };
+    if (!data || typeof data !== 'object') return null;
+    if (!data.email && !data.subject) return null;
+    if (typeof data.exp === 'number' && data.exp < Date.now()) return null;
+    if (!data.savedAt || Date.now() - data.savedAt > 7 * 86_400_000) return null;
+    return {
+      tier: data.tier === 'pro' || data.tier === 'admin' ? data.tier : 'free',
+      exp: data.exp ?? null,
+      subject: data.subject ?? null,
+      name: data.name ?? '',
+      email: data.email ?? null,
+      lic: data.lic ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(answer: SessionAnswer | null): void {
+  try {
+    if (!answer?.subject) localStorage.removeItem(CACHE_KEY);
+    else localStorage.setItem(CACHE_KEY, JSON.stringify({ ...answer, savedAt: Date.now() }));
+  } catch {
+    /* storage disabled */
+  }
+}
 
 class SessionStore {
   state: SessionState = {
@@ -42,13 +92,14 @@ class SessionStore {
     name: '',
     email: null,
     google: false,
+    lic: null,
     adminEnabled: false,
     devSecret: false,
     error: null,
   };
 
   /** Last answer the server gave, so a dropped connection cannot demote anyone. */
-  private known: { tier: Tier; exp: number | null; subject: string | null; name: string; email: string | null } | null = null;
+  private known: SessionAnswer | null = null;
 
   private listeners = new Set<Listener>();
   private inflight: Promise<void> | null = null;
@@ -97,7 +148,7 @@ class SessionStore {
     try {
       const res = await fetch('/api/auth', {
         credentials: 'same-origin',
-        headers: { accept: 'application/json' },
+        headers: { accept: 'application/json', ...deviceHeaders() },
         cache: 'no-store',
       });
       if (!res.ok) throw new Error(`session ${res.status}`);
@@ -110,15 +161,18 @@ class SessionStore {
         adminEnabled?: boolean;
         devSecret?: boolean;
         google?: boolean;
+        lic?: string | null;
       };
-      const answer = {
+      const answer: SessionAnswer = {
         tier: (data.tier as Tier) ?? 'free',
         exp: data.exp ?? null,
         subject: data.subject ?? null,
         name: data.name ?? '',
         email: data.email ?? null,
+        lic: typeof data.lic === 'string' ? data.lic : null,
       };
       this.known = answer;
+      writeCache(answer.subject ? answer : null);
       this.state = {
         status: 'ready',
         tier: devTier ?? answer.tier,
@@ -127,6 +181,7 @@ class SessionStore {
         name: answer.name,
         email: answer.email,
         google: Boolean(data.google),
+        lic: answer.lic ?? null,
         adminEnabled: Boolean(data.adminEnabled),
         devSecret: Boolean(data.devSecret),
         error: null,
@@ -137,15 +192,16 @@ class SessionStore {
       // never grant a tier — but it must not take one away either: a single
       // dropped request used to flip a paying user to FREE mid-session. Keep the
       // last answer the server gave and try again shortly.
-      const last = this.known;
+      const last = this.known ?? readCache();
       this.state = {
         ...this.state,
-        status: last ? 'offline' : 'offline',
+        status: 'offline',
         tier: devTier ?? last?.tier ?? this.state.tier,
         exp: last?.exp ?? this.state.exp,
         subject: last?.subject ?? this.state.subject,
         name: last?.name ?? this.state.name,
         email: last?.email ?? this.state.email,
+        lic: last?.lic ?? this.state.lic,
         error: 'server tidak terjangkau',
       };
       this.emit();
@@ -188,7 +244,9 @@ class SessionStore {
   /** Full-page redirect to Google; the server comes back with a session. */
   signInGoogle(remember = true): void {
     const flag = remember ? '1' : '0';
-    location.href = `/api/auth?google=start&remember=${flag}`;
+    // The device id rides along so the callback can bind the new session to
+    // the browser that started the flow.
+    location.href = `/api/auth?google=start&remember=${flag}&dev=${encodeURIComponent(deviceId())}`;
   }
 
   /** Returns an error message, or null on success. */
@@ -205,7 +263,7 @@ class SessionStore {
       const res = await fetch('/api/auth', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...deviceHeaders() },
         body: JSON.stringify(body),
       });
       if (res.status === 429) return 'Terlalu banyak percobaan. Tunggu satu menit.';
@@ -213,6 +271,8 @@ class SessionStore {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         if (data.error === 'admin_disabled') return 'Konsol operator belum diaktifkan di server.';
         if (data.error === 'revoked') return 'Kunci ini sudah dicabut. Hubungi operator di Telegram.';
+        if (data.error === 'google_required') return 'Masuk dengan Google dulu, baru tempel kuncinya.';
+        if (data.error === 'key_in_use') return 'Kunci ini sudah aktif di perangkat lain. Minta operator memindahkannya.';
         if (body.admin) return 'Kata sandi operator salah.';
         return 'Kunci tidak dikenali atau sudah kedaluwarsa.';
       }
@@ -222,15 +282,18 @@ class SessionStore {
         subject?: string | null;
         name?: string;
         email?: string | null;
+        lic?: string | null;
       };
-      const answer = {
+      const answer: SessionAnswer = {
         tier: data.tier ?? 'free',
         exp: data.exp ?? null,
         subject: data.subject ?? null,
         name: data.name ?? '',
         email: data.email ?? null,
+        lic: typeof data.lic === 'string' ? data.lic : null,
       };
       this.known = answer;
+      writeCache(answer.subject ? answer : null);
       this.state = {
         ...this.state,
         status: 'ready',
@@ -239,6 +302,7 @@ class SessionStore {
         subject: answer.subject,
         name: answer.name,
         email: answer.email,
+        lic: answer.lic ?? null,
         error: null,
       };
       this.emit();
@@ -260,6 +324,7 @@ class SessionStore {
       /* ignore */
     }
     this.known = null;
+    writeCache(null);
     this.state = {
       ...this.state,
       tier: 'free',
@@ -267,6 +332,7 @@ class SessionStore {
       subject: null,
       name: '',
       email: null,
+      lic: null,
       error: null,
     };
     this.emit();

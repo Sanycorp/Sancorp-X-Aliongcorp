@@ -6,6 +6,7 @@ import './styles/motion.css';
 import './styles/account.css';
 import './styles/rating.css';
 import './styles/control.css';
+import './styles/adaptive.css';
 
 import { store } from './state/store';
 import { resolveFinish } from './model/settings';
@@ -19,7 +20,8 @@ import { accountButton } from './ui/account';
 import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
 import { brandMark } from './ui/brand';
-import { gateSeen, openGate, readRedirect } from './ui/gate';
+import { closeGate, gateOpen, openGate, readRedirect } from './ui/gate';
+import { bootPlatform } from './model/platform';
 import { isNativeApp } from './security/platform';
 import {
   installMagnets,
@@ -49,6 +51,10 @@ const ALL_ROUTE_IDS: RouteId[] = [...ROUTES.map((r) => r.id), ...HIDDEN_ROUTES];
 
 function boot(): void {
   store.restore();
+  // OS, form factor, engine and capability flags land on <html> before a single
+  // screen is built, so the first paint already has the right layout.
+  const platform = bootPlatform();
+  const lite = platform.perf === 'lite';
 
   const app = document.getElementById('app');
   if (!app) throw new Error('#app missing');
@@ -172,11 +178,14 @@ function boot(): void {
   const navPulse = installNavPulse(nav);
   installRipple(document);
   installScrollChrome(header);
-  // Pointer-only effects, attached once; they no-op on touch devices.
-  requestAnimationFrame(() => {
-    installMagnets(document);
-    installTilt(document);
-  });
+  // Pointer-only decoration, attached once; it no-ops on touch devices and is
+  // skipped entirely on a slow one — the DSP is what has to stay fast.
+  if (!lite) {
+    requestAnimationFrame(() => {
+      installMagnets(document);
+      installTilt(document);
+    });
+  }
 
   const kineticDone = new Set<RouteId>();
 
@@ -242,15 +251,17 @@ function boot(): void {
     const navIndex = ROUTES.findIndex((r) => r.id === id);
     if (navIndex >= 0) navPulse.move(navIndex);
     else navPulse.hide();
-    if (!kineticDone.has(id)) {
+    if (!kineticDone.has(id) && !lite) {
       kineticDone.add(id);
       const title = screens[id].el.querySelector<HTMLElement>('.screen__title');
       if (title) kineticTitle(title);
     }
     // Re-attach pointer effects to controls created on this screen.
-    const activeScreen = screens[id].el;
-    installMagnets(activeScreen);
-    installTilt(activeScreen);
+    if (!lite) {
+      const activeScreen = screens[id].el;
+      installMagnets(activeScreen);
+      installTilt(activeScreen);
+    }
     window.scrollTo({ top: 0, behavior: 'auto' });
     revealVisible();
   };
@@ -292,7 +303,10 @@ function boot(): void {
     Haptics.tap();
   });
 
-  window.addEventListener('hashchange', () => setRoute(parseHash()));
+  window.addEventListener('hashchange', () => {
+    setRoute(parseHash());
+    syncGate();
+  });
   setRoute(parseHash(), false);
 
   // ------------------------------------------------------------------ state → UI
@@ -326,6 +340,21 @@ function boot(): void {
     store.trimHistory();
   };
 
+  /**
+   * The account is mandatory. The only exception is the operator console,
+   * which carries its own credential and must stay reachable when nobody is
+   * signed in — including from a phone that has just been wiped.
+   */
+  const syncGate = (): void => {
+    if (session.state.status === 'loading') return;
+    if (activeRoute === 'control') {
+      closeGate();
+      return;
+    }
+    if (session.signedIn) closeGate();
+    else openGate('');
+  };
+
   let enforced = false;
   const onSession = (): void => {
     if (session.state.status === 'loading') return;
@@ -333,19 +362,42 @@ function boot(): void {
     // leave the user's stored chain untouched instead of silently rewriting
     // their settings on a flaky connection.
     if (session.state.status === 'ready') applyTierLimits();
+    syncGate();
     if (!enforced) {
       enforced = true;
-      if (session.state.status === 'offline' && session.state.tier === 'free') {
-        // No functions (static host / offline install): say so once, calmly.
-        console.info('[aegis] mode offline — tier FREE');
+      if (session.state.status === 'offline' && !session.signedIn) {
+        console.info('[aegis] offline — belum ada sesi tersimpan');
       }
     }
   };
   session.subscribe(onSession);
   onSession();
-  void session.refresh().then(() => {
-    readRedirect();
-    if (!session.signedIn && !gateSeen()) openGate();
+
+  // Keep the splash up until the server answers, so a signed-out visitor never
+  // sees the deck for a frame before the gate covers it.
+  const splash = document.getElementById('boot');
+  let splashGone = false;
+  const dismissSplash = (): void => {
+    if (splashGone) return;
+    splashGone = true;
+    if (!splash) return;
+    requestAnimationFrame(() => {
+      splash.classList.add('is-gone');
+      setTimeout(() => splash.remove(), 520);
+    });
+  };
+  const answered = session.refresh().then((result) => {
+    const redirect = readRedirect();
+    if (redirect === 'gagal') toast('Masuk dengan Google gagal. Coba lagi.', 'err', 2600);
+    if (redirect === 'ok') toast('Masuk — akun terbaca', 'ok', 2200);
+    if (redirect === 'ok') void session.refresh();
+    void result;
+    syncGate();
+  });
+  // A dead function must not hold the splash forever; the gate says the rest.
+  void Promise.race([answered, new Promise((r) => setTimeout(r, 2000))]).finally(() => {
+    dismissSplash();
+    syncGate();
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
@@ -365,6 +417,7 @@ function boot(): void {
 
   // ------------------------------------------------------------------ shortcuts
   window.addEventListener('keydown', (ev) => {
+    if (gateOpen()) return;
     if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement) return;
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     switch (ev.key) {
@@ -453,14 +506,6 @@ function boot(): void {
   window.addEventListener('dragover', (ev) => ev.preventDefault());
   window.addEventListener('drop', (ev) => ev.preventDefault());
 
-  // dismiss the boot splash once the shell is on screen
-  const splash = document.getElementById('boot');
-  if (splash) {
-    requestAnimationFrame(() => {
-      splash.classList.add('is-gone');
-      setTimeout(() => splash.remove(), 520);
-    });
-  }
 }
 
 let revealIO: IntersectionObserver | null = null;

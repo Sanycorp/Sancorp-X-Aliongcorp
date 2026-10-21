@@ -2,6 +2,7 @@ import { append, el, icon, button, toast } from './elements';
 import { PLANS, PRO_PASS_DAYS, PRO_PRICE, daysLeft } from '../model/tiers';
 import type { Feature, Tier } from '../model/tiers';
 import { session } from '../state/session';
+import { deviceShort } from '../state/device';
 import { Haptics } from './haptics';
 import { CONTACT_HANDLE, PURCHASE_NOTE, TELEGRAM_HANDLE, openPurchase, openRenew, orderCode } from '../model/contact';
 
@@ -12,9 +13,10 @@ import { CONTACT_HANDLE, PURCHASE_NOTE, TELEGRAM_HANDLE, openPurchase, openRenew
  * control. It owns focus trapping, Escape and the "return to what you were
  * doing" behaviour, so screens never have to know it exists.
  *
- * The account is the licence key: no email, no password, no profile. A key is
- * signed by the server, stored in an httpOnly cookie and shared by every device
- * the buyer owns.
+ * Signing in is Google, always. A PRO key is a claim an already signed-in
+ * account makes on this sheet; the server binds that key to one device and
+ * keeps the Google address as the session subject. The cookie is httpOnly and
+ * carries only tier, expiry, email, licence serial and device id.
  */
 
 let sheet: HTMLElement | null = null;
@@ -185,6 +187,12 @@ function renderSignedIn(host: HTMLElement): void {
         ? el('div', { class: 'account-card__row' }, el('span', { text: 'Akun Google' }), el('b', { text: state.email }))
         : null,
       el('div', { class: 'account-card__row' }, el('span', { text: 'Serial' }), el('b', { text: state.subject ?? '—' })),
+      el(
+        'div',
+        { class: 'account-card__row' },
+        el('span', { text: 'Perangkat' }),
+        el('b', { text: deviceShort() }),
+      ),
       el('div', { class: 'account-card__row' }, el('span', { text: 'Berlaku sampai' }), el('b', { text: expires ?? 'tanpa batas' })),
       left !== null
         ? el('div', { class: 'account-card__row' }, el('span', { text: 'Sisa' }), el('b', { text: `${left} hari` }))
@@ -248,12 +256,21 @@ function renderSignedIn(host: HTMLElement): void {
     ),
     el('p', {
       class: 'sheet__note',
-      text: `Satu kunci untuk semua perangkatmu. Perpanjangan dilayani lewat Telegram ${CONTACT_HANDLE}.`,
+      text: `Satu kunci berlaku di satu perangkat. Mau pindah HP? Kirim ID perangkat di atas ke ${CONTACT_HANDLE} supaya ikatannya dilepas.`,
     }),
   ]);
 }
 
+/**
+ * Two different people land here:
+ *  - a visitor with no session, who may only sign in with Google;
+ *  - a signed-in FREE account, which is the only place a PRO key can be
+ *    redeemed.
+ * The key form is deliberately absent in the first case: the server refuses a
+ * key without an account, so offering the field would be a dead end.
+ */
 function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}): void {
+  const account = session.signedIn;
   const input = el('input', {
     class: 'input input--key',
     attrs: {
@@ -275,7 +292,7 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
   });
 
   const error = el('p', { class: 'form-error', attrs: { role: 'alert' } });
-  const submit = button('MASUK', { tone: 'primary', block: true, icon: 'check' });
+  const submit = button('AKTIFKAN', { tone: 'primary', block: true, icon: 'check' });
 
   const run = async (): Promise<void> => {
     const key = input.value.trim();
@@ -288,7 +305,7 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
     submit.textContent = 'MEMERIKSA…';
     const problem = await session.signIn(key);
     submit.disabled = false;
-    submit.textContent = 'MASUK';
+    submit.textContent = 'AKTIFKAN';
     if (problem) {
       error.textContent = problem;
       input.select();
@@ -296,7 +313,7 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
     }
     error.textContent = '';
     Haptics.success();
-    toast(`Masuk — ${session.plan.label} aktif`, 'ok', 2200);
+    toast(`Kunci aktif di perangkat ini — ${session.plan.label}`, 'ok', 2400);
     render();
   };
 
@@ -305,6 +322,48 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
     if (ev.key === 'Enter') void run();
   });
 
+  const google = button('MASUK DENGAN GOOGLE', {
+    tone: 'primary',
+    block: true,
+    onClick: () => session.signInGoogle(),
+  });
+  if (!session.state.google) {
+    google.disabled = true;
+    google.title = 'Login Google belum diaktifkan operator';
+  }
+
+  const priceBlock = el(
+    'div',
+    { class: 'price-hero' },
+    el(
+      'div',
+      {},
+      el('span', { class: 'price-hero__amount', text: PRO_PRICE }),
+      el('span', { class: 'price-hero__cadence', text: `/ ${PRO_PASS_DAYS} hari` }),
+    ),
+    el('p', { class: 'price-hero__note', text: 'Sekali bayar. Tanpa langganan otomatis.' }),
+  );
+
+  const compareBlock = el(
+    'div',
+    { class: 'plan-compare' },
+    ...(['free', 'pro'] as Tier[]).map((id) => {
+      const plan = PLANS[id];
+      return el(
+        'div',
+        { class: `plan-card ${id === 'pro' ? 'plan-card--pro' : ''}` },
+        el(
+          'div',
+          { class: 'plan-card__head' },
+          el('b', { text: plan.label }),
+          el('span', { class: 'plan-card__price', text: plan.price }),
+          el('span', { class: 'plan-card__cadence', text: plan.cadence }),
+        ),
+        el('ul', { class: 'perk-list' }, ...plan.perks.slice(0, 5).map((p) => el('li', {}, el('span', { text: p })))),
+      );
+    }),
+  );
+
   append(host, [
     el(
       'div',
@@ -312,77 +371,65 @@ function renderSignedOut(host: HTMLElement, opts: { switching?: boolean } = {}):
       el(
         'div',
         {},
-        el('div', { class: 'sheet__kicker', text: 'MASUK' }),
-        el('h2', { id: 'sheet-title', class: 'sheet__title', text: opts.switching ? 'GANTI KUNCI' : 'AKTIFKAN PRO' }),
+        el('div', { class: 'sheet__kicker', text: account ? 'KUNCI' : 'AKUN' }),
+        el(
+          'h2',
+          { id: 'sheet-title', class: 'sheet__title', text: !account ? 'MASUK' : opts.switching ? 'GANTI KUNCI' : 'AKTIFKAN PRO' },
+        ),
       ),
       tierBadge('free'),
     ),
-    el('p', {
-      class: 'sheet__lede',
-      text: opts.switching
-        ? 'Tempel kunci lain untuk menggantikan sesi yang sedang aktif.'
-        : 'Kunci lisensi adalah akunmu. Tanpa email, tanpa kata sandi, tanpa data pribadi.',
-    }),
-    opts.switching
-      ? null
-      : el(
-          'div',
-          { class: 'price-hero' },
-          el(
+    !account
+      ? el('p', {
+          class: 'sheet__lede',
+          text: 'Aegis Sound Lab memakai akun Google. Masuk sekali, lalu perangkat ini dikenali sampai kamu keluar.',
+        })
+      : el('p', {
+          class: 'sheet__lede',
+          text: `Akun ${session.state.email ?? 'Google'} sudah masuk. Tempel kunci PRO di bawah — kunci mengikat ke perangkat ini (${deviceShort()}).`,
+        }),
+    !account ? google : null,
+    opts.switching || !account ? null : priceBlock,
+    account ? el('div', { class: 'field' }, el('span', { class: 'label', text: 'KUNCI LISENSI' }), input) : null,
+    account ? error : null,
+    account ? submit : null,
+    account && opts.switching
+      ? button('BATAL', { tone: 'ghost', block: true, onClick: () => render() })
+      : account
+        ? el(
+            'p',
+            { class: 'sheet__note' },
+            el('span', { text: 'Belum punya kunci? ' }),
+            el('a', {
+              attrs: { href: `https://t.me/${TELEGRAM_HANDLE}`, target: '_blank', rel: 'noopener noreferrer' },
+              text: `Chat ${CONTACT_HANDLE}`,
+            }),
+            el('span', { text: `. ${PURCHASE_NOTE}` }),
+          )
+        : el(
             'div',
             {},
-            el('span', { class: 'price-hero__amount', text: PRO_PRICE }),
-            el('span', { class: 'price-hero__cadence', text: `/ ${PRO_PASS_DAYS} hari` }),
-          ),
-          el('p', { class: 'price-hero__note', text: 'Sekali bayar. Tanpa langganan otomatis.' }),
-        ),
-    el('div', { class: 'field' }, el('span', { class: 'label', text: 'KUNCI LISENSI' }), input),
-    error,
-    submit,
-    opts.switching
-      ? button('BATAL', { tone: 'ghost', block: true, onClick: () => render() })
-      : el(
-          'div',
-          {},
-          el(
-            'div',
-            { class: 'sheet__actions' },
-            button('BELI LEWAT TELEGRAM', {
-              tone: 'primary',
-              block: true,
-              icon: 'bolt',
-              onClick: () => openPurchase(),
+            el(
+              'div',
+              { class: 'sheet__actions' },
+              button('BELI LEWAT TELEGRAM', {
+                tone: 'primary',
+                block: true,
+                icon: 'bolt',
+                onClick: () => openPurchase(),
+              }),
+            ),
+            orderLine(),
+            el('p', {
+              class: 'sheet__note',
+              text: `Chat langsung dengan ${CONTACT_HANDLE} di Telegram. ${PURCHASE_NOTE}`,
+            }),
+            compareBlock,
+            el('p', {
+              class: 'sheet__note',
+              text: `Operator tidak pernah meminta kata sandi atau kode OTP. Pembelian hanya lewat t.me/${TELEGRAM_HANDLE}.`,
             }),
           ),
-          orderLine(),
-          el('p', {
-            class: 'sheet__note',
-            text: `Chat langsung dengan ${CONTACT_HANDLE} di Telegram. ${PURCHASE_NOTE}`,
-          }),
-          el(
-            'div',
-            { class: 'plan-compare' },
-            ...(['free', 'pro'] as Tier[]).map((id) => {
-              const plan = PLANS[id];
-              return el(
-                'div',
-                { class: `plan-card ${id === 'pro' ? 'plan-card--pro' : ''}` },
-                el(
-                  'div',
-                  { class: 'plan-card__head' },
-                  el('b', { text: plan.label }),
-                  el('span', { class: 'plan-card__price', text: plan.price }),
-                  el('span', { class: 'plan-card__cadence', text: plan.cadence }),
-                ),
-                el('ul', { class: 'perk-list' }, ...plan.perks.slice(0, 5).map((p) => el('li', {}, el('span', { text: p })))),
-              );
-            }),
-          ),
-          el('p', {
-            class: 'sheet__note',
-            text: `Operator tidak pernah meminta kata sandi atau kode OTP. Pembelian hanya lewat t.me/${TELEGRAM_HANDLE}.`,
-          }),
-        ),
   ]);
 }
 
@@ -466,11 +513,15 @@ export function openPaywall(reason: string, feature?: Feature, trigger?: HTMLEle
         icon: 'bolt',
         onClick: () => openPurchase(),
       }),
-      button('PUNYA KUNCI? MASUK', {
+      button(session.signedIn ? 'PUNYA KUNCI? AKTIFKAN' : 'MASUK DENGAN GOOGLE', {
         tone: 'ghost',
         block: true,
         icon: 'check',
         onClick: () => {
+          if (!session.signedIn) {
+            session.signInGoogle();
+            return;
+          }
           render();
           const field = panel?.querySelector<HTMLInputElement>('.input--key');
           field?.focus();

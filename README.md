@@ -1,6 +1,6 @@
 # AEGIS SOUND LAB · SANAYACORP
 
-**Offline mecha audio forge — v8.9.5**
+**Offline mecha audio forge — v8.9.6**
 
 > Rilis ini memfokuskan produk **sepenuhnya ke versi web**. APK tetap ada di repo
 > sebagai eksperimen, tapi tidak dipasarkan dan tidak menerima fitur baru.
@@ -141,11 +141,20 @@ npm run icons      # regenerate ikon PWA + Android mipmaps
 
 ## Akses, lisensi, dan konsol
 
-Akses memakai **kunci lisensi**, bukan email dan bukan database. Satu kunci
-adalah string bertanda tangan HMAC-SHA256 yang bisa diverifikasi sendiri oleh
-server; sesi adalah cookie `HttpOnly` bertanda tangan yang sama. Tidak ada tabel
-user, tidak ada reset password, dan mencabut semua akses cukup dengan mengganti
-`AEGIS_SECRET`.
+Masuk memakai **akun Google**, selalu — tidak ada tombol "lanjut tanpa akun".
+Setelah masuk, akun FREE bisa menempelkan **kunci lisensi PRO** di AKUN. Kunci
+adalah string bertanda tangan HMAC-SHA256 yang diverifikasi server; sesi adalah
+cookie `HttpOnly` bertanda tangan yang sama dan hanya berisi tier, masa berlaku,
+email, serial kunci, dan id perangkat. Tidak ada tabel user, tidak ada kata
+sandi, dan mencabut semua akses cukup dengan mengganti `AEGIS_SECRET`.
+
+**Satu kunci = satu perangkat.** Setiap browser membuat id acak sendiri
+(`localStorage` → header `x-aegis-device`); ikatan kunci ke id itu dicatat
+server. Aktivasi kedua dari perangkat lain ditolak dengan pesan *kunci sedang
+dipakai di perangkat lain*; operator melepasnya dari konsol
+(`#/control` → AKUN → **03c IKATAN PERANGKAT** → LEPAS IKATAN).
+Id ini bukan fingerprint: layar, font, dan canvas tidak dibaca, karena nilainya
+berubah antar kunjungan dan akan mengunci pelanggan di perangkatnya sendiri.
 
 ```
 AEGIS-PRO-7F3K-20271120-9K2M4Q
@@ -164,7 +173,7 @@ AEGIS-PRO-7F3K-20271120-9K2M4Q
 | 8D orbit | — | ✓ | ✓ |
 | Repair & voice focus | — | ✓ | ✓ |
 | A/B memory | — | ✓ | ✓ |
-| Jumlah perangkat | bebas | bebas (satu kunci) | bebas |
+| Jumlah perangkat | bebas (akun Google) | 1 perangkat per kunci | bebas |
 | AEGIS OPS `#/control` | — | — | ✓ |
 
 Yang dibatasi sengaja adalah **alur kerja**, bukan kualitas: rantai DSP penuh,
@@ -172,8 +181,8 @@ limiter, dan semua fader tetap bisa dipakai di FREE. Tidak ada watermark, tidak
 ada output yang diperkecil, dan tidak ada data yang dikirim ke mana pun.
 
 PRO dijual sebagai **pass 30 hari**, bukan langganan: sekali bayar, tanpa
-perpanjangan otomatis, tanpa kartu tersimpan. Satu kunci berlaku di semua
-perangkat pembeli.
+perpanjangan otomatis, tanpa kartu tersimpan. Kunci mengikat ke satu perangkat;
+pindah HP cukup minta operator melepas ikatannya, tanpa biaya.
 
 **AEGIS OPS** ada di `#/control` — tidak pernah muncul di navigasi dan terkunci
 kata sandi operator. Empat tab:
@@ -183,6 +192,19 @@ kata sandi operator. Empat tab:
   +30 hari, cabut, ekspor JSON/CSV, impor.
 - **TERBIT** — buat kunci PRO/ADMIN untuk 1–20 pembeli sekaligus.
 - **KEAMANAN** — probe header live, feed CSP, status secret, dan pencabutan.
+- **IKATAN PERANGKAT** (03c) — mode penguncian, daftar serial + id perangkat
+  pendek, dan tombol **LEPAS IKATAN**.
+
+Penguncian otomatis antar kunjungan butuh penyimpanan ikatan. Isi salah satu:
+
+| Env | Isi | Efek |
+| --- | --- | --- |
+| `AEGIS_LEDGER_TOKEN` | token GitHub (fine-grained, izin *Contents: read & write* pada repo ini) | ikatan ditulis ke `store/devices.json`; tombol LEPAS IKATAN aktif |
+| `AEGIS_DEVICE_LOCK` | `SERIAL:deviceId,SERIAL2:deviceId2` | ikatan manual, tanpa penyimpanan |
+
+Tanpa keduanya server berjalan dalam mode `session`: sesi tetap terikat ke
+perangkat yang memintanya (cookie dari perangkat lain ditolak), tetapi ikatan
+tidak tersimpan antar kunjungan, dan konsol mengatakannya apa adanya.
 
 Daftar akun hidup di perangkat operator (localStorage), bukan di server: tidak
 ada basis data pelanggan untuk bocor. Yang menentukan akses tetap kunci

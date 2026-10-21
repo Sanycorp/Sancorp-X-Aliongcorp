@@ -32,11 +32,28 @@ interface HealthData {
   now: number;
 }
 
+interface BoundDevice {
+  serial: string;
+  device: string;
+  email: string;
+  at: string | null;
+  source: string;
+}
+
+interface DeviceState {
+  mode: 'github' | 'lock' | 'session' | 'degraded';
+  bound: number;
+  manual: number;
+  canRelease: boolean;
+  devices: BoundDevice[];
+}
+
 interface DeskState {
   revoked: number;
   adminEnabled: boolean;
   devSecret: boolean;
   days: number[];
+  devices?: DeviceState;
 }
 
 interface CspEntry {
@@ -555,9 +572,11 @@ export function createControl(): Screen {
         }),
       ),
       renderGoogle(),
+      renderDevices(),
     );
 
     if (!googleLoaded && !googleBusy) void loadGoogle();
+    if (!desk) void loadDesk();
   }
 
 
@@ -917,6 +936,150 @@ export function createControl(): Screen {
           },
         }),
       ),
+    );
+  }
+
+  // ------------------------------------------------------------- device bindings
+  let unbindText = '';
+  let unbindBusy = false;
+  let unbindHint = '';
+
+  async function unbindDevice(): Promise<void> {
+    const serial = unbindText.trim().toUpperCase();
+    if (!serial) {
+      unbindHint = 'Tempel serial kunci yang mau dilepas.';
+      render();
+      return;
+    }
+    unbindBusy = true;
+    render();
+    const data = await postDesk({ op: 'unbind', serial });
+    unbindBusy = false;
+    if (!data) {
+      unbindHint = 'Pelepasan gagal. Cek mode ikatan di panel ini.';
+      render();
+      return;
+    }
+    if (data.ok === false) {
+      const map: Record<string, string> = {
+        ledger_unavailable: 'Ledger GitHub tidak terjangkau. Coba lagi sebentar.',
+        ledger_off: 'Ledger belum aktif: isi AEGIS_LEDGER_TOKEN dulu.',
+        write_failed: 'GitHub menolak tulisan. Cek izin token ledger.',
+      };
+      unbindHint = map[String(data.reason ?? '')] ?? `Ditolak: ${String(data.reason ?? 'unknown')}`;
+      render();
+      return;
+    }
+    unbindHint = data.removed
+      ? `Ikatan ${serial} dilepas — kunci bisa diaktifkan di perangkat baru.`
+      : `${serial} belum terikat ke perangkat mana pun.`;
+    unbindText = '';
+    await loadDesk();
+    render();
+  }
+
+  function renderDevices(): HTMLElement {
+    const info: DeviceState = desk?.devices ?? {
+      mode: 'session',
+      bound: 0,
+      manual: 0,
+      canRelease: false,
+      devices: [],
+    };
+    const modeText: Record<DeviceState['mode'], string> = {
+      github: 'LEDGER GITHUB — ikatan tersimpan di repo, otomatis',
+      lock: 'KUNCI MANUAL — daftar AEGIS_DEVICE_LOCK',
+      session: 'SESI SAJA — belum ada penyimpanan ikatan',
+      degraded: 'LEDGER TERGANGGU — pembelian baru tidak dikunci',
+    };
+    return el(
+      'div',
+      { class: 'plate ctrl-plate', attrs: { 'data-role': 'devices' } },
+      sectionHead('03c', 'IKATAN PERANGKAT'),
+      el('p', {
+        class: 'ops-hint',
+        text: 'Satu kunci hanya aktif di satu perangkat. Perangkat menamai dirinya dengan id acak di local storage; id itu dikirim ke server saat kunci diaktifkan. Aktivasi dari perangkat lain ditolak dengan pesan "kunci sedang dipakai".',
+      }),
+      el(
+        'div',
+        { class: 'ops-toolbar' },
+        el('b', { class: 'ops-badge', text: modeText[info.mode] }),
+        el('span', { class: 'ops-badge', text: `${info.bound} TERIKAT` }),
+        info.manual ? el('span', { class: 'ops-badge', text: `${info.manual} MANUAL` }) : null,
+      ),
+      info.mode === 'session'
+        ? el('p', {
+            class: 'ops-hint',
+            text: 'Aktifkan penguncian: buat token GitHub berisi izin isi repo, simpan sebagai AEGIS_LEDGER_TOKEN, lalu deploy ulang. Tanpa itu, sesi tetap bertanda tangan perangkat tetapi server tidak menyimpan ikatan antar kunjungan.',
+          })
+        : null,
+      info.mode === 'degraded'
+        ? el('p', {
+            class: 'ops-hint',
+            text: 'Server tidak bisa membaca ledger sekarang. Pelanggan yang membeli tetap dilayani supaya tidak terkunci gara-gara gangguan di pihak kita.',
+          })
+        : null,
+      info.devices.length === 0
+        ? el('p', { class: 'ops-hint', text: 'Belum ada kunci yang terikat ke perangkat.' })
+        : el(
+            'div',
+            { class: 'ops-list' },
+            ...info.devices.map((row) =>
+              el(
+                'div',
+                { class: 'ops-acct' },
+                el(
+                  'div',
+                  { class: 'ops-acct__head' },
+                  el(
+                    'div',
+                    { class: 'ops-acct__id' },
+                    el('b', { text: row.serial }),
+                    el('span', { class: 'ops-badge', text: row.device || '—' }),
+                  ),
+                  el('code', { class: 'ops-acct__serial', text: row.email || (row.at ? fmtDate(Date.parse(row.at)) : row.source) }),
+                ),
+                el(
+                  'div',
+                  { class: 'ops-acct__actions' },
+                  button('LEPAS IKATAN', {
+                    tone: 'danger',
+                    size: 'sm',
+                    onClick: () => {
+                      if (!info.canRelease) {
+                        unbindHint =
+                          'Pelepasan otomatis butuh ledger GitHub. Dalam mode manual, hapus entri dari AEGIS_DEVICE_LOCK lalu deploy ulang.';
+                        render();
+                        return;
+                      }
+                      unbindText = row.serial;
+                      void unbindDevice();
+                    },
+                  }),
+                ),
+              ),
+            ),
+          ),
+      el(
+        'div',
+        { class: 'ops-toolbar' },
+        el('input', {
+          class: 'input',
+          attrs: { type: 'text', placeholder: 'SERIAL', 'aria-label': 'Serial yang dilepas', value: unbindText },
+          on: {
+            input: (ev) => {
+              unbindText = (ev.target as HTMLInputElement).value;
+            },
+          },
+        }),
+        button(unbindBusy ? 'MELEPAS…' : 'LEPAS', {
+          tone: 'ghost',
+          size: 'sm',
+          icon: 'reset',
+          onClick: () => void unbindDevice(),
+        }),
+      ),
+      unbindHint ? el('p', { class: 'ops-hint', text: unbindHint }) : null,
     );
   }
 

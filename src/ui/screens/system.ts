@@ -19,6 +19,7 @@ import { PRO_PASS_DAYS, PRO_PRICE, planFor, formatAllowed, targetAllowed, upgrad
 import { formatChoices, targetChoices } from '../../model/entitlements';
 import { openAccount, openPaywall } from '../account';
 import { createRatingGroup } from '../rating';
+import { FORM_LABELS, PLATFORM_LABELS, detectPlatform, readEnvironment } from '../../model/platform';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
 
@@ -136,6 +137,9 @@ export function createSystem(): Screen {
   const shareToggle = toggle('SHARE SHEET SETELAH EXPORT', store.settings.shareAfterExport, (v) => {
     store.patchSettings({ shareAfterExport: v });
   });
+  // A toggle that cannot work is worse than no toggle: hide it where the
+  // browser has no Web Share, and let the note explain the fallback.
+  if (!detectPlatform(readEnvironment()).capabilities.share) shareToggle.wrap.setAttribute('hidden', '');
   const historyToggle = toggle('SIMPAN RIWAYAT', store.settings.keepHistory, (v) => {
     store.patchSettings({ keepHistory: v });
   });
@@ -238,11 +242,51 @@ export function createSystem(): Screen {
   // ------------------------------------------------------------- rating
   const ratingGroup = createRatingGroup();
 
+  // ------------------------------------------------------------- device
+  // The layout already adapts through CSS; this block is the receipt. It names
+  // what the browser reported, so a user who says "di HP saya aneh" can read
+  // off the exact form factor, OS, engine and what the browser can do.
+  const info = detectPlatform(readEnvironment());
+  const cap = info.capabilities;
+  const yes = (ok: boolean): string => (ok ? 'YA' : 'TIDAK');
+
+  const deviceGroup = el(
+    'div',
+    { class: 'plate settings-group', attrs: { 'data-role': 'device' } },
+    sectionHead('06', 'PERANGKAT'),
+    el(
+      'div',
+      { class: 'about-grid' },
+      infoCell('LAYAR', FORM_LABELS[info.form]),
+      infoCell('SISTEM', PLATFORM_LABELS[info.os]),
+      infoCell('MESIN', info.engine.toUpperCase()),
+      infoCell('INPUT', info.touch ? 'SENTUH' : 'MOUSE'),
+      infoCell('PERFORMA', info.perf === 'lite' ? 'HEMAT' : 'PENUH'),
+      infoCell('MODE', info.standalone ? 'TERPASANG' : 'BROWSER'),
+      infoCell('INTI CPU', String(info.cores)),
+    ),
+    el(
+      'ul',
+      { class: 'cap-list' },
+      el('li', {}, el('span', { text: 'Render offline (OfflineAudioContext)' }), el('b', { text: yes(cap.audio) })),
+      el('li', {}, el('span', { text: 'Render di worker terpisah' }), el('b', { text: yes(cap.worker) })),
+      el('li', {}, el('span', { text: 'Share sheet sistem' }), el('b', { text: yes(cap.share) })),
+      el('li', {}, el('span', { text: 'Simpan langsung ke folder' }), el('b', { text: yes(cap.saveFilePicker) })),
+      el('li', {}, el('span', { text: 'Satuan viewport dinamis (dvh)' }), el('b', { text: yes(cap.dvh) })),
+    ),
+    el('p', {
+      class: 'lab-group__note',
+      text: cap.audio
+        ? 'Tata letak, ukuran tombol, dan jumlah efek mengikuti perangkat ini secara otomatis. Audio tidak pernah diturunkan kualitasnya.'
+        : 'Browser ini tidak menyediakan OfflineAudioContext, jadi render tidak bisa dijalankan. Pakai Chrome, Edge, Safari, atau Firefox versi terbaru.',
+    }),
+  );
+
   // ------------------------------------------------------------- about
   const aboutGroup = el(
     'div',
     { class: 'plate settings-group' },
-    sectionHead('06', 'TENTANG'),
+    sectionHead('07', 'TENTANG'),
     el(
       'div',
       { class: 'about-grid' },
@@ -308,6 +352,7 @@ export function createSystem(): Screen {
       historyGroup,
       accountGroup,
       ratingGroup.el,
+      deviceGroup,
       aboutGroup,
     ),
     el('div', { class: 'footnote', text: `Aegis Sound Lab ${APP_VERSION} · Sanayacorp · dibuat untuk dipakai, bukan untuk di-upload` }),
@@ -341,6 +386,17 @@ export function createSystem(): Screen {
     motionToggle.set(store.settings.reduceMotion);
     hapticToggle.set(store.settings.haptics);
     shareToggle.set(store.settings.shareAfterExport);
+    const live = detectPlatform(readEnvironment());
+    const cells = deviceGroup.querySelectorAll<HTMLElement>('.about-grid b');
+    if (cells.length >= 7) {
+      cells[0].textContent = FORM_LABELS[live.form];
+      cells[1].textContent = PLATFORM_LABELS[live.os];
+      cells[2].textContent = live.engine.toUpperCase();
+      cells[3].textContent = live.touch ? 'SENTUH' : 'MOUSE';
+      cells[4].textContent = live.perf === 'lite' ? 'HEMAT' : 'PENUH';
+      cells[5].textContent = live.standalone ? 'TERPASANG' : 'BROWSER';
+      cells[6].textContent = String(live.cores);
+    }
     historyToggle.set(store.settings.keepHistory);
     paintOutputLocks();
     formatSelect.set(store.settings.format);

@@ -1,0 +1,338 @@
+/* ==========================================================================
+   Device adaptation
+   Layout is fluid in base.css; this file handles what CSS cannot infer and
+   what the OS does differently. The facts come from src/model/platform.ts,
+   written to <html data-*> at boot:
+
+     data-form    phone | tablet | desktop
+     data-os      ios | ipados | android | windows | macos | chromeos | linux
+     data-engine  blink | webkit | gecko
+     data-input   touch | pointer
+     data-perf    full | lite
+     data-standalone 0 | 1
+     data-no-*    a capability the browser lacks
+   ========================================================================== */
+
+html {
+  /* iOS inflates text in landscape unless told otherwise; it also keeps the
+     scale the user chose, which is the accessible behaviour. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Reserve the scrollbar on desktop so a page that grows never shifts. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* A tap should not leave a grey rectangle on iOS, and a double tap on a
+   control must not zoom the whole app. */
+button,
+a,
+summary,
+label,
+input[type='range'],
+.segment button,
+.nav__btn,
+.preset-chip {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* --------------------------------------------------------------------------
+   Fingers, not cursors
+   -------------------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  /* Apple and Google both put 44 px at the edge of reliable; 38 px on a phone
+     is the kind of number that makes a user miss the button twice. */
+  .segment button {
+    min-height: 44px;
+  }
+
+  .nav__btn {
+    min-height: 52px;
+  }
+
+  .icon-btn,
+  .chip,
+  .preset-chip {
+    min-height: 44px;
+  }
+
+  .fader input[type='range'] {
+    height: 34px;
+  }
+
+  /* Hover styling is meaningless on touch and can stick after a tap. */
+  .plate:hover,
+  .preset-card:hover,
+  .btn:hover {
+    transform: none;
+  }
+}
+
+/* Scrollable inner surfaces get momentum on iOS, and stop chaining into the
+   page behind them. */
+html[data-os='ios'] .sheet__body,
+html[data-os='ipados'] .sheet__body,
+html[data-os='ios'] .ctrl-body,
+html[data-os='ipados'] .ctrl-body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* iOS zooms the viewport when a field smaller than 16 px receives focus. Every
+   input in the app is visually 11–13 px, so Safari users get a zoom jump on
+   every tap unless the field is at least 16 px. `max()` keeps the design for
+   platforms that do not have the bug. */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Readability on a phone: the console type scale goes down to 8 px on desktop,
+   which is legible at 60 cm and not at 30. Only sizes of *inputs* are raised —
+   dense readouts stay compact so the deck still fits one screen. */
+html[data-form='phone'] .input,
+html[data-form='tablet'] .input,
+html[data-form='phone'] select,
+html[data-form='phone'] textarea {
+  font-size: 16px;
+}
+
+html[data-form='phone'] .cap-list li,
+html[data-form='phone'] .ops-hint,
+html[data-form='phone'] .lab-group__note {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* Installed on iOS the web view runs under the status bar; the header needs the
+   inset, and the page needs the notch. */
+html[data-standalone='1'][data-os='ios'] .app-header,
+html[data-standalone='1'][data-os='ipados'] .app-header {
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+/* --------------------------------------------------------------------------
+   Viewport units
+   A phone browser shrinks 100vh when the URL bar shows. dvh is exact; the
+   fallback uses the value the shell wrote at boot for old WebViews.
+   -------------------------------------------------------------------------- */
+
+html[data-no-dvh='1'] {
+  --vh: 1vh;
+}
+
+html[data-no-dvh='1'] body {
+  min-height: calc(var(--vh, 1vh) * 100);
+}
+
+/* Keyboard open on a phone: the deck's bottom dock must ride above it rather
+   than behind it. `interactive-widget=resizes-content` in the viewport meta
+   does most of this; this covers Safari, which ignores it. */
+html[data-form='phone'] .dock {
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+
+/* --------------------------------------------------------------------------
+   Performance tier
+   A phone with four cores and 3 GB of RAM renders the same audio, but the
+   decorative layer is what makes scrolling stutter: backdrop blur, large
+   shadows, and gradients painted on every plate. The audio path is untouched.
+   -------------------------------------------------------------------------- */
+
+html[data-perf='lite'] {
+  --shadow: 0 8px 20px rgba(9, 18, 38, 0.1);
+  --shadow-sm: 0 1px 4px rgba(9, 18, 38, 0.05);
+}
+
+html[data-perf='lite'] .app-header,
+html[data-perf='lite'] .dock,
+html[data-perf='lite'] .sheet,
+html[data-perf='lite'] .gate__card {
+  backdrop-filter: none;
+}
+
+html[data-perf='lite'] .aurora,
+html[data-perf='lite'] .grain,
+html[data-perf='lite'] .noise {
+  display: none;
+}
+
+html[data-perf='lite'] .plate,
+html[data-perf='lite'] .preset-card,
+html[data-perf='lite'] .sheet,
+html[data-perf='lite'] .gate__card {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Long decorative transitions are the other half of "patah-patah": they keep
+   the compositor busy while the user scrolls. */
+html[data-perf='lite'] .plate,
+html[data-perf='lite'] .preset-card,
+html[data-perf='lite'] .btn,
+html[data-perf='lite'] .chip {
+  transition-duration: 0.08s;
+}
+
+html[data-perf='lite'] .screen.is-active {
+  animation: none;
+}
+
+html[data-perf='lite'] .reveal {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
+/* Without backdrop blur the scrim must still hide what is behind it. */
+html[data-no-blur='1'] .gate,
+html[data-no-blur='1'] .sheet-scrim {
+  backdrop-filter: none;
+  background: rgba(5, 8, 13, 0.82);
+}
+
+/* --------------------------------------------------------------------------
+   The gate
+   It is mandatory, so it has to be usable on a 320 px phone in landscape with
+   the keyboard open, and readable at 1440 px.
+   -------------------------------------------------------------------------- */
+
+body.gate-open {
+  overflow: hidden;
+}
+
+.gate {
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  overscroll-behavior: contain;
+}
+
+.gate__card {
+  max-height: min(92dvh, 680px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.gate__reason {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  border-left: 2px solid var(--amber);
+}
+
+.gate__help {
+  margin: 10px 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+
+.gate__help a {
+  color: var(--cobalt);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gate__foot {
+  margin: 14px 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+@media (max-height: 560px) {
+  .gate__card {
+    padding: 18px 16px 14px;
+  }
+
+  .gate__lede,
+  .gate__foot {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Capability lists (SYSTEM → PERANGKAT)
+   -------------------------------------------------------------------------- */
+
+.cap-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.cap-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--ink-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.cap-list li b {
+  color: var(--ink);
+  letter-spacing: 0.08em;
+}
+
+/* --------------------------------------------------------------------------
+   Desktop / tablet refinements
+   -------------------------------------------------------------------------- */
+
+/* A mouse gets a wider reading measure and a denser grid; a 27" monitor should
+   not show three enormous plates. */
+html[data-form='desktop'] .screen {
+  max-width: 1240px;
+}
+
+html[data-form='tablet'] .screen {
+  max-width: 980px;
+}
+
+/* Touch devices have no hover, so any affordance that only appears on hover is
+   unreachable. Reveal it permanently. */
+@media (hover: none) {
+  .history-row__actions,
+  .rate-row__actions,
+  .ab-slot__actions {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* Landscape phones: the header eats the viewport, so collapse it. */
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-form='phone'] .app-header {
+    padding-block: 6px;
+  }
+
+  html[data-form='phone'] .brand__sub {
+    display: none;
+  }
+
+  html[data-form='phone'] .dock {
+    display: none;
+  }
+}
+
+/* Reduced data: no decorative background image downloads were ever made, but
+   the aurora layer still costs paint. */
+html[data-perf='lite'] .aurora {
+  background: var(--canvas);
+}

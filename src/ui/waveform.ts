@@ -231,14 +231,15 @@ export function createWaveform(store: Store, onTrimChange: () => void): Waveform
     draw();
   }
 
+  // The observer already fires on rotation and on layout changes inside the
+  // sheet; a second window-level resize listener only drew twice and could
+  // never be removed.
   const ro = new ResizeObserver(() => draw());
   requestAnimationFrame(() => {
     ro.observe(canvas);
     draw();
     updateReadout();
   });
-
-  window.addEventListener('resize', () => draw());
 
   return {
     el: wrap,

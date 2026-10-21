@@ -87,8 +87,22 @@ export function adminPasswordMatches(input) {
 // Sessions
 // ---------------------------------------------------------------------------
 
-export function signSession({ tier, exp, subject, name }) {
-  const payload = b64url(JSON.stringify({ t: tier, e: exp, s: subject, n: name || '' }));
+/**
+ * `l` is the licensed serial a Google account redeemed, `d` the device it was
+ * redeemed on. Both are inside the signed payload, so neither can be edited by
+ * the browser; `d` is what stops a copied cookie from working on another phone.
+ */
+export function signSession({ tier, exp, subject, name, lic, dev }) {
+  const payload = b64url(
+    JSON.stringify({
+      t: tier,
+      e: exp,
+      s: subject,
+      n: name || '',
+      ...(lic ? { l: String(lic).toUpperCase() } : {}),
+      ...(dev ? { d: String(dev) } : {}),
+    }),
+  );
   return `${payload}.${hmac(payload)}`;
 }
 
@@ -109,7 +123,14 @@ export function readSession(token) {
   // A revoked licence must stop working immediately, even though its signature
   // and date are still valid.
   if (data.t !== 'admin' && isRevoked(subject)) return null;
-  return { tier: data.t, exp: data.e, subject, name: String(data.n ?? '') };
+  return {
+    tier: data.t,
+    exp: data.e,
+    subject,
+    name: String(data.n ?? ''),
+    lic: typeof data.l === 'string' ? data.l : null,
+    dev: typeof data.d === 'string' ? data.d : null,
+  };
 }
 
 /**
@@ -139,9 +160,29 @@ export function parseCookies(header = '') {
   return out;
 }
 
+/**
+ * The device a request claims to be. Absent on older clients, in which case the
+ * session is trusted as before rather than locking those users out mid-session.
+ */
+export function requestDevice(req) {
+  const raw = String(req.headers?.['x-aegis-device'] ?? '').trim();
+  return /^d[0-9a-f]{24,40}$/.test(raw) ? raw : '';
+}
+
+/**
+ * A session issued to one device is not valid on another, even when its cookie
+ * is copied verbatim. Sessions minted before device binding (no `d` claim) keep
+ * working until they expire.
+ */
 export function currentSession(req) {
   const cookies = parseCookies(req.headers?.cookie ?? '');
-  return readSession(cookies[COOKIE]);
+  const session = readSession(cookies[COOKIE]);
+  if (!session) return null;
+  if (session.dev) {
+    const presented = requestDevice(req);
+    if (!presented || presented !== session.dev) return null;
+  }
+  return session;
 }
 
 export function requireAdmin(req) {

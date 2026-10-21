@@ -1,7 +1,10 @@
 /**
  * Oscilloscope / spectrum panel. Draws the *rendered preview* when one exists,
  * otherwise a low-amplitude synthetic carrier so the cockpit never looks dead.
- * Runs on one rAF loop and stops when the tab is hidden.
+ * Runs on one rAF loop and stops when the tab is hidden or the panel is off
+ * screen. Colours and size are measured outside the loop: reading
+ * `getComputedStyle` or `getBoundingClientRect` on every frame forces a style
+ * and layout pass and is the usual reason a canvas overlay feels sticky.
  */
 import { setHtml } from '../security/sanitize';
 
@@ -31,10 +34,50 @@ export function createScope(): Scope {
   let raf = 0;
   let t = 0;
   let visible = true;
+  let last = 0;
+  let gradCache: CanvasGradient | null = null;
+
+  // A phone with a slow GPU cannot afford 60 fps of glow; the scope is an aid,
+  // not the product.
+  const lite = document.documentElement.dataset.perf === 'lite';
+  const frameMs = lite ? 1000 / 30 : 0;
+
+  let palette = { line: '#c9d2e0', cobalt: '#0b4fd6', crimson: '#d91e2b', inset: '#edf1f8' };
+  const readPalette = (): void => {
+    const css = getComputedStyle(document.body);
+    palette = {
+      line: css.getPropertyValue('--line').trim() || palette.line,
+      cobalt: css.getPropertyValue('--cobalt').trim() || palette.cobalt,
+      crimson: css.getPropertyValue('--crimson').trim() || palette.crimson,
+      inset: css.getPropertyValue('--inset').trim() || palette.inset,
+    };
+  };
+
+  let box = { w: 0, h: 0, dpr: 1 };
+  const measure = (): void => {
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.max(1, rect.width);
+    const h = Math.max(1, rect.height);
+    const dpr = Math.min(lite ? 1.5 : 2.5, window.devicePixelRatio || 1);
+    const pw = Math.round(w * dpr);
+    const ph = Math.round(h * dpr);
+    if (canvas.width !== pw || canvas.height !== ph) {
+      canvas.width = pw;
+      canvas.height = ph;
+      gradCache = null;
+    }
+    box = { w, h, dpr };
+  };
+
+  const ro = new ResizeObserver(() => {
+    measure();
+  });
+  ro.observe(el);
 
   const io = new IntersectionObserver((entries) => {
     visible = entries[0]?.isIntersecting ?? true;
     if (visible) start();
+    else stop();
   });
   io.observe(el);
 
@@ -45,8 +88,11 @@ export function createScope(): Scope {
 
   function start(): void {
     if (raf) return;
-    const tick = () => {
+    last = 0;
+    const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
+      if (frameMs && now - last < frameMs) return;
+      last = now;
       paint();
     };
     raf = requestAnimationFrame(tick);
@@ -57,25 +103,26 @@ export function createScope(): Scope {
     raf = 0;
   }
 
+  // One gradient reused: coordinates are relative to the fill rect below.
+  function scanGradient(ctx: CanvasRenderingContext2D): CanvasGradient {
+    if (gradCache) return gradCache;
+    const grad = ctx.createLinearGradient(0, 0, 60, 0);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.10)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    gradCache = grad;
+    return grad;
+  }
+
   function paint(): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    const w = Math.max(1, rect.width);
-    const h = Math.max(1, rect.height);
-    const dpr = Math.min(2.5, window.devicePixelRatio || 1);
-    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-    }
+    const { w, h, dpr } = box;
+    if (w <= 2 || h <= 2) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const css = getComputedStyle(document.body);
-    const line = css.getPropertyValue('--line').trim() || '#c9d2e0';
-    const cobalt = css.getPropertyValue('--cobalt').trim() || '#0b4fd6';
-    const crimson = css.getPropertyValue('--crimson').trim() || '#d91e2b';
-    const inset = css.getPropertyValue('--inset').trim() || '#edf1f8';
+    const { line, cobalt, crimson, inset } = palette;
 
     ctx.fillStyle = inset;
     ctx.fillRect(0, 0, w, h);
@@ -140,14 +187,19 @@ export function createScope(): Scope {
 
     // scanline
     const scanX = ((t * 90) % (w + 60)) - 30;
-    const grad = ctx.createLinearGradient(scanX - 30, 0, scanX + 30, 0);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.5, 'rgba(255,255,255,0.10)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(scanX - 30, 0, 60, h);
+    ctx.save();
+    ctx.translate(scanX - 30, 0);
+    ctx.fillStyle = scanGradient(ctx);
+    ctx.fillRect(0, 0, 60, h);
+    ctx.restore();
   }
 
+  readPalette();
+  measure();
+  // The palette follows the finish; re-read it when the theme settles instead
+  // of once per frame.
+  const themeWatch = new MutationObserver(() => readPalette());
+  themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-finish', 'data-theme'] });
   start();
 
   return {
@@ -166,6 +218,8 @@ export function createScope(): Scope {
     destroy() {
       stop();
       io.disconnect();
+      ro.disconnect();
+      themeWatch.disconnect();
     },
   };
 }

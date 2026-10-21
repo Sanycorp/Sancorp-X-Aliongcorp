@@ -1,23 +1,30 @@
 /**
- * First-visit sign-in.
+ * The sign-in gate.
  *
- * One screen, shown once, before the app is used: Google, or a PRO key, or
- * "lanjut tanpa akun". Nothing is mandatory — a free visitor can walk past it —
- * but it is the first thing a new visitor sees, which is where an account
- * belongs.
+ * Aegis Sound Lab requires an account: there is no "continue as guest". The
+ * gate is therefore a real modal — it cannot be dismissed by clicking outside,
+ * by Escape, or by reloading — and the shell behind it is inert until a session
+ * exists. The operator console (`#/control`) is the only route that opens
+ * without Google, because it has its own credential.
  *
  * Google sign-in is a server redirect (`/api/auth?google=start`), not a script
- * from accounts.google.com: this app's CSP allows scripts only from its own
- * origin, and that is worth more than a one-tap popup.
+ * from accounts.google.com: the CSP allows scripts from this origin only, and
+ * that is worth more than a one-tap popup.
+ *
+ * A PRO key is not a second way in. It is a claim the signed-in account makes
+ * once inside (AKUN → AKTIFKAN KUNCI), which is what lets the server tie the key
+ * to one account and one device.
  */
 import { session } from '../state/session';
-import { button, el, toast } from './elements';
-import { openAccount } from './account';
+import { button, el } from './elements';
+import { TELEGRAM_HANDLE } from '../model/contact';
 
-const SEEN = 'aegis.gate.seen';
 const REMEMBER = 'aegis.gate.remember';
 
 let host: HTMLElement | null = null;
+let lastReason = '';
+let renderedGoogle: boolean | null = null;
+let trapBound = false;
 
 function rememberDefault(): boolean {
   try {
@@ -27,27 +34,24 @@ function rememberDefault(): boolean {
   }
 }
 
-function markSeen(): void {
-  try {
-    localStorage.setItem(SEEN, '1');
-  } catch {
-    /* private mode: the gate simply shows again next visit */
-  }
+export function gateOpen(): boolean {
+  return host !== null;
 }
 
-export function gateSeen(): boolean {
-  try {
-    return localStorage.getItem(SEEN) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function close(): void {
+function remove(): void {
   host?.classList.remove('is-open');
+  renderedGoogle = null;
   const node = host;
   host = null;
-  window.setTimeout(() => node?.remove(), 220);
+  document.body.classList.remove('gate-open');
+  document.getElementById('app')?.removeAttribute('inert');
+  window.setTimeout(() => node?.remove(), 200);
+}
+
+/** Closes the gate — only after the server has confirmed a session. */
+export function closeGate(): void {
+  if (!host) return;
+  remove();
 }
 
 function googleIcon(): HTMLElement {
@@ -59,8 +63,57 @@ function googleIcon(): HTMLElement {
   });
 }
 
-export function openGate(): void {
-  if (host) return;
+function trap(container: HTMLElement): void {
+  // Bound once per page. Binding on every open would stack one listener per
+  // sign-in attempt for as long as the tab lives.
+  if (trapBound) return;
+  trapBound = true;
+  document.addEventListener('keydown', (ev) => {
+    if (!host) return;
+    // The gate is mandatory: Escape must not dismiss it.
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      return;
+    }
+    if (ev.key !== 'Tab') return;
+    const items = Array.from(
+      container.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])'),
+    ).filter((n) => n.offsetParent !== null);
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (ev.shiftKey && document.activeElement === first) {
+      ev.preventDefault();
+      last.focus();
+    } else if (!ev.shiftKey && document.activeElement === last) {
+      ev.preventDefault();
+      first.focus();
+    }
+  });
+}
+
+/**
+ * Opens (or refreshes) the gate. Safe to call repeatedly: a second call while
+ * it is open only updates the reason line.
+ */
+export function openGate(reason = ''): void {
+  if (host) {
+    // Google availability is only known after /api/auth answers. If it changed
+    // while the gate was up, rebuild so the button stops being disabled.
+    if (renderedGoogle !== session.state.google) {
+      remove();
+    } else {
+      if (reason && reason !== lastReason) {
+        lastReason = reason;
+        const note = host.querySelector('.gate__reason');
+        if (note) note.textContent = reason;
+        else host.querySelector('.gate__card')?.prepend(el('p', { class: 'gate__reason', text: reason }));
+      }
+      return;
+    }
+  }
+  lastReason = reason;
+  renderedGoogle = session.state.google;
 
   let remember = rememberDefault();
 
@@ -78,96 +131,92 @@ export function openGate(): void {
     }
   });
 
-  const google = button('LANJUT DENGAN GOOGLE', {
+  const google = button('MASUK DENGAN GOOGLE', {
     tone: 'primary',
     block: true,
     onClick: () => {
-      markSeen();
       session.signInGoogle(remember);
     },
   });
   google.classList.add('gate__google');
   google.prepend(googleIcon());
 
-  if (!session.state.google) {
+  const disabled = !session.state.google;
+  if (disabled) {
     google.disabled = true;
     google.title = 'Masuk dengan Google belum diaktifkan operator';
   }
 
-  const gate = el(
+  const card = el(
     'div',
-    { class: 'gate' },
+    { class: 'gate__card', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gate-title' } },
+    el('div', { class: 'gate__kicker', text: 'AEGIS SOUND LAB' }),
+    el('h2', { class: 'gate__title', attrs: { id: 'gate-title' }, text: 'MASUK' }),
+    el('p', {
+      class: 'gate__lede',
+      text: 'Aplikasi ini memakai akun Google. Tanpa akun, deck tidak bisa dipakai — ini bukan halaman opsional.',
+    }),
+    reason ? el('p', { class: 'gate__reason', text: reason }) : null,
+    google,
+    disabled
+      ? el('p', {
+          class: 'gate__note',
+          text: 'Login Google belum aktif di server ini. Hubungi operator agar GOOGLE_CLIENT_ID dan GOOGLE_CLIENT_SECRET dipasang, lalu muat ulang halaman.',
+        })
+      : null,
     el(
-      'div',
-      { class: 'gate__card', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'gate-title' } },
-      el('div', { class: 'gate__kicker', text: 'SELAMAT DATANG' }),
-      el('h2', { class: 'gate__title', attrs: { id: 'gate-title' }, text: 'MASUK' }),
-      el('p', {
-        class: 'gate__lede',
-        text: 'Masuk dengan akun Google supaya PRO melekat di akunmu, bukan di satu perangkat. Tanpa akun pun aplikasinya tetap bisa dipakai.',
+      'label',
+      { class: 'gate__remember', attrs: { for: 'gate-remember' } },
+      rememberBox,
+      el(
+        'span',
+        {},
+        el('b', { text: 'Ingat saya di perangkat ini' }),
+        el('small', { text: 'Sesi bertahan 30 hari. Kalau dimatikan, keluar saat browser ditutup.' }),
+      ),
+    ),
+    el('p', {
+      class: 'gate__foot',
+      text: 'Yang disimpan hanya email dan masa berlaku, di dalam cookie bertanda tangan. Tidak ada kata sandi, tidak ada pelacakan.',
+    }),
+    el(
+      'p',
+      { class: 'gate__help' },
+      el('span', { text: 'Punya kunci PRO? Masuk dulu, lalu tempel kuncinya di AKUN. ' }),
+      el('a', {
+        attrs: { href: `https://t.me/${TELEGRAM_HANDLE.replace(/^@/, '')}`, target: '_blank', rel: 'noopener noreferrer' },
+        text: 'Butuh bantuan?',
       }),
-      google,
-      session.state.google
-        ? null
-        : el('p', {
-            class: 'gate__note',
-            text: 'Google belum aktif di server. Sementara ini masuk dengan kunci PRO di bawah, atau lanjut tanpa akun.',
-          }),
-      el(
-        'label',
-        { class: 'gate__remember', attrs: { for: 'gate-remember' } },
-        rememberBox,
-        el('span', {}, el('b', { text: 'Ingat saya di perangkat ini' }), el('small', { text: 'Sesi bertahan 30 hari. Kalau dimatikan, keluar saat browser ditutup.' })),
-      ),
-      el(
-        'div',
-        { class: 'gate__alt' },
-        button('PUNYA KUNCI PRO?', {
-          tone: 'ghost',
-          size: 'sm',
-          onClick: () => {
-            markSeen();
-            close();
-            openAccount();
-          },
-        }),
-        button('LANJUT TANPA AKUN', {
-          tone: 'ghost',
-          size: 'sm',
-          onClick: () => {
-            markSeen();
-            close();
-          },
-        }),
-      ),
-      el('p', { class: 'gate__foot', text: 'Tidak ada email yang disimpan di server. Sesi hanya cookie bertanda tangan.' }),
+    ),
+    el(
+      'p',
+      { class: 'gate__help' },
+      el('a', { attrs: { href: '#/control' }, text: 'Operator: buka konsol' }),
     ),
   );
 
-  gate.addEventListener('click', (ev) => {
-    if (ev.target === gate) {
-      markSeen();
-      close();
-    }
-  });
+  const gate = el('div', { class: 'gate' }, card);
 
+  // No click-outside close and no Escape: the gate is the door, not a popup.
   host = gate;
   document.body.appendChild(gate);
-  requestAnimationFrame(() => gate.classList.add('is-open'));
+  document.body.classList.add('gate-open');
+  // The shell behind the gate must not be reachable by keyboard or screen reader.
+  document.getElementById('app')?.setAttribute('inert', '');
+  trap(card);
+  requestAnimationFrame(() => {
+    gate.classList.add('is-open');
+    (card.querySelector('.gate__google') as HTMLButtonElement | null)?.focus();
+  });
 }
 
-/** `\/?masuk=ok|gagal` comes back from the Google redirect. */
-export function readRedirect(): void {
-  if (typeof location === 'undefined') return;
+/** `/?masuk=ok|gagal` comes back from the Google redirect. */
+export function readRedirect(): 'ok' | 'gagal' | null {
+  if (typeof location === 'undefined') return null;
   const url = new URL(location.href);
   const result = url.searchParams.get('masuk');
-  if (!result) return;
+  if (!result) return null;
   url.searchParams.delete('masuk');
-  history.replaceState(null, '', url.pathname + url.hash);
-  if (result === 'ok') {
-    markSeen();
-    toast('Masuk — akun terbaca', 'ok', 2200);
-  } else {
-    toast('Masuk dengan Google gagal. Coba lagi.', 'err', 2600);
-  }
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+  return result === 'ok' ? 'ok' : 'gagal';
 }

@@ -10,6 +10,7 @@
  * one without a database. Renewal keeps the original serial, which is what the
  * operator's ledger uses as the account id.
  */
+import { deviceSummary, releaseDevice } from './_lib/devices.js';
 import {
   ADMIN_PASSWORD,
   IS_DEV_SECRET,
@@ -40,6 +41,7 @@ export default async function handler(req, res) {
       devSecret: IS_DEV_SECRET,
       revoked: REVOKED_SERIALS.size,
       days: ALLOWED_DAYS,
+      devices: await deviceSummary(),
       now: Date.now(),
     });
     return;
@@ -85,6 +87,19 @@ export default async function handler(req, res) {
       expires: found.exp,
       revoked: REVOKED_SERIALS.has(found.serial),
     });
+    return;
+  }
+
+  if (op === 'unbind') {
+    // Moving a key to a new phone: forget which device claimed it.
+    const found = verifyLicense(body.key, { allowExpired: true });
+    const serial = String(body.serial || found?.serial || '').toUpperCase();
+    if (!/^[A-Z0-9]{4,10}$/.test(serial)) {
+      json(res, 400, { error: 'bad_serial' });
+      return;
+    }
+    const result = await releaseDevice(serial);
+    json(res, result.ok ? 200 : 409, { ...result, serial });
     return;
   }
 

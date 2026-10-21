@@ -30,8 +30,10 @@ export function redirectUri(origin) {
  * State is a signed, timestamped nonce: it proves the callback belongs to a
  * flow this server started, without a session table to store it in.
  */
-export function makeState(remember, now = Date.now()) {
-  const payload = `${now}.${remember ? '1' : '0'}.${randomBytes(9).toString('base64url')}`;
+export function makeState(remember, device = '', now = Date.now()) {
+  // The device id travels inside the signed state so the callback can bind the
+  // new session to the browser that started the flow.
+  const payload = `${now}.${remember ? '1' : '0'}.${String(device || '')}.${randomBytes(9).toString('base64url')}`;
   const sig = createHmac('sha256', SECRET).update(`state|${payload}`).digest('base64url');
   return `${Buffer.from(payload).toString('base64url')}.${sig}`;
 }
@@ -49,10 +51,10 @@ export function readState(raw, now = Date.now(), maxAgeMs = 10 * 60_000) {
   const left = Buffer.from(sig);
   const right = Buffer.from(expected);
   if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
-  const [stamp, remember] = payload.split('.');
+  const [stamp, remember, device = ''] = payload.split('.');
   const at = Number(stamp);
   if (!Number.isFinite(at) || Math.abs(now - at) > maxAgeMs) return null;
-  return { remember: remember === '1' };
+  return { remember: remember === '1', device: /^d[0-9a-f]{24,40}$/.test(device) ? device : '' };
 }
 
 export function authorizeUrl({ origin, state, loginHint = '' }) {
@@ -114,11 +116,12 @@ export function decodeIdToken(token) {
 }
 
 /** Session payload for a Google identity, with the grant applied. */
-export function googleSession(identity, premium, remember) {
+export function googleSession(identity, premium, remember, device = '') {
   const days = 30;
   const exp = Math.min(Date.now() + days * 86_400_000, premium ? premium.exp : Infinity);
+  const tier = premium ? 'pro' : 'free';
   return {
-    session: signSession({ tier: premium ? 'pro' : 'free', exp, subject: identity.email, name: identity.name }),
-    payload: { tier: premium ? 'pro' : 'free', exp, subject: identity.email, name: identity.name, remember },
+    session: signSession({ tier, exp, subject: identity.email, name: identity.name, dev: device }),
+    payload: { tier, exp, subject: identity.email, name: identity.name, remember, dev: device },
   };
 }
