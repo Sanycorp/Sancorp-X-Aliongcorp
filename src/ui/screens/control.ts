@@ -1010,7 +1010,7 @@ export function createControl(): Screen {
       info.mode === 'session'
         ? el('p', {
             class: 'ops-hint',
-            text: 'Aktifkan penguncian: buat token GitHub berisi izin isi repo, simpan sebagai AEGIS_LEDGER_TOKEN, lalu deploy ulang. Tanpa itu, sesi tetap bertanda tangan perangkat tetapi server tidak menyimpan ikatan antar kunjungan.',
+            text: 'Aktifkan penguncian: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → pilih repo ini → Repository permissions → Contents: Read and write → generate. Simpan hasilnya di Vercel sebagai AEGIS_LEDGER_TOKEN, lalu deploy ulang. Tanpa token, sesi tetap terikat ke perangkat yang memintanya tetapi server tidak menyimpan ikatan antar kunjungan.',
           })
         : null,
       info.mode === 'degraded'

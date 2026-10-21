@@ -1,7 +1,15 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeLicense, sessionCookie, signSession } from '../api/_lib/auth.js';
-import { DEVICE_SHAPE, claimDevice, deviceSummary, ledgerMode, readLedger, resetLedgerCache } from '../api/_lib/devices.js';
+import {
+  DEVICE_SHAPE,
+  claimDevice,
+  deviceSummary,
+  ledgerMode,
+  readLedger,
+  releaseDevice,
+  resetLedgerCache,
+} from '../api/_lib/devices.js';
 import { deviceId, deviceShort, resetDeviceCache } from '../src/state/device';
 
 const A = 'd0123456789abcdef0123456789abcdef';
@@ -224,5 +232,81 @@ describe('sessions carry the licence and the device', () => {
     const forged = Buffer.from(JSON.stringify({ t: 'pro', e: Date.now() + 86_400_000, s: 'a@b.c', d: A })).toString('base64url');
     expect(readSession(`${forged}.${sig}`)).toBeNull();
     expect(readSession(`${payload}.${sig.slice(0, -1)}x`)).toBeNull();
+  });
+});
+
+describe('the GitHub ledger, against a fake contents API', () => {
+  const A2 = 'd11111111111111111111111111111aaa';
+  const B2 = 'd22222222222222222222222222222bbb';
+
+  /** A tiny stand-in for `GET/PUT /repos/:owner/:repo/contents/store/devices.json`. */
+  function fakeGitHub(initial: Record<string, { device: string; email: string; at: string }> | null) {
+    let file: string | null = initial ? JSON.stringify({ version: 1, devices: initial }) : null;
+    let sha = initial ? 'sha-1' : null;
+    let counter = 1;
+    const calls: string[] = [];
+
+    const fetchMock = async (url: string, init: RequestInit = {}) => {
+      const method = init.method ?? 'GET';
+      calls.push(method);
+      if (method === 'GET') {
+        if (file === null) return { ok: false, status: 404, json: async () => ({}) } as Response;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ content: Buffer.from(file as string).toString('base64'), sha }),
+        } as Response;
+      }
+      const body = JSON.parse(String(init.body));
+      if (body.sha && body.sha !== sha) return { ok: false, status: 409, json: async () => ({}) } as Response;
+      file = Buffer.from(body.content, 'base64').toString('utf8');
+      sha = `sha-${++counter}`;
+      return { ok: true, status: 200, json: async () => ({ content: { sha } }) } as Response;
+    };
+    return { fetchMock, calls, read: () => (file ? JSON.parse(file).devices : {}) };
+  }
+
+  it('binds the first device and refuses the second, then lets the operator release it', async () => {
+    process.env.AEGIS_LEDGER_TOKEN = 'fake-token';
+    const gh = fakeGitHub(null);
+    const original = globalThis.fetch;
+    globalThis.fetch = gh.fetchMock as never;
+    try {
+      expect(ledgerMode()).toBe('github');
+      expect(await claimDevice({ serial: 'SER1AAAA', device: A2, email: 'a@b.c' })).toMatchObject({
+        ok: true,
+        mode: 'github',
+      });
+      expect(gh.read().SER1AAAA).toMatchObject({ device: A2, email: 'a@b.c' });
+
+      expect(await claimDevice({ serial: 'ser1aaaa', device: B2 })).toMatchObject({
+        ok: false,
+        reason: 'device_bound',
+      });
+
+      // Same device again is fine: a reinstall of the same browser profile must
+      // not look like a second phone.
+      expect(await claimDevice({ serial: 'SER1AAAA', device: A2 })).toMatchObject({ ok: true });
+
+      resetLedgerCache();
+      expect(await deviceSummary()).toMatchObject({ mode: 'github', bound: 1, canRelease: true });
+
+      expect(await releaseDevice('SER1AAAA')).toMatchObject({ ok: true, removed: true });
+      expect(gh.read().SER1AAAA).toBeUndefined();
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('does not lock a paying customer out when GitHub is down', async () => {
+    process.env.AEGIS_LEDGER_TOKEN = 'fake-token';
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => ({ ok: false, status: 503, json: async () => ({}) }) as Response) as never;
+    try {
+      const claim = await claimDevice({ serial: 'SER2BBBB', device: A2 });
+      expect(claim).toMatchObject({ ok: true, mode: 'degraded' });
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

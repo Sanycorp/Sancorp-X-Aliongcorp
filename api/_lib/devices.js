@@ -23,18 +23,21 @@
  * ledger call degrades to `session` for that request.
  */
 
-const REPO = String(process.env.AEGIS_FEEDBACK_REPO || 'Sanycorp/Sancorp-X-Aliongcorp').trim();
-const TOKEN = String(process.env.AEGIS_LEDGER_TOKEN || process.env.AEGIS_FEEDBACK_TOKEN || '').trim();
-const BRANCH = String(process.env.AEGIS_LEDGER_BRANCH || 'main').trim();
+// Read through functions, not constants: a warm serverless instance keeps the
+// module alive between requests, and a deployment that adds the token must take
+// effect without waiting for a cold start.
+const repo = () => String(process.env.AEGIS_FEEDBACK_REPO || 'Sanycorp/Sancorp-X-Aliongcorp').trim();
+const token = () => String(process.env.AEGIS_LEDGER_TOKEN || process.env.AEGIS_FEEDBACK_TOKEN || '').trim();
+const branch = () => String(process.env.AEGIS_LEDGER_BRANCH || 'main').trim();
 const FILE = 'store/devices.json';
-const API = `https://api.github.com/repos/${REPO}/contents/${FILE}`;
+const apiUrl = () => `https://api.github.com/repos/${repo()}/contents/${FILE}`;
 const TTL_MS = 30_000;
 const TIMEOUT_MS = 2500;
 
 export const DEVICE_SHAPE = /^d[0-9a-f]{24,40}$/;
 
 export function ledgerMode() {
-  if (TOKEN) return 'github';
+  if (token()) return 'github';
   if (manualLocks().size > 0) return 'lock';
   return 'session';
 }
@@ -60,7 +63,7 @@ async function call(url, init = {}) {
       ...init,
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${TOKEN}`,
+        Authorization: `Bearer ${token()}`,
         Accept: 'application/vnd.github+json',
         'Content-Type': 'application/json',
         'User-Agent': 'aegis-m-devices',
@@ -74,10 +77,10 @@ async function call(url, init = {}) {
 
 /** Reads the ledger, at most once per instance per 30 s. */
 export async function readLedger({ fresh = false } = {}) {
-  if (!TOKEN) return { ok: true, mode: 'session', devices: {} };
+  if (!token()) return { ok: true, mode: 'session', devices: {} };
   if (!fresh && Date.now() - cache.at < TTL_MS) return { ok: true, mode: 'github', devices: cache.devices, sha: cache.sha };
   try {
-    const res = await call(`${API}?ref=${encodeURIComponent(BRANCH)}`, { method: 'GET' });
+    const res = await call(`${apiUrl()}?ref=${encodeURIComponent(branch())}`, { method: 'GET' });
     if (res.status === 404) {
       cache = { at: Date.now(), sha: null, devices: {} };
       return { ok: true, mode: 'github', devices: {}, sha: null };
@@ -102,12 +105,16 @@ export async function readLedger({ fresh = false } = {}) {
 async function writeLedger(devices, sha, message) {
   const body = {
     message,
-    branch: BRANCH,
+    branch: branch(),
     content: Buffer.from(`${JSON.stringify({ version: 1, devices }, null, 2)}\n`).toString('base64'),
     ...(sha ? { sha } : {}),
   };
-  const res = await call(API, { method: 'PUT', body: JSON.stringify(body) });
-  return res.ok;
+  const res = await call(apiUrl(), { method: 'PUT', body: JSON.stringify(body) });
+  if (!res.ok) return { ok: false };
+  // The PUT answers with the new blob sha; keeping it avoids a stale-sha 409 on
+  // the next write within the same warm instance.
+  const data = await res.json().catch(() => ({}));
+  return { ok: true, sha: data?.content?.sha ?? null };
 }
 
 /**
@@ -145,14 +152,17 @@ export async function claimDevice({ serial, device, email = '' }) {
     [key]: { device, email: String(email || '').toLowerCase(), at: new Date().toISOString() },
   };
   const written = await writeLedger(next, ledger.sha, `license: bind ${key} to one device`);
-  if (!written) {
+  if (!written.ok) {
     // Optimistic lock clash (another claim landed first): re-read and compare.
     const again = await readLedger({ fresh: true });
     const now = again.devices?.[key];
     if (now?.device && now.device !== device) return { ok: false, mode: 'github', reason: 'device_bound' };
     if (!again.ok) return { ok: true, mode: 'degraded' };
+    // The write lost for some other reason; do not claim a binding we did not
+    // record.
+    return { ok: false, mode: 'github', reason: 'write_failed' };
   }
-  cache = { at: Date.now(), sha: cache.sha, devices: next };
+  cache = { at: Date.now(), sha: written.sha ?? ledger.sha, devices: next };
   return { ok: true, mode: 'github' };
 }
 
@@ -160,7 +170,7 @@ export async function claimDevice({ serial, device, email = '' }) {
 export async function releaseDevice(serial) {
   const key = String(serial || '').toUpperCase();
   if (!key) return { ok: false, reason: 'bad_serial' };
-  if (!TOKEN) {
+  if (!token()) {
     return { ok: false, mode: ledgerMode(), reason: 'ledger_off' };
   }
   const ledger = await readLedger({ fresh: true });
@@ -169,8 +179,8 @@ export async function releaseDevice(serial) {
   const next = { ...ledger.devices };
   delete next[key];
   const written = await writeLedger(next, ledger.sha, `license: release ${key}`);
-  if (!written) return { ok: false, mode: 'github', reason: 'write_failed' };
-  cache = { at: Date.now(), sha: cache.sha, devices: next };
+  if (!written.ok) return { ok: false, mode: 'github', reason: 'write_failed' };
+  cache = { at: Date.now(), sha: written.sha ?? ledger.sha, devices: next };
   return { ok: true, mode: 'github', removed: true };
 }
 
@@ -196,7 +206,7 @@ export async function deviceSummary() {
     at: null,
     source: 'lock',
   }));
-  if (!TOKEN) {
+  if (!token()) {
     return { mode: ledgerMode(), bound: manual.length, manual: manual.length, canRelease: false, devices: manual };
   }
   const ledger = await readLedger();
@@ -214,7 +224,7 @@ export async function deviceSummary() {
     mode: ledger.ok ? 'github' : 'degraded',
     bound: Object.keys(ledger.devices || {}).length,
     manual: manual.length,
-    canRelease: Boolean(ledger.ok && TOKEN),
+    canRelease: Boolean(ledger.ok && token()),
     devices: [...rows, ...manual],
   };
 }
