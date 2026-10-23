@@ -1,0 +1,288 @@
+name: analyze
+
+# Turns one shared audio file into a measurement report the presets can be
+# built from: loudness, true peak, tonal balance, stereo width, dynamics, tempo
+# and key. No guessing, no "sounds warm" — numbers or nothing.
+#
+# It runs on a runner because the file lives on Drive and the build machine has
+# no ffmpeg; the report is committed to a branch so the app side can read it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Google Drive file id or share URL (must be public)'
+        required: true
+      label:
+        description: 'Short slug for the report file'
+        required: false
+        default: 'track'
+  push:
+    paths:
+      - '.github/workflows/analyze.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  measure:
+    name: Measure the track
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INPUT_URL: ${{ inputs.url }}
+      LABEL: ${{ inputs.label || 'track' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve and validate the URL
+        id: src
+        run: |
+          set -euo pipefail
+          raw="${INPUT_URL:-}"
+          if [ -z "$raw" ]; then
+            echo "no url on this trigger — nothing to measure"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          id=$(printf '%s' "$raw" | sed -n 's#.*/file/d/\([A-Za-z0-9_-]\{10,\}\).*#\1#p')
+          if [ -z "$id" ]; then
+            id=$(printf '%s' "$raw" | sed -n 's#.*[?&]id=\([A-Za-z0-9_-]\{10,\}\).*#\1#p')
+          fi
+          if [ -z "$id" ]; then
+            id="$raw"
+          fi
+          if ! printf '%s' "$id" | grep -qE '^[A-Za-z0-9_-]{10,}$'; then
+            echo "not a Drive id: refusing to fetch arbitrary hosts" >&2
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "file id: $id"
+
+      - name: Download from Drive
+        if: steps.src.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          id="${{ steps.src.outputs.id }}"
+          mkdir -p /tmp/in
+          ok=0
+          for u in \
+            "https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t" \
+            "https://drive.google.com/uc?export=download&id=${id}&confirm=t"
+          do
+            if curl -fsSL --retry 3 --max-time 300 -o /tmp/in/source "$u"; then
+              size=$(stat -c%s /tmp/in/source)
+              if [ "$size" -gt 100000 ]; then ok=1; echo "downloaded $size bytes from $u"; break; fi
+            fi
+          done
+          if [ "$ok" != "1" ]; then
+            echo "download failed — the file is probably not shared publicly" >&2
+            head -c 400 /tmp/in/source 2>/dev/null | tr -d '\0' || true
+            exit 1
+          fi
+          file /tmp/in/source || true
+
+      - name: Install ffmpeg and python deps
+        if: steps.src.outputs.skip == 'false'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python3 -m pip install --quiet numpy scipy
+
+      - name: Probe and measure
+        if: steps.src.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p analysis
+          mkdir -p /tmp/w
+          cp /tmp/in/source "/tmp/w/source"
+          echo '--- ffprobe'
+          ffprobe -v error -show_format -show_streams -of json /tmp/w/source > /tmp/w/probe.json || true
+          cat /tmp/w/probe.json | head -c 2000; echo
+          echo '--- decode 48k stereo float'
+          ffmpeg -v error -y -i /tmp/w/source -ac 2 -ar 48000 -f f32le -acodec pcm_f32le /tmp/w/stereo.f32
+          ls -l /tmp/w/stereo.f32
+          echo '--- ebur128'
+          ffmpeg -hide_banner -nostats -i /tmp/w/source -af ebur128=peak=true -f null - 2> /tmp/w/ebur128.txt || true
+          tail -n 24 /tmp/w/ebur128.txt
+          python3 - "${{ steps.src.outputs.id }}" "${LABEL:-track}" <<'PY'
+          import json, math, os, sys
+          import numpy as np
+
+          fid, label = sys.argv[1], sys.argv[2]
+          raw = np.fromfile('/tmp/w/stereo.f32', dtype='<f4')
+          if raw.size % 2 == 0:
+              raw = raw.reshape(-1, 2)
+          L = raw[:, 0].astype(np.float64)
+          R = raw[:, 1].astype(np.float64)
+          sr = 48000
+          n = L.size
+          dur = n / sr
+
+          probe = {}
+          try:
+              probe = json.load(open('/tmp/w/probe.json'))
+          except Exception:
+              pass
+          fmt = probe.get('format', {}) or {}
+
+          def db(x):
+              return float(20 * math.log10(max(float(x), 1e-12)))
+
+          mid = (L + R) / 2
+          side = (L - R) / 2
+          rms = math.sqrt(float(np.mean(mid ** 2)) + float(np.mean(side ** 2)))
+          peak = float(max(np.max(np.abs(L)), np.max(np.abs(R))))
+          side_ratio = float(np.sum(side ** 2) / max(np.sum(mid ** 2) + np.sum(side ** 2), 1e-12))
+
+          # Spectrum of the whole file, averaged in 4 s windows.
+          win = sr * 4
+          bands = {
+              'sub_20_60': (20, 60), 'bass_60_120': (60, 120), 'low_120_250': (120, 250),
+              'lowmid_250_500': (250, 500), 'mid_500_1k': (500, 1000),
+              'upmid_1k_2k': (1000, 2000), 'presence_2k_4k': (2000, 4000),
+              'brilliance_4k_8k': (4000, 8000), 'air_8k_16k': (8000, 16000),
+          }
+          acc = {k: 0.0 for k in bands}
+          total = 0.0
+          cents = []
+          rolls = []
+          freqs = np.fft.rfftfreq(win, 1 / sr)
+          for start in range(0, max(n - win, 1), win):
+              chunk = mid[start:start + win]
+              if chunk.size < win:
+                  break
+              spec = np.abs(np.fft.rfft(chunk * np.hanning(win))) ** 2
+              total += float(spec.sum())
+              for k, (lo, hi) in bands.items():
+                  acc[k] += float(spec[(freqs >= lo) & (freqs < hi)].sum())
+              mag = np.sqrt(spec)
+              cents.append(float((freqs * mag).sum() / max(mag.sum(), 1e-12)))
+              cum = np.cumsum(spec)
+              rolls.append(float(freqs[np.searchsorted(cum, cum[-1] * 0.85)]))
+
+          band_db = {k: round(10 * math.log10(max(acc[k], 1e-12) / max(total, 1e-12)), 2) for k in bands}
+          centroid = round(float(np.mean(cents)), 1) if cents else None
+          rolloff = round(float(np.mean(rolls)), 1) if rolls else None
+
+          # Dynamics: 1 s RMS spread, and crest factor.
+          hop = sr
+          frames = [mid[i:i + hop] for i in range(0, max(n - hop, 1), hop)]
+          frame_rms = np.array([math.sqrt(float(np.mean(f ** 2)) + 1e-18) for f in frames])
+          frame_db = 20 * np.log10(frame_rms + 1e-12)
+          dynamic_range = round(float(np.percentile(frame_db, 95) - np.percentile(frame_db, 10)), 2)
+          crest = round(db(peak) - db(rms), 2)
+
+          # Tempo: autocorrelation of a 50 Hz onset envelope.
+          env_rate = 50
+          step = max(sr // env_rate, 1)
+          mono = np.abs(mid)
+          env = np.array([mono[i:i + step].max() for i in range(0, n - step, step)])
+          flux = np.maximum(np.diff(env, prepend=env[0]), 0)
+          flux = flux - flux.mean()
+          ac = np.correlate(flux, flux, mode='full')[len(flux) - 1:]
+          lo_lag = int(env_rate * 60 / 180)
+          hi_lag = int(env_rate * 60 / 60)
+          best, best_val = None, -1e18
+          for lag in range(lo_lag, min(hi_lag, len(ac))):
+              if ac[lag] > best_val:
+                  best_val, best = ac[lag], lag
+          bpm = round(60 * env_rate / best, 1) if best else None
+
+          # Rough tail length: how long the envelope stays above -30 dB after a
+          # loud hit, averaged over the 20 strongest transients.
+          thresh = np.percentile(env, 99.5)
+          hits = np.where((env[1:-1] > thresh) & (env[1:-1] >= env[:-2]) & (env[1:-1] > env[2:]))[0] + 1
+          tails = []
+          for h in hits[:20]:
+              j = h
+              while j < len(env) and env[j] > thresh * 0.03:
+                  j += 1
+              tails.append((j - h) / env_rate)
+          tail = round(float(np.median(tails)), 3) if tails else None
+
+          # Key: chroma from the strongest 60 s of the file.
+          seg_start = 0
+          seg = mid[seg_start:seg_start + min(n, sr * 60)]
+          spec = np.abs(np.fft.rfft(seg * np.hanning(seg.size)))
+          f = np.fft.rfftfreq(seg.size, 1 / sr)
+          chroma = np.zeros(12)
+          names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+          mask = (f > 65) & (f < 2000)
+          for freq, mag in zip(f[mask], spec[mask]):
+              if mag <= 0:
+                  continue
+              pitch = 69 + 12 * math.log2(freq / 440)
+              chroma[int(round(pitch)) % 12] += mag
+          chroma = chroma / max(chroma.sum(), 1e-12)
+          order = np.argsort(chroma)[::-1]
+          key = f"{names[order[0]]} / {names[order[1]]} (chroma {chroma[order[0]]:.0%})"
+
+          ebur = open('/tmp/w/ebur128.txt').read() if os.path.exists('/tmp/w/ebur128.txt') else ''
+          def grab(label, pattern):
+              import re
+              m = re.search(pattern + r'[:\s]+([-0-9.]+)', ebur)
+              return float(m.group(1)) if m else None
+
+          report = {
+              'fileId': fid,
+              'label': label,
+              'format': {
+                  'name': fmt.get('format_name'),
+                  'durationSec': round(float(fmt.get('duration', dur)), 3),
+                  'sizeBytes': int(fmt.get('size', 0) or 0),
+                  'bitRate': int(fmt.get('bit_rate', 0) or 0),
+                  'codec': (probe.get('streams') or [{}])[0].get('codec_name'),
+                  'channels': (probe.get('streams') or [{}])[0].get('channels'),
+                  'sampleRate': (probe.get('streams') or [{}])[0].get('sample_rate'),
+              },
+              'level': {
+                  'integratedLufs': grab('I', r'Integrated loudness:\s*I'),
+                  'loudnessRange': grab('LRA', r'Loudness range:\s*LRA'),
+                  'truePeakDb': grab('Peak', r'True peak:\s*Peak'),
+                  'peakSampleDb': round(db(peak), 2),
+                  'rmsDb': round(db(rms), 2),
+                  'crestDb': crest,
+              },
+              'balance': {'bandsDb': band_db, 'centroidHz': centroid, 'rolloff85Hz': rolloff},
+              'space': {'sideEnergyRatio': round(side_ratio, 3), 'tailSeconds': tail},
+              'dynamics': {'rangeDb': dynamic_range},
+              'rhythm': {'bpm': bpm},
+              'tonality': {'key': key},
+              'notes': [],
+          }
+
+          if band_db['air_8k_16k'] < -30:
+              report['notes'].append('dark top end: air band is 30+ dB below total')
+          if band_db['sub_20_60'] > -18:
+              report['notes'].append('heavy sub content: mono bass required')
+          if side_ratio < 0.05:
+              report['notes'].append('narrow / near-mono image')
+          if crest < 8:
+              report['notes'].append('already-limited material: avoid stacking more limiting')
+
+          os.makedirs('analysis', exist_ok=True)
+          with open(f'analysis/{label}.json', 'w') as fh:
+              json.dump(report, fh, indent=2, ensure_ascii=False)
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          PY
+
+      - name: Publish the report
+        if: steps.src.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add analysis
+          git commit -q -m "analysis: ${LABEL:-track}"
+          git push origin HEAD:analysis --force
+
+      - name: Keep the report as an artifact
+        if: steps.src.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-${{ inputs.label || 'track' }}
+          path: analysis/*.json
+          if-no-files-found: warn
