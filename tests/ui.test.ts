@@ -169,8 +169,8 @@ describe('app shell', () => {
     expect(kino.querySelectorAll('.preset-card').length).toBe(10);
     // Nothing from the other shelves leaks in.
     const names = Array.from(kino.querySelectorAll('.preset-card__name')).map((n) => n.textContent);
-    expect(names).toContain('СПОКОЙНАЯ НОЧЬ');
-    expect(names).toContain('APA ADANYA');
+    expect(names).toContain('MALAM LAMBAT');
+    expect(names).toContain('BERPUTAR');
     expect(names).not.toContain('NIGHT SHIFT');
   });
 

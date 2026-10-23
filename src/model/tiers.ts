@@ -84,17 +84,17 @@ export const ALL_PRESET_IDS = [
   'radio_am',
   'mahakarya',
   'aegis_prime',
-  // Measured against the owner's own Kino edit.
-  'kino_calm_night',
-  'kino_night_air',
-  'kino_slowed_tape',
-  'kino_deep_quiet',
-  'kino_outro_loop',
-  'kino_apa_adanya',
-  'kino_hangat_kaset',
-  'kino_speaker_hp',
-  'kino_ruang_lebar',
-  'kino_lambat_nada_utuh',
+  // Slowed + reverb, measured against the owner's own Kino edit.
+  'kino_malam_lambat',
+  'kino_udara_malam',
+  'kino_kamar_kecil',
+  'kino_pelat_panjang',
+  'kino_katedral',
+  'kino_sub_tenang',
+  'kino_pelan_sekali',
+  'kino_berputar',
+  'kino_hangat_pita',
+  'kino_dekat_telinga',
 ];
 
 export const PLANS: Record<Tier, Plan> = {

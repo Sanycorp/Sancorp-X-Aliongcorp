@@ -247,12 +247,6 @@ describe('owner edition presets', () => {
       const s: EditSettings = { ...NEUTRAL };
       preset.apply(s);
       const changed = (Object.keys(s) as (keyof EditSettings)[]).filter((key) => s[key] !== NEUTRAL[key]);
-      if (preset.id === 'kino_apa_adanya') {
-        // The deliberate control preset: a level correction and mono bass,
-        // nothing else. It exists so the owner can hear what the filters do.
-        expect(changed.sort()).toEqual(['monoBass']);
-        continue;
-      }
       expect(changed.length, `${preset.id} barely changes anything`).toBeGreaterThanOrEqual(4);
     }
   });
@@ -296,5 +290,95 @@ describe('owner edition presets', () => {
   it('is never unlocked by the free plan', () => {
     const free = new Set(PLANS.free.presets);
     for (const preset of owners) expect(free.has(preset.id), preset.id).toBe(false);
+  });
+});
+
+describe('the Kino shelf', () => {
+  const kino = PRESETS.filter((p) => p.family === 'kino');
+
+  it('is ten presets, all slowed, all with reverb, exactly one 8D', () => {
+    expect(kino).toHaveLength(10);
+    for (const preset of kino) {
+      const s: EditSettings = { ...NEUTRAL };
+      preset.apply(s);
+      expect(s.speed, `${preset.id} is not slowed`).toBeLessThan(1);
+      expect(s.speed, `${preset.id} is too slow to be usable`).toBeGreaterThanOrEqual(0.7);
+      expect(s.reverbEnabled, `${preset.id} has no reverb`).toBe(true);
+      expect(s.reverbLevel, `${preset.id} reverb is inaudible`).toBeGreaterThanOrEqual(0.15);
+      // The source clips at +0.7 dBTP and is already -11.4 LUFS: nothing here
+      // may push level up, and mono bass is mandatory for a 11% wide image.
+      expect(s.monoBass, `${preset.id} leaves the sub out of mono`).toBe(true);
+      expect(s.speedMode, `${preset.id} slows without saying how`).toBe('retro');
+      expect('target' in s).toBe(true);
+    }
+    const eight = kino.filter((p) => {
+      const s: EditSettings = { ...NEUTRAL };
+      p.apply(s);
+      return s.spatial8d;
+    });
+    expect(eight).toHaveLength(1);
+    expect(eight[0].id).toBe('kino_berputar');
+  });
+
+  it('spreads across tempos and reverb types instead of ten shades of one idea', () => {
+    const speeds = new Set<string>();
+    const reverbs = new Set<string>();
+    for (const preset of kino) {
+      const s: EditSettings = { ...NEUTRAL };
+      preset.apply(s);
+      speeds.add(s.speed.toFixed(2));
+      reverbs.add(s.reverbType);
+    }
+    expect(speeds.size).toBeGreaterThanOrEqual(8);
+    expect(reverbs.size).toBe(4);
+  });
+
+
+  // The real file is not the test bed: it is loud, clipped (+0.7 dBTP) and
+  // nearly mono (side energy 11%). This stand-in has the same shape, so the ten
+  // presets are proven on material like the source, not on a polite sine bed.
+  it('lands on −14 LUFS on loud, clipped, near-mono material', () => {
+    const seconds = 16;
+    const n = Math.round(seconds * 48000);
+    const left = new Float32Array(n);
+    const right = new Float32Array(n);
+    const notes = [49, 98, 146.8, 196, 246.9, 392];
+    for (let i = 0; i < n; i++) {
+      const t = i / 48000;
+      const beat = t % 0.6;
+      let l = 0;
+      let r = 0;
+      for (let k = 0; k < notes.length; k++) {
+        const a = 0.22 / (1 + k * 0.3);
+        const ph = 2 * Math.PI * notes[k] * t + k * 0.7;
+        l += Math.sin(ph) * a;
+        r += Math.sin(ph) * a * 0.92;
+      }
+      const kick = Math.exp(-beat * 18) * Math.sin(2 * Math.PI * 55 * t) * 0.3;
+      left[i] = (l + kick) * 1.9;
+      right[i] = (r + kick) * 1.9;
+    }
+    for (let i = 0; i < n; i++) {
+      left[i] = Math.max(-1, Math.min(1, left[i] * 1.6));
+      right[i] = Math.max(-1, Math.min(1, right[i] * 1.6));
+    }
+    const material: Stereo = { left, right, sampleRate: 48000 };
+    const info: SourceInfo = { name: 'kino-like', duration: seconds, sampleRate: 48000, channels: 2, size: 1 };
+
+    for (const preset of kino) {
+      const s: EditSettings = { ...NEUTRAL };
+      preset.apply(s);
+      const out = render(material, s, { ...info, duration: seconds });
+      expect(Math.abs((out.lufs ?? 0) - -14), preset.id).toBeLessThan(0.6);
+      expect(out.truePeak, preset.id).toBeLessThanOrEqual(-1.0);
+      // Slowed + reverb means longer output, never shorter.
+      expect(out.outputSeconds, preset.id).toBeGreaterThan(seconds / s.speed);
+    }
+  });
+
+  it('is never unlocked by the free plan and never shares a name', () => {
+    const free = new Set(PLANS.free.presets);
+    expect(new Set(kino.map((p) => p.name)).size).toBe(10);
+    for (const preset of kino) expect(free.has(preset.id), preset.id).toBe(false);
   });
 });

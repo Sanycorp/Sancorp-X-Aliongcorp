@@ -110,7 +110,7 @@ export function createArsenal(): Screen {
     {
       key: 'kino',
       title: 'KINO — LAGU KAMU',
-      note: 'Dibuat dari pengukuran berkas "Спокойная ночь" (Kino, Taivas edit): −11,4 LUFS, +0,7 dBTP, udara −27,9 dB, stereo 11%.',
+      note: 'Sepuluh preset slowed + reverb untuk berkas "Спокойная ночь" (Kino, Taivas edit), diukur dulu: −11,4 LUFS, +0,7 dBTP, udara −27,9 dB, stereo 11%. Satu di antaranya 8D.',
     },
     {
       key: 'owner',
