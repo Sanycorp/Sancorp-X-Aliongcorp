@@ -24,6 +24,7 @@ import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
 
 import { APP_VERSION } from '../../version';
+import { isNativeApp } from '../../security/platform';
 export { APP_VERSION };
 
 export function createSystem(): Screen {
@@ -200,7 +201,7 @@ export function createSystem(): Screen {
     el(
       'div',
       { class: 'row', style: 'align-items:center;gap:10px' },
-      el('div', { style: 'flex:1;min-width:0' }, sectionHead('04', 'AKUN & LISENSI')),
+      el('div', { style: 'flex:1;min-width:0' }, sectionHead('04', isNativeApp() ? 'EDISI PRIBADI' : 'AKUN & LISENSI')),
       accountChip,
     ),
     accountLine,
@@ -208,6 +209,22 @@ export function createSystem(): Screen {
   );
 
   function renderAccount(): void {
+    // The installed app is one person's tool, not a shop: no plan, no price, no
+    // account button. It says what it is and stops there.
+    if (isNativeApp()) {
+      accountChip.className = 'chip chip--live';
+      accountChip.textContent = 'TERBUKA';
+      accountLine.textContent =
+        'Aplikasi ini dibangun untukmu: semua fitur terbuka, tanpa akun, tanpa langganan, dan tanpa internet.';
+      accountCta.replaceChildren(
+        el('p', {
+          class: 'settings-note',
+          text: `Versi ${APP_VERSION} · Sanayacorp. Simpan file APK ini; kalau ganti HP, pasang lagi dari file yang sama.`,
+        }),
+      );
+      return;
+    }
+
     const tier = session.state.tier;
     const plan = planFor(tier);
     accountChip.className = `chip ${tier === 'free' ? '' : 'chip--live'}`;
