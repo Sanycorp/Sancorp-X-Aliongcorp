@@ -385,6 +385,15 @@ export function writeAndroidSplash() {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'splash.png'), encodePng(width, height, out));
     written.push(`drawable-${name}/splash.png`);
+
+    // The template also ships an unqualified drawable/splash.png: a white field
+    // with the framework logo. Overwrite it so no build path can fall back to it.
+    if (name === 'mdpi') {
+      const fallback = join(android, 'drawable');
+      mkdirSync(fallback, { recursive: true });
+      writeFileSync(join(fallback, 'splash.png'), encodePng(width, height, out));
+      written.push('drawable/splash.png');
+    }
   }
 
   // Android 12+ reads the window background from here.
