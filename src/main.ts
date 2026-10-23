@@ -273,7 +273,9 @@ function boot(): void {
   }
 
   // ------------------------------------------------------------------ router
-  let activeRoute: RouteId = 'home';
+  // The APK is the owner's app: it opens on the control panel, not on the
+  // storefront. The web build keeps the public front page as its first screen.
+  let activeRoute: RouteId = isNativeApp() ? 'control' : 'home';
 
   const commitRoute = (id: RouteId): void => {
     activeRoute = id;
@@ -612,15 +614,26 @@ async function initNative(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   try {
     const { App } = await import('@capacitor/app');
-    App.addListener('backButton', () => {
-      if (location.hash && location.hash !== '#/deck') {
-        location.hash = '#/deck';
-      } else {
-        void App.exitApp();
+    // Android back: from the studio, go back to the panel; from the panel, ask
+    // before leaving the app. Never drop the owner out mid-render by accident.
+    App.addListener('backButton', ({ canGoBack }) => {
+      const route = location.hash.replace(/^#\/?/, '');
+      if (route && route !== 'control') {
+        location.hash = '#/control';
+        return;
       }
+      if (canGoBack) window.history.back();
+      else void App.exitApp();
     });
   } catch {
     // plugin missing on web
+  }
+  try {
+    const { SplashScreen } = await import('@capacitor/splash-screen');
+    // The panel paints before this runs; hiding early avoids a black stall.
+    await SplashScreen.hide({ fadeOutDuration: 180 });
+  } catch {
+    // splash plugin is optional
   }
 }
 

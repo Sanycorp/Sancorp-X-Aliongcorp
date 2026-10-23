@@ -13,9 +13,11 @@ concurrency:
 
 jobs:
   apk:
-    name: Build debug APK
+    name: Build owner APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -77,10 +79,33 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: aegis-m-debug-apk
+          name: aegis-owner-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      # The owner installs the file, not a CI page: publish it on a rolling
+      # branch that only ever holds the current build. One force-push, one commit,
+      # no history to grow.
+      - name: Publish APK to the apk branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          apk=$(ls android/app/build/outputs/apk/debug/*.apk | head -n1)
+          version=$(node -p "require('./package.json').version")
+          target="Aegis-Owner-${version}.apk"
+          mkdir -p /tmp/out
+          cp "$apk" "/tmp/out/$target"
+          size=$(stat -c%s "/tmp/out/$target")
+          echo "apk: $target ($size bytes)"
+          cd /tmp/out
+          git init -q -b apk .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$target"
+          git commit -q -m "Aegis Owner $version"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apk
 
   probe:
     name: Probe deployed web build

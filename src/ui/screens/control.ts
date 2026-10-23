@@ -7,7 +7,7 @@ import { RATING_APP, dedupe, rankByTarget, ratingBook, remoteRatings, summarize,
 import type { Rating } from '../../state/rating';
 import { installRipple } from '../motion';
 import { Haptics } from '../haptics';
-import { installAvailable, iosInstallHint, onInstallChange, promptInstall, standalone } from '../install';
+import { installAvailable, iosInstallHint, nativeApp, onInstallChange, promptInstall, standalone } from '../install';
 import type { Screen } from './deck';
 import { APP_VERSION } from '../../version';
 import { PRO_PRICE } from '../../model/tiers';
@@ -223,15 +223,17 @@ export function createControl(): Screen {
             'button',
             {
               class: 'owner-act',
-              attrs: { type: 'button', 'aria-label': 'Kembali ke beranda', title: 'Beranda' },
+              attrs: { type: 'button', 'aria-label': 'Buka studio render', title: 'Studio render' },
               on: {
                 click: () => {
                   Haptics.tap();
-                  location.hash = '#/home';
+                  // Inside the APK there is no storefront to go back to: the
+                  // next thing the owner wants is the renderer.
+                  location.hash = nativeApp() ? '#/deck' : '#/home';
                 },
               },
             },
-            icon('home', 16),
+            icon('deck', 16),
           ),
         ),
       ),
@@ -498,7 +500,7 @@ export function createControl(): Screen {
    * Inside the Capacitor build it says the app is already the app.
    */
   function installStrip(): HTMLElement | null {
-    if (standalone()) return null;
+    if (standalone() || nativeApp()) return null;
     if (installAvailable()) {
       return el(
         'div',

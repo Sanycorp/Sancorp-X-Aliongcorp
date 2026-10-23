@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.eltzy.app',
-  appName: 'Aegis Sound Lab',
+  appId: 'com.sanayacorp.aegisowner',
+  appName: 'Aegis Owner',
   webDir: 'dist',
   server: {
     // The APK is offline by design: bundle origin only, no remote navigation.
@@ -12,6 +12,8 @@ const config: CapacitorConfig = {
     allowNavigation: [],
   },
   android: {
+    // The owner build opens on the control panel, so the window colour matches
+    // the panel rather than the storefront.
     allowMixedContent: false,
     captureInput: false,
     webContentsDebuggingEnabled: false,
@@ -29,6 +31,18 @@ const config: CapacitorConfig = {
     },
     Share: {
       dialogTitle: 'Bagikan hasil Aegis Sound Lab',
+    },
+    SplashScreen: {
+      // One branded frame, then hand the screen to the app. Never longer: the
+      // panel is already painted by the time this fades.
+      launchShowDuration: 700,
+      launchAutoHide: true,
+      launchFadeOutDuration: 220,
+      backgroundColor: '#05070b',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: false,
+      splashFullScreen: true,
+      splashImmersive: false,
     },
   },
 };
