@@ -97,14 +97,17 @@ jobs:
           target="Aegis-Sound-Lab-${version}.apk"
           mkdir -p /tmp/out
           cp "$apk" "/tmp/out/$target"
+          # Same bytes under a name that never changes, so the owner can keep one
+          # bookmark and always get the newest build.
+          cp "$apk" "/tmp/out/Aegis-Sound-Lab-latest.apk"
           size=$(stat -c%s "/tmp/out/$target")
           echo "apk: $target ($size bytes)"
           cd /tmp/out
           git init -q -b apk .
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add "$target"
-          git commit -q -m "Aegis Owner $version"
+          git add "$target" Aegis-Sound-Lab-latest.apk
+          git commit -q -m "Aegis Sound Lab $version"
           git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apk
 
   probe:
