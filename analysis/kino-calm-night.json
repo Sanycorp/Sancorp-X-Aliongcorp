@@ -1,0 +1,52 @@
+{
+  "fileId": "1RDVLDZtVwR0l6yo9aWPz4zX2XCQOCUbG",
+  "label": "kino-calm-night",
+  "format": {
+    "name": "ogg",
+    "durationSec": 536.14,
+    "sizeBytes": 8852198,
+    "bitRate": 132087,
+    "codec": "opus",
+    "channels": 2,
+    "sampleRate": "48000"
+  },
+  "level": {
+    "integratedLufs": -11.4,
+    "loudnessRange": 2.0,
+    "truePeakDb": 0.7,
+    "peakSampleDb": 0.69,
+    "rmsDb": -14.13,
+    "crestDb": 14.82
+  },
+  "balance": {
+    "bandsDb": {
+      "sub_20_60": -11.64,
+      "bass_60_120": -8.28,
+      "low_120_250": -9.36,
+      "lowmid_250_500": -6.85,
+      "mid_500_1k": -5.9,
+      "upmid_1k_2k": -8.89,
+      "presence_2k_4k": -12.0,
+      "brilliance_4k_8k": -19.97,
+      "air_8k_16k": -27.92
+    },
+    "centroidHz": 2335.4,
+    "rolloff85Hz": 1263.9
+  },
+  "space": {
+    "sideEnergyRatio": 0.11,
+    "tailSeconds": 497.82
+  },
+  "dynamics": {
+    "rangeDb": 2.13
+  },
+  "rhythm": {
+    "bpm": 100.0
+  },
+  "tonality": {
+    "key": "G / A (chroma 11%)"
+  },
+  "notes": [
+    "heavy sub content: mono bass required"
+  ]
+}
