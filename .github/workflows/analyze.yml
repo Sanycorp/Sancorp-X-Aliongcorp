@@ -18,8 +18,10 @@ on:
         required: false
         default: 'track'
   push:
+    # A request file is easier to trigger than workflow_dispatch when the token
+    # in use cannot dispatch. Drop analysis/request.json, push, done.
     paths:
-      - '.github/workflows/analyze.yml'
+      - 'analysis/request.json'
 
 permissions:
   contents: write
@@ -41,6 +43,11 @@ jobs:
         run: |
           set -euo pipefail
           raw="${INPUT_URL:-}"
+          if [ -z "$raw" ] && [ -f analysis/request.json ]; then
+            raw=$(python3 -c "import json;print(json.load(open('analysis/request.json')).get('url',''))")
+            label=$(python3 -c "import json;print(json.load(open('analysis/request.json')).get('label','track'))")
+            echo "LABEL=$label" >> "$GITHUB_ENV"
+          fi
           if [ -z "$raw" ]; then
             echo "no url on this trigger — nothing to measure"
             echo "skip=true" >> "$GITHUB_OUTPUT"
