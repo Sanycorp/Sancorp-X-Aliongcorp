@@ -6,6 +6,8 @@ import type { OpsAccount, OpsFilter } from '../../state/ops';
 import { RATING_APP, dedupe, rankByTarget, ratingBook, remoteRatings, summarize, trendOf } from '../../state/rating';
 import type { Rating } from '../../state/rating';
 import { installRipple } from '../motion';
+import { Haptics } from '../haptics';
+import { installAvailable, iosInstallHint, onInstallChange, promptInstall, standalone } from '../install';
 import type { Screen } from './deck';
 import { APP_VERSION } from '../../version';
 import { PRO_PRICE } from '../../model/tiers';
@@ -196,6 +198,42 @@ export function createControl(): Screen {
         el('span', { class: 'chip chip--live' }, el('b', { text: 'OWNER' })),
         el('span', { class: 'chip owner-chip-ver' }, el('b', { text: APP_VERSION })),
         stamp,
+        el(
+          'div',
+          { class: 'owner-head__acts' },
+          el(
+            'button',
+            {
+              class: 'owner-act',
+              attrs: { type: 'button', 'aria-label': 'Muat ulang data panel', title: 'Muat ulang data' },
+              on: {
+                click: () => {
+                  Haptics.tap();
+                  deskAutoTried = true;
+                  void ping();
+                  void loadDesk();
+                  if (tab === 'rating' || tab === 'overview') void loadRatings();
+                  toast('Data diperbarui', 'ok', 1200);
+                },
+              },
+            },
+            icon('reset', 16),
+          ),
+          el(
+            'button',
+            {
+              class: 'owner-act',
+              attrs: { type: 'button', 'aria-label': 'Kembali ke beranda', title: 'Beranda' },
+              on: {
+                click: () => {
+                  Haptics.tap();
+                  location.hash = '#/home';
+                },
+              },
+            },
+            icon('home', 16),
+          ),
+        ),
       ),
     ),
     todayNote,
@@ -454,6 +492,44 @@ export function createControl(): Screen {
     if (next === 'overview') void ping();
   }
 
+  /**
+   * The "make this an app" strip. Shown only when the browser has actually
+   * offered an install, or on iOS where the Share sheet is the only route.
+   * Inside the Capacitor build it says the app is already the app.
+   */
+  function installStrip(): HTMLElement | null {
+    if (standalone()) return null;
+    if (installAvailable()) {
+      return el(
+        'div',
+        { class: 'owner-install' },
+        icon('download', 16),
+        el('div', { class: 'owner-install__text' }, el('b', { text: 'Pakai sebagai aplikasi' }), el('span', { text: 'Layar penuh, tanpa address bar, dan tab tetap di bawah seperti aplikasi biasa.' })),
+        button('PASANG', {
+          tone: 'primary',
+          size: 'sm',
+          onClick: () => {
+            void promptInstall().then((outcome) => {
+              if (outcome === 'accepted') toast('Aplikasi dipasang — buka dari layar utama', 'ok', 2600);
+              else if (outcome === 'dismissed') toast('Pemasangan dibatalkan', 'info', 1600);
+              else toast('Browser ini belum menawarkan pemasangan', 'err', 2200);
+              render();
+            });
+          },
+        }),
+      );
+    }
+    if (iosInstallHint()) {
+      return el(
+        'div',
+        { class: 'owner-install' },
+        icon('share', 16),
+        el('div', { class: 'owner-install__text' }, el('b', { text: 'Pasang di iPhone/iPad' }), el('span', { text: 'Ketuk tombol Bagikan di Safari, lalu pilih "Tambah ke Layar Utama".' })),
+      );
+    }
+    return null;
+  }
+
   function ownerTabs(): HTMLElement {
     return el(
       'div',
@@ -472,6 +548,7 @@ export function createControl(): Screen {
             on: {
               click: () => {
                 if (entry.id === tab) return;
+                Haptics.tap();
                 go(entry.id);
               },
             },
@@ -1999,6 +2076,8 @@ export function createControl(): Screen {
     }
     screen.dataset.gate = 'open';
 
+    const strip = installStrip();
+    if (strip) tabsHost.append(strip);
     tabsHost.append(ownerTabs());
     tabsHost.scrollTop = 0;
 
@@ -2027,6 +2106,9 @@ export function createControl(): Screen {
   }
 
   session.subscribe(render);
+  onInstallChange(() => {
+    if (document.contains(screen)) render();
+  });
   render();
 
   const clock = window.setInterval(() => {

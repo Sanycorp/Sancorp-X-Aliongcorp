@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Aegis Sound Lab — Sanayacorp",
   "short_name": "Aegis Sound",
-  "description": "Aegis Sound Lab oleh Sanayacorp — forge audio offline: slowed, nightcore, 8D, reverb, mastering. Semua proses di perangkat, nol upload.",
+  "description": "Aegis Sound Lab oleh Sanayacorp — render audio di perangkat: slowed, nightcore, 8D, reverb, mastering. Nol upload.",
   "lang": "id",
   "dir": "ltr",
   "start_url": "./",
@@ -43,8 +43,8 @@
   ],
   "shortcuts": [
     {
-      "name": "Forge Deck",
-      "short_name": "Deck",
+      "name": "Render audio",
+      "short_name": "Render",
       "url": "./#/deck",
       "icons": [
         {
@@ -54,8 +54,8 @@
       ]
     },
     {
-      "name": "Tuning Lab",
-      "short_name": "Lab",
+      "name": "Tuning rantai",
+      "short_name": "Tuning",
       "url": "./#/lab",
       "icons": [
         {
@@ -65,7 +65,7 @@
       ]
     },
     {
-      "name": "Preset Arsenal",
+      "name": "Arsenal preset",
       "short_name": "Arsenal",
       "url": "./#/arsenal",
       "icons": [
@@ -76,8 +76,8 @@
       ]
     },
     {
-      "name": "AEGIS OPS — konsol operator",
-      "short_name": "OPS",
+      "name": "Panel owner",
+      "short_name": "Owner",
       "url": "./#/control",
       "icons": [
         {

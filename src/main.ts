@@ -19,6 +19,7 @@ import { createSystem, APP_VERSION } from './ui/screens/system';
 import { createControl } from './ui/screens/control';
 import { createHome, sectionNav } from './ui/screens/home';
 import { accountButton } from './ui/account';
+import { standalone, watchInstall } from './ui/install';
 import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
 import { brandMark } from './ui/brand';
@@ -210,6 +211,7 @@ function boot(): void {
 
   // ------------------------------------------------------------------ motion
   document.documentElement.dataset.platform = isNativeApp() ? 'app' : 'web';
+  document.documentElement.dataset.display = standalone() ? 'standalone' : 'browser';
 
   const scrollMotion =
     typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
@@ -219,6 +221,7 @@ function boot(): void {
 
   const navPulse = installNavPulse(nav);
   installRipple(document);
+  watchInstall();
   installScrollChrome(header);
   // Pointer-only decoration, attached once; it no-ops on touch devices and is
   // skipped entirely on a slow one — the DSP is what has to stay fast.

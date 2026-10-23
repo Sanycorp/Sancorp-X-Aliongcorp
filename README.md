@@ -328,3 +328,17 @@ Font **Chakra Petch** dan **Share Tech Mono** dipakai di bawah SIL Open Font Lic
 
 Langkah membuat OAuth client dan memasang dua environment variable-nya ada di
 [`GOOGLE-OAUTH.md`](GOOGLE-OAUTH.md).
+
+## Panel owner sebagai aplikasi
+
+`#/control` tidak memakai chrome situs. Di layar telepon keenam ruangnya menjadi
+tab bar tetap di bawah (ikon + label, 56 px, aman dari home indicator), dan
+aplikasi bisa dipasang ke layar utama:
+
+- Android/Chrome: tombol **PASANG** muncul hanya kalau browser menawarkan
+  `beforeinstallprompt`.
+- iPhone/Safari: instruksi Bagikan → Tambah ke Layar Utama.
+- Capacitor: tidak ada prompt sama sekali — aplikasinya memang sudah aplikasi.
+
+APK tidak dibangun di repo ini. Mesin pengembangan tidak punya JDK/Android SDK;
+`npx cap sync android` dijalankan di mesin yang punya Android Studio.
