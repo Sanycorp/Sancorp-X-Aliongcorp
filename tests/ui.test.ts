@@ -129,8 +129,8 @@ describe('app shell', () => {
     expect(labels).toEqual(['BERANDA', 'RENDER', 'TUNING', 'ARSENAL', 'SISTEM']);
     // The seal in the header is the second way home, and it says so.
     expect(document.querySelector('.app-header .brand')?.getAttribute('aria-label')).toBe('Kembali ke beranda');
-    expect(document.querySelector('#screen-deck h1')?.textContent).toBe('RENDER AUDIO');
-    expect(document.querySelector('#screen-lab h1')?.textContent).toBe('TUNING RANTAI');
+    expect(document.querySelector('#screen-deck h1')?.textContent).toBe('OLAH LAGU');
+    expect(document.querySelector('#screen-lab h1')?.textContent).toBe('ATUR SUARA');
     expect(document.querySelector('#screen-system h1')?.textContent).toBe('SISTEM PERANGKAT');
   });
 

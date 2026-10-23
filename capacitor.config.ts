@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.sanayacorp.aegisowner',
-  appName: 'Aegis Owner',
+  appId: 'com.sanayacorp.aegislab',
+  appName: 'Aegis Sound Lab',
   webDir: 'dist',
   server: {
     // The APK is offline by design: bundle origin only, no remote navigation.

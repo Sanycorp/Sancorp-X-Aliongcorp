@@ -2010,3 +2010,248 @@ html:not([data-route='home']) .header__links {
     gap: 6px;
   }
 }
+
+/* ==========================================================================
+   Tuning — plain-language layer
+   Every control carries one line of explanation, every section carries a
+   reset, and the whole guide can be folded away when the owner just wants to
+   turn a knob.
+   ========================================================================== */
+
+.lab-group__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.lab-group__top .section-head {
+  flex: 1;
+  min-width: 0;
+}
+
+.lab-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease), background-color 0.18s var(--ease);
+}
+
+.lab-reset:hover,
+.lab-reset:focus-visible {
+  border-color: var(--cobalt);
+  color: var(--cobalt);
+  background: color-mix(in srgb, var(--cobalt) 7%, var(--panel-alt));
+}
+
+.lab-reset:active {
+  transform: translateY(1px);
+}
+
+.lab-group__plain {
+  margin: 6px 2px 10px;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.lab-group__note {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Inline explanation under a fader ---------------------------------------- */
+
+.fader__hint {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+
+.lab--tersembunyi .fader__hint,
+.lab--tersembunyi .lab-field__hint,
+.lab--tersembunyi .lab-group__plain {
+  display: none;
+}
+
+/* A toggle or segment with its explanation -------------------------------- */
+
+.lab-field {
+  display: grid;
+  gap: 6px;
+  padding: 8px 4px;
+}
+
+.lab-field__label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+}
+
+.lab-field__hint {
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+/* Folded guide ------------------------------------------------------------ */
+
+.lab-guide {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+}
+
+.lab-guide > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 10px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.lab-guide > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lab-guide > summary:hover {
+  color: var(--ink);
+}
+
+.lab-guide[open] > summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.lab-guide__when {
+  margin: 10px 12px 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--cobalt);
+  background: color-mix(in srgb, var(--cobalt) 6%, transparent);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.lab-guide__list {
+  margin: 0;
+  padding: 8px 12px 12px;
+}
+
+.lab-guide__list dt {
+  margin-top: 10px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.lab-guide__list dd {
+  margin: 2px 0 0;
+}
+
+.lab-guide__list dd p {
+  margin: 0 0 3px;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.lab-guide__more {
+  color: var(--ink-faint) !important;
+}
+
+.lab-guide__tip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs) !important;
+  letter-spacing: 0.02em;
+  color: var(--cobalt) !important;
+}
+
+/* Jump bar + toolbar ------------------------------------------------------ */
+
+.lab-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.lab-toolbar .toggle {
+  flex: 1;
+}
+
+.lab-jump {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding-bottom: 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.lab-jump::-webkit-scrollbar {
+  display: none;
+}
+
+.lab-jump__btn {
+  flex: none;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.lab-jump__btn:hover,
+.lab-jump__btn:focus-visible {
+  border-color: var(--cobalt);
+  color: var(--cobalt);
+}
+
+.ab-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Phone: one column, full-width targets, nothing under the thumb. -------- */
+@media (max-width: 620px) {
+  .lab-group {
+    padding: 12px 10px;
+  }
+
+  .lab-reset {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+
+  .fader input[type='range'] {
+    min-height: 32px;
+  }
+}

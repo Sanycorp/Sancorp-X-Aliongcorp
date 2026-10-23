@@ -1,6 +1,7 @@
 import { PLANS, daysLeft } from '../model/tiers';
 import type { Plan, Tier } from '../model/tiers';
 import { deviceHeaders, deviceId } from './device';
+import { isNativeApp } from '../security/platform';
 
 /**
  * Client-side session mirror.
@@ -144,6 +145,28 @@ class SessionStore {
   }
 
   private async load(): Promise<void> {
+    // The installed app is a private copy built from this repository: the APK
+    // itself is the licence, so it needs no account and no network. Asking the
+    // server here would strand the owner behind a login that cannot complete
+    // inside a webview (the bundle runs from https://localhost).
+    if (isNativeApp()) {
+      this.state = {
+        status: 'ready',
+        tier: 'pro',
+        exp: null,
+        subject: 'owner',
+        name: 'Owner',
+        email: null,
+        google: false,
+        lic: null,
+        adminEnabled: false,
+        devSecret: false,
+        error: null,
+      };
+      this.emit();
+      return;
+    }
+
     const devTier = this.devOverride();
     try {
       const res = await fetch('/api/auth', {

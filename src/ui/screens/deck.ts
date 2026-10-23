@@ -54,12 +54,12 @@ export function createDeck(): Screen {
     'div',
     { class: 'drop', attrs: { role: 'button', tabindex: '0', 'aria-label': 'Muat file audio' } },
     el('div', { class: 'drop__icon', html: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>` }),
-    el('div', { class: 'drop__title', text: 'DROP AUDIO' }),
+    el('div', { class: 'drop__title', text: 'PILIH LAGU' }),
     el('div', {
       class: 'drop__hint',
-      html: 'MP3 · WAV · FLAC · OGG · M4A/AAC · OPUS<br/><b>Semua diproses di perangkat. Nol upload.</b>',
+      html: 'MP3 · WAV · FLAC · OGG · M4A/AAC · OPUS<br/><b>Diproses di HP ini. Tidak ada yang diunggah.</b>',
     }),
-    button('PILIH FILE', { tone: 'primary', size: 'sm', onClick: () => fileInput.click() }),
+    button('BUKA FILE', { tone: 'primary', size: 'sm', onClick: () => fileInput.click() }),
   );
 
   const wave = createWaveform(store, () => {
@@ -111,7 +111,7 @@ export function createDeck(): Screen {
       el('i'),
       el('i'),
     ),
-    el('span', { class: 'skeleton__label', text: 'DECODING AUDIO' }),
+    el('span', { class: 'skeleton__label', text: 'MEMBACA AUDIO' }),
   );
 
   const sourcePlate = el(
@@ -566,7 +566,7 @@ export function createDeck(): Screen {
         'div',
         {},
         el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB · RENDER' }),
-        el('h1', { class: 'screen__title', html: 'RENDER <em>AUDIO</em>' }),
+        el('h1', { class: 'screen__title', html: 'OLAH <em>LAGU</em>' }),
       ),
       el('div', { class: 'header__meta' },
         el('span', { class: 'chip' }, el('b', { text: '48 kHz · 32-BIT FLOAT' })),

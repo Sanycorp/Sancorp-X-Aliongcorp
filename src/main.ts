@@ -53,13 +53,23 @@ const TITLES: Record<RouteId, string> = {
   control: 'Aegis Sound Lab · Konsol Operator',
 };
 
-const ROUTES: { id: RouteId; label: string; icon: 'home' | 'deck' | 'lab' | 'arsenal' | 'system' }[] = [
-  { id: 'home', label: 'BERANDA', icon: 'home' },
+type NavRoute = { id: RouteId; label: string; icon: 'home' | 'deck' | 'lab' | 'arsenal' | 'system' };
+
+const STUDIO_ROUTES: NavRoute[] = [
   { id: 'deck', label: 'RENDER', icon: 'deck' },
   { id: 'lab', label: 'TUNING', icon: 'lab' },
   { id: 'arsenal', label: 'ARSENAL', icon: 'arsenal' },
   { id: 'system', label: 'SISTEM', icon: 'system' },
 ];
+
+/**
+ * The tab bar. The installed app is a music tool, so it has no storefront tab —
+ * no price, no Telegram pitch, nothing to buy while working. The web build
+ * keeps BERANDA first because that is where a visitor decides.
+ */
+const ROUTES: NavRoute[] = isNativeApp()
+  ? STUDIO_ROUTES
+  : [{ id: 'home', label: 'BERANDA', icon: 'home' }, ...STUDIO_ROUTES];
 
 /**
  * Operator console: reachable by hash only, never rendered into the tab bar.
@@ -168,7 +178,7 @@ function boot(): void {
     'header',
     { class: 'app-header' },
     brand,
-    sectionNav(),
+    isNativeApp() ? null : sectionNav(),
     el('div', { class: 'header__meta' }, headerStatus, accountButton(), starBtn),
   );
 
@@ -273,9 +283,9 @@ function boot(): void {
   }
 
   // ------------------------------------------------------------------ router
-  // The APK is the owner's app: it opens on the control panel, not on the
-  // storefront. The web build keeps the public front page as its first screen.
-  let activeRoute: RouteId = isNativeApp() ? 'control' : 'home';
+  // The APK is a music app: it opens on the renderer, not on the storefront or
+  // the operator panel. The web build keeps the public front page first.
+  let activeRoute: RouteId = isNativeApp() ? 'deck' : 'home';
 
   const commitRoute = (id: RouteId): void => {
     activeRoute = id;
@@ -394,6 +404,11 @@ function boot(): void {
    * signed in — including from a phone that has just been wiped.
    */
   const syncGate = (): void => {
+    // The private build has no gate: the owner already holds the APK.
+    if (isNativeApp()) {
+      closeGate();
+      return;
+    }
     if (session.state.status === 'loading') return;
     // The front page is public on purpose: you should be able to read what the
     // product is and what it costs before handing over an account. The studio
@@ -618,8 +633,10 @@ async function initNative(): Promise<void> {
     // before leaving the app. Never drop the owner out mid-render by accident.
     App.addListener('backButton', ({ canGoBack }) => {
       const route = location.hash.replace(/^#\/?/, '');
-      if (route && route !== 'control') {
-        location.hash = '#/control';
+      // Back always means "up one level" in the studio, never "leave" from a
+      // screen where the owner is halfway through a render.
+      if (route === 'lab' || route === 'arsenal' || route === 'system') {
+        location.hash = '#/deck';
         return;
       }
       if (canGoBack) window.history.back();

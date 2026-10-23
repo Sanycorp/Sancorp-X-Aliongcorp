@@ -203,6 +203,24 @@ export class Store {
     this.emit();
   }
 
+  /**
+   * Reset one section of the chain back to neutral.
+   *
+   * The lab's reset buttons call this with a list of keys, so "reset reverb"
+   * can never leave the room size behind — the whole group moves together, and
+   * tier clamps still apply afterwards.
+   */
+  resetSection(keys: (keyof EditSettings)[]): void {
+    const base = cloneSettings(NEUTRAL) as unknown as Record<string, unknown>;
+    const patch: Record<string, unknown> = {};
+    for (const key of keys) patch[key as string] = base[key as string];
+    this.edit = { ...this.edit, ...(patch as Partial<EditSettings>) };
+    this.clampToTier(this.confirmedTier() ?? 'pro');
+    this.previewReady = false;
+    this.persist();
+    this.emit();
+  }
+
   resetChain(): void {
     const next = cloneSettings(NEUTRAL);
     next.target = this.settings.target;
@@ -211,6 +229,14 @@ export class Store {
     this.edit = next;
     this.clampToTier(this.confirmedTier() ?? 'pro');
     this.previewReady = false;
+    this.persist();
+    this.emit();
+  }
+
+  /** Empties the two comparison slots. The live settings are left alone. */
+  clearSlots(): void {
+    this.slotA = null;
+    this.slotB = null;
     this.persist();
     this.emit();
   }
