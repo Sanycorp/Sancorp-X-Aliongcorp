@@ -13,7 +13,7 @@
  * MainActivity, and the service is dataSync-only.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
@@ -33,7 +33,7 @@ function appId() {
   ];
   for (const path of candidates) {
     if (!existsSync(path)) continue;
-    const text = require('node:fs').readFileSync(path, 'utf8');
+    const text = readFileSync(path, 'utf8');
     const m = text.match(/appId\s*:\s*['"]([^'"]+)['"]/);
     if (m) return m[1];
   }
