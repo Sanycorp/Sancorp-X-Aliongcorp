@@ -149,9 +149,36 @@ describe('app shell', () => {
     expect(text).toContain('RENDER');
   });
 
-  it('renders all fourteen preset chips', () => {
-    expect(document.querySelectorAll('.preset-chip').length).toBe(14);
-    expect(document.querySelectorAll('.preset-card').length).toBe(14);
+  it('renders the owner edition and the classics as two labelled rails', () => {
+    expect(document.querySelectorAll('.preset-chip').length).toBe(34);
+    expect(document.querySelectorAll('.preset-card').length).toBe(34);
+    const labels = Array.from(document.querySelectorAll('#screen-deck .rail-label')).map(
+      (n) => n.textContent ?? '',
+    );
+    expect(labels[0]).toContain('EDISI OWNER');
+    expect(labels[1]).toContain('KLASIK');
+    expect(document.querySelectorAll('#screen-deck .owner-tag, #screen-deck .lock').length).toBeGreaterThan(0);
+  });
+
+  it('marks a preset as active by id, not by label', () => {
+    // Loading a preset must light up exactly one card.
+    store.applyPreset('mahakarya', (s) => {
+      s.speed = 0.9;
+    });
+    const active = Array.from(document.querySelectorAll('.preset-card[data-active="true"]'));
+    expect(active.length).toBe(1);
+    expect(active[0].textContent).toContain('MAHAKARYA');
+  });
+
+  it('filters the owner edition from ARSENAL', () => {
+    const owner = document.querySelector<HTMLElement>('#screen-arsenal [data-filter="OWNER"]');
+    expect(owner).not.toBeNull();
+    owner!.click();
+    const visible = Array.from(document.querySelectorAll<HTMLElement>('#screen-arsenal .preset-card')).filter(
+      (card) => !card.classList.contains('hidden'),
+    );
+    expect(visible.length).toBe(20);
+    expect(visible.every((card) => card.querySelector('.owner-tag'))).toBe(true);
   });
 
   it('offers the same five formats in the deck as in SYSTEM, with paid ones locked', () => {

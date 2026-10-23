@@ -173,7 +173,7 @@ export function createDeck(): Screen {
   });
 
   // ---------------------------------------------------------------- presets
-  const chips = PRESETS.map((preset) => {
+  const makeChip = (preset: (typeof PRESETS)[number]) => {
     const chip = el(
       'button',
       {
@@ -199,7 +199,11 @@ export function createDeck(): Screen {
     );
     chip.dataset.preset = preset.id;
     return chip;
-  });
+  };
+
+  const ownerChips = PRESETS.filter((p) => p.owner).map(makeChip);
+  const classicChips = PRESETS.filter((p) => !p.owner).map(makeChip);
+  const chips = [...ownerChips, ...classicChips];
 
   /** Locks follow the session, so signing in unlocks without a reload. */
   function paintLocks(): void {
@@ -213,7 +217,24 @@ export function createDeck(): Screen {
     formatSeg.lock((v) => !formatAllowed(session.tier, v as OutputFormat));
   }
 
-  const rail = el('div', { class: 'rail' }, chips);
+  const railLabel = (text: string, count: number): HTMLElement =>
+    el(
+      'div',
+      { class: 'rail-label mono' },
+      el('span', { text }),
+      el('b', { text: String(count).padStart(2, '0') }),
+    );
+
+  // The owner edition is the first thing in reach; the 14 classics stay one
+  // swipe below so muscle memory still works.
+  const rail = el(
+    'div',
+    { class: 'rail-stack' },
+    railLabel('EDISI OWNER', ownerChips.length),
+    el('div', { class: 'rail' }, ownerChips),
+    railLabel('KLASIK', classicChips.length),
+    el('div', { class: 'rail' }, classicChips),
+  );
 
   const chainTags = el('div', { class: 'chain-tags' });
 

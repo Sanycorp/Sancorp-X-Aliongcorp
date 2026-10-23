@@ -2255,3 +2255,92 @@ html:not([data-route='home']) .header__links {
     min-height: 32px;
   }
 }
+
+/* ==========================================================================
+   Owner edition — 20 presets built for one person, with the numbers shown
+   ========================================================================== */
+
+.rail-stack {
+  display: grid;
+  gap: 2px;
+}
+
+.rail-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+}
+
+.rail-label b {
+  color: var(--cobalt);
+  font-weight: 600;
+}
+
+.rail-stack .rail {
+  padding-bottom: 8px;
+}
+
+/* The card is a div now: it has to hold a fold-out. */
+.preset-card {
+  cursor: pointer;
+}
+
+.preset-card:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+.owner-tag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 2px 7px;
+  background: color-mix(in srgb, var(--cobalt) 14%, transparent);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-style: normal;
+  letter-spacing: 0.16em;
+  color: var(--cobalt);
+}
+
+.preset-card__why {
+  border-top: 1px dashed var(--line);
+  padding-top: 7px;
+  margin-top: 2px;
+}
+
+.preset-card__why > summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+}
+
+.preset-card__why > summary::-webkit-details-marker {
+  display: none;
+}
+
+.preset-card__why > summary:hover {
+  color: var(--cobalt);
+}
+
+.preset-card__why[open] > summary {
+  color: var(--cobalt);
+  margin-bottom: 4px;
+}
+
+.preset-card__why p {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}

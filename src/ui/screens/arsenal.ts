@@ -9,7 +9,18 @@ import { openPaywall } from '../account';
 import { el, sectionHead, toast } from '../elements';
 import type { Screen } from './deck';
 
-const TAGS: (PresetTag | 'ALL')[] = ['ALL', 'SLOW', 'FAST', 'BASS', 'SPACE', 'REPAIR', 'SIGNATURE'];
+const TAGS: (PresetTag | 'ALL' | 'OWNER')[] = [
+  'ALL',
+  'OWNER',
+  'SLOW',
+  'FAST',
+  'BASS',
+  'POWER',
+  'SPACE',
+  'RETRO',
+  'REPAIR',
+  'SIGNATURE',
+];
 
 /** One-line description of what a preset actually does to the chain. */
 function summarize(preset: Preset): string {
@@ -35,7 +46,7 @@ function summarize(preset: Preset): string {
 }
 
 export function createArsenal(): Screen {
-  let filter: PresetTag | 'ALL' = 'ALL';
+  let filter: PresetTag | 'ALL' | 'OWNER' = 'ALL';
   const cards = new Map<string, HTMLElement>();
 
   const filterRow = el(
@@ -76,19 +87,36 @@ export function createArsenal(): Screen {
     for (const [id, card] of cards) {
       const preset = presetById(id);
       if (!preset) continue;
-      card.classList.toggle('hidden', filter !== 'ALL' && preset.tag !== filter);
+      const show =
+        filter === 'ALL' || (filter === 'OWNER' ? Boolean(preset.owner) : preset.tag === filter);
+      card.classList.toggle('hidden', !show);
     }
   }
 
   const grid = el('div', { class: 'arsenal-grid' });
 
   PRESETS.forEach((preset, index) => {
+    // A div, not a button: the card contains a fold-out that explains the
+    // numbers, and a <details> inside a <button> is both invalid HTML and
+    // impossible to open. Keyboard support is spelled out instead.
     const card = el(
-      'button',
+      'div',
       {
         class: 'preset-card',
-        attrs: { type: 'button', 'data-active': String(store.edit.activePreset === preset.name) },
+        attrs: {
+          role: 'button',
+          tabindex: '0',
+          'aria-label': `Pakai preset ${preset.name}`,
+          'data-active': String(store.edit.activePreset === preset.id),
+        },
         on: {
+          keydown: (ev) => {
+            const key = (ev as KeyboardEvent).key;
+            if (key === 'Enter' || key === ' ') {
+              ev.preventDefault();
+              card.click();
+            }
+          },
           click: () => {
             if (!presetAllowed(session.tier, preset.id)) {
               openPaywall(upgradeHint('preset'), 'allPresets', card);
@@ -109,6 +137,24 @@ export function createArsenal(): Screen {
       ),
       el('p', { class: 'preset-card__detail', text: preset.detail }),
       el('div', { class: 'preset-card__foot', text: summarize(preset) }),
+      preset.why
+        ? el(
+            'details',
+            {
+              class: 'preset-card__why',
+              on: {
+                click: (ev) => {
+                  // Opening the explanation must not load the preset.
+                  ev.stopPropagation();
+                },
+                keydown: (ev) => ev.stopPropagation(),
+              },
+            },
+            el('summary', { text: 'KENAPA ANGKA INI' }),
+            el('p', { text: preset.why }),
+          )
+        : null,
+      preset.owner ? el('i', { class: 'owner-tag', text: 'OWNER', attrs: { 'aria-hidden': 'true' } }) : null,
       el('i', { class: 'lock lock--card', text: 'PRO', attrs: { 'aria-hidden': 'true' } }),
     );
     cards.set(preset.id, card);
@@ -129,12 +175,17 @@ export function createArsenal(): Screen {
         el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB · ARSENAL' }),
         el('h1', { class: 'screen__title', html: 'ARSENAL <em>PRESET</em>' }),
       ),
-      el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: '14' }), el('span', { text: 'VALIDATED' }))),
+      el(
+        'div',
+        { class: 'header__meta' },
+        el('span', { class: 'chip' }, el('b', { text: String(PRESETS.length) }), el('span', { text: 'PRESET' })),
+        el('span', { class: 'chip chip--live' }, el('b', { text: String(PRESETS.filter((p) => p.owner).length) }), el('span', { text: 'OWNER' })),
+      ),
     ),
     el(
       'p',
       { class: 'screen__desc', style: 'margin-bottom:12px' },
-      'Empat belas preset yang sudah diuji: semuanya mendarat di −14…−16 LUFS dengan true peak ≤ −1 dBFS dan nol NaN. Pilih satu, lalu geser sisanya di TUNING.',
+      'Setiap preset di sini diuji render: mendarat di target LUFS-nya dengan true peak ≤ −1 dBFS. Yang bertanda OWNER adalah edisi khusus kamu — angka di balik tombol "KENAPA ANGKA INI" bisa diperiksa satu per satu.',
     ),
     filterRow,
     grid,
@@ -155,10 +206,12 @@ export function createArsenal(): Screen {
     paintLocks();
     const active = store.edit.activePreset;
     for (const [id, card] of cards) {
-      card.setAttribute('data-active', String(presetById(id)?.name === active));
+      // `activePreset` stores the id, not the label — comparing against the
+      // name was why a loaded preset never showed as active.
+      card.setAttribute('data-active', String(id === active));
     }
     activeNote.textContent = active
-      ? `ACTIVE — ${active} · SPEED ${store.edit.speed.toFixed(2)}× · ${store.edit.reverbEnabled ? `${SPACE_META[store.edit.reverbType].label} ${Math.round(store.edit.reverbLevel * 100)}%` : 'DRY'} · ${store.edit.spatial8d ? '8D' : 'NO 8D'}`
+      ? `ACTIVE — ${presetById(active)?.name ?? active} · SPEED ${store.edit.speed.toFixed(2)}× · ${store.edit.reverbEnabled ? `${SPACE_META[store.edit.reverbType].label} ${Math.round(store.edit.reverbLevel * 100)}%` : 'DRY'} · ${store.edit.spatial8d ? '8D' : 'NO 8D'}`
       : 'ACTIVE — CUSTOM / NEUTRAL';
   }
 

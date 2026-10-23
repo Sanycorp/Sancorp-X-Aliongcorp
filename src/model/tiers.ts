@@ -63,6 +63,27 @@ export const ALL_PRESET_IDS = [
   'signal_clean',
   'club_ready',
   'mecha_protocol',
+  // Edisi owner — built for one person, locked for everyone else by default.
+  'vokal_bening',
+  'wawancara_jelas',
+  'rekaman_hp',
+  'akustik_intim',
+  'piano_hall',
+  'balada_galau',
+  'rock_tebal',
+  'metal_presisi',
+  'trap_sub',
+  'koplo_panggung',
+  'keroncong_hangat',
+  'dub_guwa',
+  'ambient_luas',
+  'sinematik',
+  'synth_80',
+  'malam_berputar',
+  'kaset_senja',
+  'radio_am',
+  'mahakarya',
+  'aegis_prime',
 ];
 
 export const PLANS: Record<Tier, Plan> = {
@@ -101,7 +122,7 @@ export const PLANS: Record<Tier, Plan> = {
     cadence: PRO_CADENCE,
     tagline: 'Seluruh arsenal, semua format, tanpa batas',
     perks: [
-      '14 preset tervalidasi',
+      '34 preset: 14 klasik + 20 edisi owner',
       'MP3 · WAV 16/24/32 · FLAC',
       'Semua target −16…−9 LUFS',
       '8D orbit engine',

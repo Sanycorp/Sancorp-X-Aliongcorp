@@ -60,7 +60,7 @@ const CAPABILITIES = [
     icon: 'arsenal' as const,
     kicker: 'ARSENAL',
     title: 'Preset yang diuji, bukan dikira-kira',
-    body: 'Empat belas preset dijalankan pada berkas uji: nol NaN, true peak di bawah −1 dBFS, dan loudness masuk rentang target. Angka itu bagian dari tes, bukan klaim di halaman ini.',
+    body: 'Tiga puluh empat preset dijalankan pada berkas uji: nol NaN, true peak di bawah −1 dBFS, dan loudness masuk rentang target. Angka itu bagian dari tes, bukan klaim di halaman ini.',
   },
   {
     icon: 'system' as const,
@@ -230,7 +230,7 @@ function hero(cta: HTMLElement): HTMLElement {
         { class: 'lp-hero__micro' },
         el('span', { text: 'Gratis untuk mulai' }),
         el('i', { text: '·' }),
-        el('span', { text: '14 preset' }),
+        el('span', { text: '34 preset' }),
         el('i', { text: '·' }),
         el('span', { text: 'tanpa kartu' }),
       ),
@@ -248,7 +248,7 @@ const STEPS = [
   {
     index: '02',
     title: 'Pilih arsenal, lalu tuning',
-    detail: 'Empat belas preset tervalidasi, atau geser sendiri di TUNING. Setiap perubahan memakai rantai yang sama dengan hasil akhir.',
+    detail: 'Tiga puluh empat preset tervalidasi — termasuk 20 preset edisi owner — atau geser sendiri di TUNING. Setiap perubahan memakai rantai yang sama dengan hasil akhir.',
   },
   {
     index: '03',
@@ -512,7 +512,7 @@ function priceSection(): HTMLElement {
         el(
           'ul',
           { class: 'lp-plan__list' },
-          el('li', { text: '14 preset tervalidasi' }),
+          el('li', { text: '34 preset tervalidasi' }),
           el('li', { text: 'MP3 · WAV 16/24/32F · FLAC' }),
           el('li', { text: 'Semua target −16…−9 LUFS' }),
           el('li', { text: '8D orbit, repair, A/B memory' }),

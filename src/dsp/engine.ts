@@ -212,17 +212,27 @@ export function render(
   // Pass 1: measurement (no limiter) so the static trim is honest.
   const measured = creativeChain(input, s, duration, report, true);
   const peak = samplePeakDb(measured.audio);
+
+  // How hard the master is allowed to push, and how fast the limiter may let
+  // go. A club master is mostly limiter work: with the old +18 dB cap and a
+  // 140 ms release the gain could never recover between hits, so a −9 LUFS
+  // target quietly landed 2 dB low. Quiet sources now get up to +27,6 dB, and
+  // the release follows the target instead of being fixed.
+  const maxGain = s.target === 'club' ? 24 : s.target === 'loud' ? 16 : 8;
+  const releaseMs = s.target === 'club' ? 35 : s.target === 'loud' ? 80 : 140;
+
   const trim = computeTrim({
     peakDb: peak,
     lufs: measured.lufs,
     target: s.target,
     truePeakDb: measured.truePeak,
+    maxGain,
   });
 
   report?.(0.72, 'MASTER');
   const base = measured.audio;
   let gain = trim;
-  let audio = limit(applyGain(base, gain), -1.2, 5, 140);
+  let audio = limit(applyGain(base, gain), -1.2, 5, releaseMs);
   let lufs = integratedLoudness(audio);
 
   // Static-gain convergence: pushing into the limiter costs level, so the
@@ -230,13 +240,15 @@ export function render(
   // still one fixed gain for the whole file — no loudnorm pumping.
   const targetLufs = s.target === 'off' ? null : TARGET_META_LUFS[s.target];
   if (targetLufs != null) {
-    for (let pass = 0; pass < 4; pass++) {
+    // Loud targets lose more level to the limiter, so the solve needs more
+    // iterations than the gentle ones before it settles.
+    for (let pass = 0; pass < 8; pass++) {
       if (lufs < -60 || Math.abs(lufs - targetLufs) < 0.2) break;
-      const next = clamp(gain * dbToGain(targetLufs - lufs), 0.2, 8.0);
+      const next = clamp(gain * dbToGain(targetLufs - lufs), 0.2, maxGain);
       if (Math.abs(next - gain) < 0.004) break;
       gain = next;
       report?.(0.8 + pass * 0.02, 'LIMIT');
-      audio = limit(applyGain(base, gain), -1.2, 5, 140);
+      audio = limit(applyGain(base, gain), -1.2, 5, releaseMs);
       lufs = integratedLoudness(audio);
     }
   }

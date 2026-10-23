@@ -198,7 +198,10 @@ export function computeTrim(opts: {
   target: string;
   truePeakDb?: number | null;
   ceiling?: number;
+  /** Upper bound for the static gain. Loud targets need more than +18 dB. */
+  maxGain?: number;
 }): number {
+  const maxGain = opts.maxGain ?? 8.0;
   const ceiling = opts.ceiling ?? -1.0;
   const pk = opts.truePeakDb == null ? opts.peakDb : Math.max(opts.peakDb, opts.truePeakDb);
   const gPeak = Math.pow(10, (ceiling - pk) / 20);
@@ -207,8 +210,8 @@ export function computeTrim(opts: {
     return pk > -0.5 ? clamp(gPeak, 0.2, 1.0) : 1.0;
   }
   if (opts.lufs == null || opts.lufs < -40) {
-    return clamp(gPeak, 0.2, 8.0);
+    return clamp(gPeak, 0.2, maxGain);
   }
   const gLufs = Math.pow(10, (target - opts.lufs) / 20);
-  return clamp(Math.min(gLufs, gPeak), 0.2, 8.0);
+  return clamp(Math.min(gLufs, gPeak), 0.2, maxGain);
 }

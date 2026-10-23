@@ -12,6 +12,7 @@ import { NEUTRAL, processedDuration, TARGET_META } from '../src/model/settings';
 import type { EditSettings, SourceInfo } from '../src/model/settings';
 import { PRESETS } from '../src/model/presets';
 import { fingerprint } from '../src/state/forge';
+import { PLANS } from '../src/model/tiers';
 
 const SR = 48000;
 
@@ -153,17 +154,28 @@ describe('presets', () => {
   const bed = musicBed(8);
   const info = source(8);
 
-  it('ships exactly 14 unique presets', () => {
-    expect(PRESETS).toHaveLength(14);
-    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(14);
-    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(14);
+  it('ships 34 unique presets, 20 of them owner-built', () => {
+    expect(PRESETS).toHaveLength(34);
+    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(34);
+    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(34);
+    expect(PRESETS.filter((p) => p.owner)).toHaveLength(20);
+    expect(PRESETS.every((p) => (p.why ?? '').length > 60)).toBe(true);
   });
+
+  // Loud masters are judged on loud material: pushing a sparse test tone to
+  // −9 LUFS would need clipping, and the engine refuses to fake that.
+  const dense = musicBed(8);
+  for (let i = 0; i < dense.left.length; i++) {
+    dense.left[i] = Math.tanh(dense.left[i] * 12) * 0.98;
+    dense.right[i] = Math.tanh(dense.right[i] * 12) * 0.98;
+  }
 
   for (const preset of PRESETS) {
     it(`${preset.id} lands on target without clipping`, () => {
       const edit: EditSettings = { ...NEUTRAL };
       preset.apply(edit);
-      const out = render(bed, edit, info);
+      const material = edit.target === 'club' || edit.target === 'loud' ? dense : bed;
+      const out = render(material, edit, info);
       const target = TARGET_META[edit.target].lufs ?? -14;
       expect(out.lufs).not.toBeNull();
       expect(Math.abs((out.lufs ?? 0) - target)).toBeLessThan(1.2);
@@ -222,5 +234,60 @@ describe('loudness targets', () => {
     const out = render(quiet, { ...NEUTRAL, target: 'off' }, source(4));
     expect(Math.abs(out.trimDb)).toBeLessThan(0.01);
     expect(integratedLoudness(out.audio)).toBeLessThan(-30);
+  });
+});
+
+describe('owner edition presets', () => {
+  const owners = PRESETS.filter((p) => p.owner);
+
+  it('are 20 distinct builds, not renames of the classics', () => {
+    expect(owners).toHaveLength(20);
+    for (const preset of owners) {
+      const s: EditSettings = { ...NEUTRAL };
+      preset.apply(s);
+      const changed = (Object.keys(s) as (keyof EditSettings)[]).filter((key) => s[key] !== NEUTRAL[key]);
+      expect(changed.length, `${preset.id} barely changes anything`).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it('never stack mono bass on top of a sub already fighting for space', () => {
+    for (const preset of PRESETS) {
+      const s: EditSettings = { ...NEUTRAL };
+      preset.apply(s);
+      if (s.sub > 0.25) expect(s.monoBass, `${preset.id} pushes sub without mono bass`).toBe(true);
+    }
+  });
+
+  it('never enables denoise and voice mode together — the engine runs one', () => {
+    for (const preset of PRESETS) {
+      const s: EditSettings = { ...NEUTRAL };
+      preset.apply(s);
+      expect(s.denoise && s.voiceMode, preset.id).toBe(false);
+    }
+  });
+
+  it('keeps 8D slow enough to listen to', () => {
+    for (const preset of PRESETS) {
+      const s: EditSettings = { ...NEUTRAL };
+      preset.apply(s);
+      if (!s.spatial8d) continue;
+      expect(s.spinRate, preset.id).toBeLessThanOrEqual(0.2);
+      expect(s.spinRate, preset.id).toBeGreaterThan(0);
+      expect(s.depth, preset.id).toBeLessThanOrEqual(0.75);
+    }
+  });
+
+  it('explains itself with numbers, not adjectives', () => {
+    for (const preset of PRESETS) {
+      expect(preset.detail.length, preset.id).toBeGreaterThan(40);
+      expect(preset.detail.length, preset.id).toBeLessThan(220);
+      expect(preset.why ?? '', `${preset.id} has no reasoning`).toMatch(/\d/);
+      expect(preset.why ?? '', `${preset.id} reasoning lacks units`).toMatch(/dB|Hz|kHz|semitone|detik|%/);
+    }
+  });
+
+  it('is never unlocked by the free plan', () => {
+    const free = new Set(PLANS.free.presets);
+    for (const preset of owners) expect(free.has(preset.id), preset.id).toBe(false);
   });
 });
