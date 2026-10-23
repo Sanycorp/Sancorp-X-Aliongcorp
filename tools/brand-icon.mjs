@@ -337,3 +337,69 @@ export function writeAndroidIcons() {
   }
   return written;
 }
+
+/**
+ * Android launch screen.
+ *
+ * The generated template ships the Capacitor logo on a white field. This writes
+ * the company seal on the cockpit field instead, in every density, so the first
+ * frame of the owner build is the brand and not a framework.
+ */
+export function writeAndroidSplash() {
+  const android = join(ROOT, 'android', 'app', 'src', 'main', 'res');
+  if (!existsSync(android)) return [];
+
+  const FIELD_DARK = [5, 7, 11];
+  const written = [];
+
+  for (const [name, width, height] of [
+    ['mdpi', 320, 480],
+    ['hdpi', 480, 800],
+    ['xhdpi', 720, 1280],
+    ['xxhdpi', 960, 1600],
+    ['xxxhdpi', 1280, 1920],
+  ]) {
+    const sealSize = Math.round(Math.min(width, height) * 0.34);
+    const art = render(sealSize).pixels;
+    const out = Buffer.alloc(width * height * 4);
+    const ox = Math.round((width - sealSize) / 2);
+    const oy = Math.round((height - sealSize) / 2);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const o = (y * width + x) * 4;
+        const inside = x >= ox && y >= oy && x < ox + sealSize && y < oy + sealSize;
+        if (inside) {
+          const si = ((y - oy) * sealSize + (x - ox)) * 4;
+          out[o] = art[si];
+          out[o + 1] = art[si + 1];
+          out[o + 2] = art[si + 2];
+        } else {
+          out[o] = FIELD_DARK[0];
+          out[o + 1] = FIELD_DARK[1];
+          out[o + 2] = FIELD_DARK[2];
+        }
+        out[o + 3] = 255;
+      }
+    }
+    const dir = join(android, `drawable-${name}`);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'splash.png'), encodePng(width, height, out));
+    written.push(`drawable-${name}/splash.png`);
+  }
+
+  // Android 12+ reads the window background from here.
+  const values = join(android, 'values');
+  mkdirSync(values, { recursive: true });
+  const colors = join(values, 'colors.xml');
+  const field = '#05070b';
+  if (existsSync(colors)) {
+    const xml = readFileSync(colors, 'utf8');
+    if (!xml.includes('aegis_splash')) {
+      writeFileSync(
+        colors,
+        xml.replace('</resources>', `  <color name="aegis_splash">${field}</color>\n</resources>`),
+      );
+    }
+  }
+  return written;
+}

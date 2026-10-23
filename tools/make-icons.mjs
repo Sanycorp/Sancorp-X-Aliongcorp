@@ -8,7 +8,7 @@
  * hand. Android mipmaps are refreshed only when `android/` has been generated
  * by Capacitor, so the same command is safe on a plain checkout.
  */
-import { MASTER, writeAndroidIcons, writeIconSet } from './brand-icon.mjs';
+import { MASTER, writeAndroidIcons, writeAndroidSplash, writeIconSet } from './brand-icon.mjs';
 import { existsSync } from 'node:fs';
 
 if (!existsSync(MASTER)) {
@@ -17,6 +17,10 @@ if (!existsSync(MASTER)) {
 }
 
 for (const line of writeIconSet()) console.log(`icons/${line}`);
+
+const splash = writeAndroidSplash();
+if (splash.length > 0) console.log(`android splash: ${splash.length} files`);
+else console.log('android splash: no platform folder, skipped');
 
 const android = writeAndroidIcons();
 if (android.length > 0) console.log(`android: ${android.join(', ')}`);
