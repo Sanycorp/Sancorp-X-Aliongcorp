@@ -94,7 +94,7 @@ jobs:
           set -euo pipefail
           apk=$(ls android/app/build/outputs/apk/debug/*.apk | head -n1)
           version=$(node -p "require('./package.json').version")
-          target="Aegis-Owner-${version}.apk"
+          target="Aegis-Sound-Lab-${version}.apk"
           mkdir -p /tmp/out
           cp "$apk" "/tmp/out/$target"
           size=$(stat -c%s "/tmp/out/$target")
