@@ -22,13 +22,14 @@ describe('export survives a long file', () => {
     expect(storage).toContain('writeBlobNative');
   });
 
-  it('refuses a render that cannot fit in memory, with a readable reason', async () => {
+  it('renders long files in windows instead of refusing them', async () => {
     const { MAX_RENDER_SECONDS } = await import('../src/state/forge');
-    expect(MAX_RENDER_SECONDS).toBeGreaterThanOrEqual(240);
-    expect(MAX_RENDER_SECONDS).toBeLessThanOrEqual(360);
-    const source = readFileSync('src/state/forge.ts', 'utf8');
-    expect(source).toContain('TOO_LONG');
-    expect(source).toContain('POTONG');
+    // An 8:56 track must go through: the old 300 s wall is gone.
+    expect(MAX_RENDER_SECONDS).toBeGreaterThanOrEqual(1800);
+    const engine = readFileSync('src/dsp/engine.ts', 'utf8');
+    expect(engine).toContain('renderSegmented');
+    expect(engine).toContain('LONG_RENDER_SECONDS');
+    expect(engine).toContain('expectedSeconds(s, source) > LONG_RENDER_SECONDS');
   });
 
   it('keeps the limiter allocation flat, not proportional to the song', () => {

@@ -154,11 +154,12 @@ describe('presets', () => {
   const bed = musicBed(8);
   const info = source(8);
 
-  it('ships 39 unique presets, 25 of them owner-built', () => {
-    expect(PRESETS).toHaveLength(39);
-    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(39);
-    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(39);
-    expect(PRESETS.filter((p) => p.owner)).toHaveLength(25);
+  it('ships 44 unique presets: 30 owner-built, 10 measured on the Kino file', () => {
+    expect(PRESETS).toHaveLength(44);
+    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(44);
+    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(44);
+    expect(PRESETS.filter((p) => p.owner)).toHaveLength(30);
+    expect(PRESETS.filter((p) => p.family === 'kino')).toHaveLength(10);
     expect(PRESETS.every((p) => (p.why ?? '').length > 60)).toBe(true);
   });
 
@@ -240,12 +241,18 @@ describe('loudness targets', () => {
 describe('owner edition presets', () => {
   const owners = PRESETS.filter((p) => p.owner);
 
-  it('are 25 distinct builds, not renames of the classics', () => {
-    expect(owners).toHaveLength(25);
+  it('are 30 distinct builds, not renames of the classics', () => {
+    expect(owners).toHaveLength(30);
     for (const preset of owners) {
       const s: EditSettings = { ...NEUTRAL };
       preset.apply(s);
       const changed = (Object.keys(s) as (keyof EditSettings)[]).filter((key) => s[key] !== NEUTRAL[key]);
+      if (preset.id === 'kino_apa_adanya') {
+        // The deliberate control preset: a level correction and mono bass,
+        // nothing else. It exists so the owner can hear what the filters do.
+        expect(changed.sort()).toEqual(['monoBass']);
+        continue;
+      }
       expect(changed.length, `${preset.id} barely changes anything`).toBeGreaterThanOrEqual(4);
     }
   });

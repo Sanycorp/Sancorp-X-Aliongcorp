@@ -150,14 +150,39 @@ describe('app shell', () => {
   });
 
   it('renders the owner edition and the classics as two labelled rails', () => {
-    expect(document.querySelectorAll('.preset-chip').length).toBe(39);
-    expect(document.querySelectorAll('.preset-card').length).toBe(39);
+    expect(document.querySelectorAll('.preset-chip').length).toBe(44);
+    expect(document.querySelectorAll('.preset-card').length).toBe(44);
     const labels = Array.from(document.querySelectorAll('#screen-deck .rail-label')).map(
       (n) => n.textContent ?? '',
     );
-    expect(labels[0]).toContain('EDISI OWNER');
-    expect(labels[1]).toContain('KLASIK');
+    expect(labels[0]).toContain('KINO');
+    expect(labels[1]).toContain('EDISI OWNER');
+    expect(labels[2]).toContain('KLASIK');
     expect(document.querySelectorAll('#screen-deck .owner-tag, #screen-deck .lock').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the Kino presets on their own shelf', () => {
+    const shelves = Array.from(document.querySelectorAll('#screen-arsenal .arsenal-shelf'));
+    expect(shelves.map((s) => s.getAttribute('data-shelf'))).toEqual(['kino', 'owner', 'classic']);
+    const kino = shelves[0];
+    expect(kino.textContent).toContain('KINO — LAGU KAMU');
+    expect(kino.querySelectorAll('.preset-card').length).toBe(10);
+    // Nothing from the other shelves leaks in.
+    const names = Array.from(kino.querySelectorAll('.preset-card__name')).map((n) => n.textContent);
+    expect(names).toContain('СПОКОЙНАЯ НОЧЬ');
+    expect(names).toContain('APA ADANYA');
+    expect(names).not.toContain('NIGHT SHIFT');
+  });
+
+  it('filters the Kino shelf without emptying the others', () => {
+    const kinoBtn = document.querySelector<HTMLElement>('#screen-arsenal [data-filter="KINO"]');
+    expect(kinoBtn).not.toBeNull();
+    kinoBtn!.click();
+    const shelves = Array.from(document.querySelectorAll<HTMLElement>('#screen-arsenal .arsenal-shelf'));
+    expect(shelves[0].classList.contains('is-empty')).toBe(false);
+    expect(shelves[1].classList.contains('is-empty')).toBe(true);
+    expect(shelves[2].classList.contains('is-empty')).toBe(true);
+    kinoBtn!.parentElement?.querySelector<HTMLElement>('[data-filter="ALL"]')?.click();
   });
 
   it('marks a preset as active by id, not by label', () => {
@@ -177,7 +202,7 @@ describe('app shell', () => {
     const visible = Array.from(document.querySelectorAll<HTMLElement>('#screen-arsenal .preset-card')).filter(
       (card) => !card.classList.contains('hidden'),
     );
-    expect(visible.length).toBe(25);
+    expect(visible.length).toBe(30);
     expect(visible.every((card) => card.querySelector('.owner-tag'))).toBe(true);
   });
 
@@ -329,6 +354,12 @@ describe('app shell', () => {
   it('survives a render attempt without a source', async () => {
     const forge = document.querySelector<HTMLButtonElement>('#screen-deck .forge');
     expect(forge).not.toBeNull();
+    // Navigate back to the deck first: earlier tests moved around the app.
+    window.location.hash = '#/deck';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    // A locked preset would (correctly) stop the click at the paywall; this
+    // test is about the missing source.
+    store.applyPreset('club_ready', () => undefined);
     forge!.click();
     await new Promise((r) => setTimeout(r, 30));
     expect(store.status.active).toBe(false);

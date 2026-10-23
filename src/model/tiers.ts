@@ -90,6 +90,11 @@ export const ALL_PRESET_IDS = [
   'kino_slowed_tape',
   'kino_deep_quiet',
   'kino_outro_loop',
+  'kino_apa_adanya',
+  'kino_hangat_kaset',
+  'kino_speaker_hp',
+  'kino_ruang_lebar',
+  'kino_lambat_nada_utuh',
 ];
 
 export const PLANS: Record<Tier, Plan> = {
@@ -128,7 +133,7 @@ export const PLANS: Record<Tier, Plan> = {
     cadence: PRO_CADENCE,
     tagline: 'Seluruh arsenal, semua format, tanpa batas',
     perks: [
-      '34 preset: 14 klasik + 20 edisi owner',
+      '44 preset: 14 klasik + 20 owner + 10 untuk lagu Kino',
       'MP3 · WAV 16/24/32 · FLAC',
       'Semua target −16…−9 LUFS',
       '8D orbit engine',

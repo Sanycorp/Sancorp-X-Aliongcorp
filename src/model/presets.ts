@@ -26,6 +26,12 @@ export interface Preset {
   why?: string;
   /** Part of the owner edition: built for this one person, never resold. */
   owner?: boolean;
+  /**
+   * Which shelf the preset lives on. Kino presets were measured against one
+   * specific file and are kept separate, so they are never mixed in with the
+   * general arsenal.
+   */
+  family?: 'kino' | 'owner' | 'classic';
 }
 
 /**
@@ -975,6 +981,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'kino_calm_night',
     owner: true,
+    family: 'kino',
     name: 'СПОКОЙНАЯ НОЧЬ',
     tagline: 'Kino · edisi jujur',
     detail:
@@ -1003,6 +1010,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'kino_night_air',
     owner: true,
+    family: 'kino',
     name: 'НОЧНОЙ ВОЗДУХ',
     tagline: 'Buka ujung atas · lebar',
     detail:
@@ -1032,6 +1040,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'kino_slowed_tape',
     owner: true,
+    family: 'kino',
     name: 'КИНО · ЗАМЕДЛЕННО',
     tagline: '0,90× tape · pelat',
     detail:
@@ -1063,6 +1072,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'kino_deep_quiet',
     owner: true,
+    family: 'kino',
     name: 'ТИХАЯ ГЛУБИНА',
     tagline: 'Dengar malam · −16 LUFS',
     detail:
@@ -1091,6 +1101,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'kino_outro_loop',
     owner: true,
+    family: 'kino',
     name: 'ВЫХОД · ПЕТЛЯ',
     tagline: 'Outro loop · katedral',
     detail:
@@ -1119,6 +1130,138 @@ export const PRESETS: Preset[] = [
       });
     },
   },
+  {
+    id: 'kino_apa_adanya',
+    owner: true,
+    family: 'kino',
+    name: 'APA ADANYA',
+    tagline: 'Headroom saja · tanpa warna',
+    detail:
+      'Tidak menambah apa pun. Hanya menurunkan 2,6 dB supaya kliping di berkas asli (+0,7 dBTP) hilang, dan mengunci bass mono.',
+    why: 'Sumber −11,4 LUFS dengan true peak +0,7 dBTP. Target −14 LUFS = −2,6 dB, jadi tidak ada satu pun filter yang dinyalakan. Mono bass 120 Hz karena sub −11,6 dB dan stereo hanya 11%. Ini pembanding: kalau preset lain terdengar "lebih bagus", bedanya harus datang dari filter, bukan dari gain.',
+    tag: 'SIGNATURE',
+    accent: 'ink',
+    apply: (s) => {
+      Object.assign(s, {
+        monoBass: true,
+        target: 'streaming',
+      });
+    },
+  },
+  {
+    id: 'kino_hangat_kaset',
+    owner: true,
+    family: 'kino',
+    name: 'HANGAT KASET',
+    tagline: 'Saturasi · pita 11 kHz',
+    detail:
+      'Membuat rekaman yang gelap ini terasa seperti pita: saturasi tipis menambah harmonisa, ujung atas dipangkas di 11,5 kHz supaya tidak ada desis opus yang ikut naik.',
+    why: 'Saturasi 0,28 menambah harmonisa orde rendah tanpa menggerus transient. Low-pass 0,12 = 11,5 kHz: opus 132 kbps tidak menyimpan apa pun di atas itu, memotongnya mencegah artefak codec ikut terangkat. Pelat 18% ruang 32% redam 65%, mono bass 120 Hz, target −14 LUFS.',
+    tag: 'RETRO',
+    accent: 'amber',
+    apply: (s) => {
+      Object.assign(s, {
+        warmth: 0.28,
+        lowpass: 0.12,
+        clarity: 0.3,
+        presence: 0.15,
+        monoBass: true,
+        width: 0.58,
+        reverbEnabled: true,
+        reverbType: 'plate',
+        reverbLevel: 0.18,
+        reverbRoom: 0.32,
+        reverbDamp: 0.65,
+        target: 'streaming',
+        fadeOut: 2.0,
+      });
+    },
+  },
+  {
+    id: 'kino_speaker_hp',
+    owner: true,
+    family: 'kino',
+    name: 'SPEAKER HP',
+    tagline: 'Untuk speaker kecil',
+    detail:
+      'Speaker HP tidak bisa memutar 55 Hz, jadi sub dibiarkan turun dan yang diangkat adalah 680 Hz–2,8 kHz: bagian yang benar-benar keluar dari speaker kecil.',
+    why: '680 Hz −0,75 dB (kotak), 2,8 kHz +0,9 dB, 8 kHz +1,5 dB, low shelf +2 dB di 128 Hz supaya ada sedikit tubuh. Mono bass 120 Hz + width 0,5: speaker HP mono, jadi stereo lebar hanya membuang energi.',
+    tag: 'REPAIR',
+    accent: 'signal',
+    apply: (s) => {
+      Object.assign(s, {
+        clarity: 0.3,
+        presence: 0.36,
+        air: 0.38,
+        bass: 0.1,
+        bassFreq: 0.4,
+        monoBass: true,
+        width: 0.5,
+        deEsser: true,
+        target: 'streaming',
+        fadeOut: 1.5,
+      });
+    },
+  },
+  {
+    id: 'kino_ruang_lebar',
+    owner: true,
+    family: 'kino',
+    name: 'RUANG LEBAR',
+    tagline: 'Stereo 11% → 18%',
+    detail:
+      'Lagu ini hampir mono (energi samping 11%). Ini melebarkan stereo ke sekitar 18% dan menaruh pelat pendek di belakang vokal — melebar tanpa mengaburkan.',
+    why: 'Width 0,8 pada mesin widen (mid/side ×1,48) mengubah rasio samping 11% menjadi ±18%. Pelat 16% ruang 28% redam 60% menjaga mono-kompatibilitas; mono bass 120 Hz supaya low-end tidak ikut melebar dan hilang.',
+    tag: 'SPACE',
+    accent: 'cobalt',
+    apply: (s) => {
+      Object.assign(s, {
+        width: 0.8,
+        clarity: 0.34,
+        presence: 0.2,
+        air: 0.3,
+        monoBass: true,
+        reverbEnabled: true,
+        reverbType: 'plate',
+        reverbLevel: 0.16,
+        reverbRoom: 0.28,
+        reverbDamp: 0.6,
+        target: 'streaming',
+        fadeOut: 2.0,
+      });
+    },
+  },
+  {
+    id: 'kino_lambat_nada_utuh',
+    owner: true,
+    family: 'kino',
+    name: 'LAMBAT · NADA UTUH',
+    tagline: '0,88× pitch-lock',
+    detail:
+      'Versi lambat yang nadanya tidak turun: tempo 12% lebih lambat, kunci G tetap G. Untuk yang ingin suasananya lebih berat tapi tidak ingin suara penyanyinya berubah.',
+    why: 'Mode modern (WSOLA): 0,88× tanpa mengubah pitch, beda dari tape. 680 Hz −1,1 dB, 8 kHz +1,6 dB, katedral 28% ruang 78% redam 35% (ekor ±4 detik), mono bass 120 Hz, fade 3 detik.',
+    tag: 'SLOW',
+    accent: 'crimson',
+    apply: (s) => {
+      Object.assign(s, {
+        speed: 0.88,
+        speedMode: 'modern',
+        clarity: 0.42,
+        presence: 0.26,
+        air: 0.4,
+        monoBass: true,
+        width: 0.7,
+        reverbEnabled: true,
+        reverbType: 'cathedral',
+        reverbLevel: 0.28,
+        reverbRoom: 0.78,
+        reverbDamp: 0.35,
+        target: 'streaming',
+        fadeIn: 0.5,
+        fadeOut: 3.0,
+      });
+    },
+  },
 ];
 
 export const presetById = (id: string | null | undefined): Preset | undefined =>
@@ -1126,3 +1269,9 @@ export const presetById = (id: string | null | undefined): Preset | undefined =>
 
 export const presetByName = (name: string | null | undefined): Preset | undefined =>
   name ? PRESETS.find((p) => p.name === name) : undefined;
+
+/** The shelf a preset belongs to. Kino is never mixed into the general list. */
+export const familyOf = (preset: Preset): 'kino' | 'owner' | 'classic' =>
+  preset.family ?? (preset.owner ? 'owner' : 'classic');
+
+export const KINO_PRESETS = PRESETS.filter((p) => familyOf(p) === 'kino');

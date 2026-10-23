@@ -2384,3 +2384,55 @@ html[data-battery='on'] .nav__btn.is-active::after,
 html[data-battery='on'] .kinetic span {
   animation: none !important;
 }
+
+/* ==========================================================================
+   ARSENAL shelves — Kino / owner / classic never share a list
+   ========================================================================== */
+
+.arsenal-shelves {
+  display: grid;
+  gap: 18px;
+}
+
+.arsenal-shelf {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.arsenal-shelf[data-shelf='kino'] {
+  border-top: 2px solid var(--cobalt);
+}
+
+.arsenal-shelf.is-empty {
+  display: none;
+}
+
+.arsenal-shelf__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.arsenal-shelf__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.arsenal-shelf__count b {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--cobalt);
+}
+
+.arsenal-shelf__note {
+  margin: 0 0 4px;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--ink-faint);
+}

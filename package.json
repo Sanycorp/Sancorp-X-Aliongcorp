@@ -1,7 +1,7 @@
 {
   "name": "el-tzy-aegis",
   "private": true,
-  "version": "8.17.0",
+  "version": "8.18.0",
   "type": "module",
   "description": "Aegis Sound Lab by Sanayacorp \u2014 offline mecha audio forge. Web-native DSP, zero upload.",
   "scripts": {

@@ -24,14 +24,14 @@ let previewAudio: Stereo | null = null;
 let exportGeneration = 0;
 
 /**
- * How much audio one render may hold at once.
+ * The absolute ceiling, not a quality setting.
  *
- * Measured on the render chain: a 3-minute stereo file peaks around 280 MB of
- * DSP buffers. A phone webview cannot take a 9-minute pass (≈840 MB) — that is
- * what killed the app at the write stage. Five minutes is the ceiling; longer
- * sources render after trimming, and the message says so instead of dying.
+ * Long files no longer hit a 5-minute wall: above 90 s the renderer switches to
+ * overlapping windows (see renderSegmented), which is what makes an 8:56 track
+ * possible on a phone. What is left is a sanity limit so a 3-hour file cannot
+ * sit in a queue for an hour on a battery.
  */
-export const MAX_RENDER_SECONDS = 300;
+export const MAX_RENDER_SECONDS = 3600;
 
 export function cancelExport(): void {
   if (!store.status.active) return;
@@ -164,7 +164,7 @@ export async function forgeExport(): Promise<void> {
       active: false,
       stage: 'TOO_LONG',
       progress: 0,
-      error: `Lagu ini ${Math.round(seconds)} detik. Satu render dibatasi ${MAX_RENDER_SECONDS} detik supaya aplikasi tidak kehabisan memori di HP. Pakai POTONG di bawah waveform: ambil bagian yang kamu mau, lalu render lagi.`,
+      error: `Lagu ini ${Math.round(seconds)} detik — di atas batas ${Math.round(MAX_RENDER_SECONDS / 60)} menit. Potong dulu di bawah waveform, atau render per bagian.`,
     });
     return;
   }

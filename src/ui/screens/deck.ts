@@ -1,4 +1,4 @@
-import { PRESETS, presetById } from '../../model/presets';
+import { KINO_PRESETS, PRESETS, familyOf, presetById } from '../../model/presets';
 import { CHAIN_GROUPS, CHAIN_STAGES, stageGroupIndex } from '../../model/chain';
 import type { ChainStage } from '../../model/chain';
 import { FORMAT_META, SPEED_MODE_META, TARGET_META, SPACE_META } from '../../model/settings';
@@ -202,9 +202,10 @@ export function createDeck(): Screen {
     return chip;
   };
 
-  const ownerChips = PRESETS.filter((p) => p.owner).map(makeChip);
-  const classicChips = PRESETS.filter((p) => !p.owner).map(makeChip);
-  const chips = [...ownerChips, ...classicChips];
+  const kinoChips = PRESETS.filter((p) => familyOf(p) === 'kino').map(makeChip);
+  const ownerChips = PRESETS.filter((p) => familyOf(p) === 'owner').map(makeChip);
+  const classicChips = PRESETS.filter((p) => familyOf(p) === 'classic').map(makeChip);
+  const chips = [...kinoChips, ...ownerChips, ...classicChips];
 
   /** Locks follow the session, so signing in unlocks without a reload. */
   function paintLocks(): void {
@@ -231,6 +232,8 @@ export function createDeck(): Screen {
   const rail = el(
     'div',
     { class: 'rail-stack' },
+    railLabel('KINO · LAGU KAMU', KINO_PRESETS.length),
+    el('div', { class: 'rail' }, kinoChips),
     railLabel('EDISI OWNER', ownerChips.length),
     el('div', { class: 'rail' }, ownerChips),
     railLabel('KLASIK', classicChips.length),
@@ -427,7 +430,7 @@ export function createDeck(): Screen {
     el('div', {
       class: 'footnote',
       style: 'margin-top:8px;text-align:left',
-      text: 'Trim gain statis + limiter true-peak −1,2 dB. Tidak ada loudnorm dinamis. Satu render maksimal 5 menit supaya memori HP tidak jebol — potong dulu untuk lagu yang lebih panjang.',
+      text: 'Trim gain statis + limiter true-peak −1,2 dB. Tidak ada loudnorm dinamis. Lagu panjang dirender bertahap (jendela 60 detik, crossfade 0,35 detik) supaya memori HP tidak jebol — hasilnya sama dengan render sekali jalan.',
     }),
   );
 

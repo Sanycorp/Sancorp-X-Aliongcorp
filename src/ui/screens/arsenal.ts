@@ -1,4 +1,4 @@
-import { PRESETS, presetById } from '../../model/presets';
+import { KINO_PRESETS, PRESETS, familyOf, presetById } from '../../model/presets';
 import type { Preset, PresetTag } from '../../model/presets';
 import { NEUTRAL, SPACE_META, TARGET_META } from '../../model/settings';
 import { store } from '../../state/store';
@@ -9,8 +9,9 @@ import { openPaywall } from '../account';
 import { el, sectionHead, toast } from '../elements';
 import type { Screen } from './deck';
 
-const TAGS: (PresetTag | 'ALL' | 'OWNER')[] = [
+const TAGS: (PresetTag | 'ALL' | 'OWNER' | 'KINO')[] = [
   'ALL',
+  'KINO',
   'OWNER',
   'SLOW',
   'FAST',
@@ -46,7 +47,7 @@ function summarize(preset: Preset): string {
 }
 
 export function createArsenal(): Screen {
-  let filter: PresetTag | 'ALL' | 'OWNER' = 'ALL';
+  let filter: PresetTag | 'ALL' | 'OWNER' | 'KINO' = 'ALL';
   const cards = new Map<string, HTMLElement>();
 
   const filterRow = el(
@@ -88,12 +89,67 @@ export function createArsenal(): Screen {
       const preset = presetById(id);
       if (!preset) continue;
       const show =
-        filter === 'ALL' || (filter === 'OWNER' ? Boolean(preset.owner) : preset.tag === filter);
+        filter === 'ALL' ||
+        (filter === 'OWNER'
+          ? Boolean(preset.owner)
+          : filter === 'KINO'
+            ? familyOf(preset) === 'kino'
+            : preset.tag === filter);
       card.classList.toggle('hidden', !show);
+    }
+    // A shelf whose every card is filtered out would leave an empty heading.
+    for (const [, shelf] of shelves) {
+      const anyVisible = shelf.cards.some((card) => !card.classList.contains('hidden'));
+      shelf.section.classList.toggle('is-empty', !anyVisible);
     }
   }
 
-  const grid = el('div', { class: 'arsenal-grid' });
+  // Three shelves, never one long list: the Kino presets were measured against
+  // one file and only make sense together, so they get their own block.
+  const SHELVES: { key: 'kino' | 'owner' | 'classic'; title: string; note: string }[] = [
+    {
+      key: 'kino',
+      title: 'KINO — LAGU KAMU',
+      note: 'Dibuat dari pengukuran berkas "Спокойная ночь" (Kino, Taivas edit): −11,4 LUFS, +0,7 dBTP, udara −27,9 dB, stereo 11%.',
+    },
+    {
+      key: 'owner',
+      title: 'EDISI OWNER',
+      note: 'Dibangun untuk satu orang: vokal, panggung, ruang, retro, dan dua tanda tangan.',
+    },
+    {
+      key: 'classic',
+      title: 'KLASIK',
+      note: 'Empat belas preset awal yang sudah diuji render.',
+    },
+  ];
+
+  const shelves = new Map<string, { cards: HTMLElement[]; section: HTMLElement }>();
+  const gridHost = el('div', { class: 'arsenal-shelves' });
+  const shelfGrids = new Map<string, HTMLElement>();
+
+  SHELVES.forEach((shelf) => {
+    const inner = el('div', { class: 'arsenal-grid' });
+    const section = el(
+      'div',
+      { class: 'arsenal-shelf', attrs: { 'data-shelf': shelf.key } },
+      el(
+        'div',
+        { class: 'arsenal-shelf__head' },
+        el('h2', { class: 'arsenal-shelf__title', text: shelf.title }),
+        el(
+          'span',
+          { class: 'arsenal-shelf__count mono' },
+          el('b', { text: String(PRESETS.filter((p) => familyOf(p) === shelf.key).length) }),
+        ),
+      ),
+      el('p', { class: 'arsenal-shelf__note', text: shelf.note }),
+      inner,
+    );
+    shelves.set(shelf.key, { cards: [], section });
+    gridHost.appendChild(section);
+    shelfGrids.set(shelf.key, inner);
+  });
 
   PRESETS.forEach((preset, index) => {
     // A div, not a button: the card contains a fold-out that explains the
@@ -158,7 +214,9 @@ export function createArsenal(): Screen {
       el('i', { class: 'lock lock--card', text: 'PRO', attrs: { 'aria-hidden': 'true' } }),
     );
     cards.set(preset.id, card);
-    grid.appendChild(card);
+    const family = familyOf(preset);
+    shelfGrids.get(family)?.appendChild(card);
+    shelves.get(family)?.cards.push(card);
   });
 
   const activeNote = el('div', { class: 'lab-group__note mono', text: 'ACTIVE —' });
@@ -179,7 +237,8 @@ export function createArsenal(): Screen {
         'div',
         { class: 'header__meta' },
         el('span', { class: 'chip' }, el('b', { text: String(PRESETS.length) }), el('span', { text: 'PRESET' })),
-        el('span', { class: 'chip chip--live' }, el('b', { text: String(PRESETS.filter((p) => p.owner).length) }), el('span', { text: 'OWNER' })),
+        el('span', { class: 'chip chip--live' }, el('b', { text: String(KINO_PRESETS.length) }), el('span', { text: 'KINO' })),
+        el('span', { class: 'chip' }, el('b', { text: String(PRESETS.filter((p) => p.owner).length) }), el('span', { text: 'OWNER' })),
       ),
     ),
     el(
@@ -188,7 +247,7 @@ export function createArsenal(): Screen {
       'Setiap preset di sini diuji render: mendarat di target LUFS-nya dengan true peak ≤ −1 dBFS. Yang bertanda OWNER adalah edisi khusus kamu — angka di balik tombol "KENAPA ANGKA INI" bisa diperiksa satu per satu.',
     ),
     filterRow,
-    grid,
+    gridHost,
     el('div', { style: 'height:6px' }),
     sectionHead('··', 'STATUS'),
     activeNote,
