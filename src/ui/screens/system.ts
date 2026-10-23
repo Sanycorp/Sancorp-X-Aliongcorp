@@ -226,7 +226,7 @@ export function createSystem(): Screen {
         onClick: () => openAccount(),
       }),
       tier === 'admin'
-        ? button('BUKA AEGIS OPS', {
+        ? button('BUKA PANEL OWNER', {
             tone: 'ghost',
             size: 'sm',
             block: true,

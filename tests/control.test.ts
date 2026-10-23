@@ -54,7 +54,9 @@ describe('operator console', () => {
     document.body.replaceChildren(screen.el);
 
     expect(screen.el.dataset.gate).toBe('locked');
-    expect(screen.el.querySelector('.ctrl-gate__title')?.textContent).toBe('AKSES OPERATOR');
+    expect(screen.el.querySelector('.ctrl-gate__title')?.textContent).toBe('PANEL OWNER');
+    // The lock screen carries the company seal, not a generic padlock.
+    expect(screen.el.querySelector('.ctrl-gate__card .brand__mark')).not.toBeNull();
     expect(screen.el.querySelector('.ctrl-tabs')?.textContent).toBe('');
     screen.destroy?.();
     vi.unstubAllGlobals();
@@ -111,27 +113,45 @@ describe('operator console', () => {
     expect(session.tier).toBe('admin');
     expect(screen.el.dataset.gate).toBe('open');
 
-    const tabs = screen.el.querySelectorAll('.ctrl-tabs .segment button');
-    expect(Array.from(tabs).map((b) => b.textContent)).toEqual(['LIVE', 'AKUN', 'RATING', 'TERBIT', 'KEAMANAN']);
+    // Six rooms, each named after the job rather than the subsystem.
+    const tabs = screen.el.querySelectorAll<HTMLButtonElement>('.owner-tabs .owner-tab');
+    expect(Array.from(tabs).map((b) => b.querySelector('b')?.textContent)).toEqual([
+      'Ringkasan',
+      'Akun',
+      'Kunci',
+      'Penilaian',
+      'Layanan',
+      'Panduan',
+    ]);
+    // Every room states its purpose in one line, so nothing is a guess.
+    expect(Array.from(tabs).map((b) => b.querySelector('em')?.textContent)).toEqual([
+      'Kondisi hari ini',
+      'Siapa aktif, sampai kapan',
+      'Buat kunci untuk pembeli',
+      'Bintang dan ulasan',
+      'Situs, kecepatan, keamanan',
+      'Cara pakai, bahasa manusia',
+    ]);
 
     // The desk mints on the server; the copy must say so.
-    (tabs[3] as HTMLButtonElement).click();
+    tabs[2].click();
     expect(screen.el.textContent).toContain('TERBITKAN KUNCI');
     expect(screen.el.textContent).toContain('HMAC-SHA256');
+    expect(screen.el.textContent).toContain('satu perangkat');
 
     // Ratings are an operator view: distribution, trend and the review list.
-    (tabs[2] as HTMLButtonElement).click();
+    tabs[3].click();
     expect(screen.el.textContent).toContain('KANAL PENILAIAN');
     expect(screen.el.textContent).toContain('DISTRIBUSI BINTANG');
     expect(screen.el.textContent).toContain('PERINGKAT PRESET');
 
     // And the ledger is the operator's own device, not a database.
-    (tabs[1] as HTMLButtonElement).click();
+    tabs[1].click();
     expect(screen.el.textContent).toContain('DAFTAR AKUN');
     expect(screen.el.textContent).toContain('perangkat ini');
 
-    // Revocation and the live header probe live behind the last tab.
-    (tabs[4] as HTMLButtonElement).click();
+    // Revocation and the live header probe live behind the service tab.
+    tabs[4].click();
     expect(screen.el.textContent).toContain('PENCABUTAN');
     expect(screen.el.textContent).toContain('HEADER LIVE');
     expect(screen.el.textContent).toContain('LAPORAN CSP');

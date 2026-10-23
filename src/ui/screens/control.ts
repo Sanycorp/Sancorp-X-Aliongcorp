@@ -1,4 +1,5 @@
-import { el, button, sectionHead, segmented, toast } from '../elements';
+import { el, button, icon, sectionHead, segmented, toast } from '../elements';
+import { brandMark } from '../brand';
 import { session } from '../../state/session';
 import { ledger, statusOf, dayCount } from '../../state/ops';
 import type { OpsAccount, OpsFilter } from '../../state/ops';
@@ -72,7 +73,21 @@ interface IssuedKey {
   expires: string;
 }
 
-type Tab = 'live' | 'accounts' | 'rating' | 'issue' | 'security';
+type Tab = 'overview' | 'accounts' | 'issue' | 'rating' | 'security' | 'guide';
+
+/**
+ * The owner's map of the console. Every room says what it is for in the words a
+ * shopkeeper would use, because the person running this is not the person who
+ * wrote the DSP. The internal tab ids stay stable; only the labels are human.
+ */
+const TABS: { id: Tab; label: string; purpose: string; icon: 'home' | 'arsenal' | 'key' | 'wave' | 'cpu' | 'book' }[] = [
+  { id: 'overview', label: 'Ringkasan', purpose: 'Kondisi hari ini', icon: 'home' },
+  { id: 'accounts', label: 'Akun', purpose: 'Siapa aktif, sampai kapan', icon: 'arsenal' },
+  { id: 'issue', label: 'Kunci', purpose: 'Buat kunci untuk pembeli', icon: 'key' },
+  { id: 'rating', label: 'Penilaian', purpose: 'Bintang dan ulasan', icon: 'wave' },
+  { id: 'security', label: 'Layanan', purpose: 'Situs, kecepatan, keamanan', icon: 'cpu' },
+  { id: 'guide', label: 'Panduan', purpose: 'Cara pakai, bahasa manusia', icon: 'book' },
+];
 
 const HEADER_CHECKS: { key: string; label: string; expect: string }[] = [
   { key: 'content-security-policy', label: 'CSP', expect: "default-src 'none'" },
@@ -107,7 +122,7 @@ function copy(text: string, message: string): void {
 }
 
 export function createControl(): Screen {
-  let tab: Tab = 'live';
+  let tab: Tab = 'overview';
   let health: HealthData | null = null;
   let latency = 0;
   let lastProbe = 0;
@@ -154,31 +169,50 @@ export function createControl(): Screen {
   const body = el('div', { class: 'ctrl-body' });
   const stamp = el('span', { class: 'ctrl-clock', text: '--:--:--' });
 
+  const greeting = el('p', { class: 'owner-head__greet' });
+  const todayNote = el('p', { class: 'owner-head__today' });
+
   const screen = el(
     'section',
-    { class: 'screen', id: 'screen-control', attrs: { 'aria-label': 'Konsol operator' } },
+    { class: 'screen owner', id: 'screen-control', attrs: { 'aria-label': 'Panel owner Aegis Sound Lab' } },
     el(
-      'div',
-      { class: 'screen__intro' },
+      'header',
+      { class: 'owner-head' },
+      el('div', { class: 'owner-head__seal' }, brandMark(52)),
       el(
         'div',
-        {},
-        el('div', { class: 'screen__kicker', text: 'AEGIS SOUND LAB / OPERATIONS' }),
-        el('h1', { class: 'screen__title', html: 'AEGIS <em>OPS</em>' }),
+        { class: 'owner-head__id' },
+        el('p', { class: 'owner-head__kicker', text: 'PANEL OWNER · SANAYACORP' }),
+        el('h1', { class: 'owner-head__title' }, 'Aegis Sound Lab', el('em', { text: ' — pusat kendali' })),
+        el('p', {
+          class: 'owner-head__note',
+          text: 'Semua keputusan ada di sini: siapa yang sedang aktif, kunci apa yang terbit, dan apakah situsnya sehat. Tidak perlu paham istilah teknis.',
+        }),
+        greeting,
       ),
-      el('div', { class: 'header__meta' }, el('span', { class: 'chip' }, el('b', { text: 'ADMIN' })), stamp),
+      el(
+        'div',
+        { class: 'owner-head__meta' },
+        el('span', { class: 'chip chip--live' }, el('b', { text: 'OWNER' })),
+        el('span', { class: 'chip owner-chip-ver' }, el('b', { text: APP_VERSION })),
+        stamp,
+      ),
     ),
+    todayNote,
     gate,
     tabsHost,
     body,
-    el('div', { class: 'footnote', text: `Konsol operator · Aegis Sound Lab ${APP_VERSION} · Sanayacorp · data dibaca live dari deployment ini` }),
+    el('div', {
+      class: 'footnote',
+      text: `Panel owner · Aegis Sound Lab ${APP_VERSION} · Sanayacorp · angka dibaca langsung dari deployment ini`,
+    }),
   );
 
   installRipple(screen);
 
   // ------------------------------------------------------------------ probes
   async function ping(): Promise<void> {
-    if (tab === 'live') render();
+    if (tab === 'overview') render();
     const started = performance.now();
     try {
       const res = await fetch('/api/health', { cache: 'no-store', headers: { accept: 'application/json' } });
@@ -189,8 +223,12 @@ export function createControl(): Screen {
       latency = -1;
     }
     lastProbe = Date.now();
-    if (tab === 'live') render();
+    if (tab === 'overview' || tab === 'security') render();
   }
+
+  let deskAutoTried = false;
+  let ratingAutoTried = false;
+  let healthAutoTried = false;
 
   async function loadDesk(): Promise<void> {
     try {
@@ -199,7 +237,7 @@ export function createControl(): Screen {
     } catch {
       desk = null;
     }
-    if (tab === 'security' || tab === 'live') render();
+    if (tab === 'security' || tab === 'overview') render();
   }
 
   async function probeHeaders(): Promise<void> {
@@ -368,6 +406,88 @@ export function createControl(): Screen {
     );
   }
 
+
+  // ------------------------------------------------------------------ plain help
+  /** One sentence, no jargon: what this card is for and what to do with it. */
+  function note(text: string): HTMLElement {
+    return el(
+      'p',
+      { class: 'owner-note' },
+      icon('help', 14),
+      el('span', { text }),
+    );
+  }
+
+  /** The short version, folded away so it never shouts over the numbers. */
+  function howTo(summary: string, steps: string[]): HTMLElement {
+    return el(
+      'details',
+      { class: 'owner-how' },
+      el('summary', {}, icon('book', 14), el('span', { text: summary })),
+      el('ol', { class: 'owner-how__list' }, ...steps.map((line) => el('li', { text: line }))),
+    );
+  }
+
+  function greet(): void {
+    const hour = new Date().getHours();
+    const part = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 19 ? 'Selamat sore' : 'Selamat malam';
+    const stats = ledger.stats();
+    greeting.textContent = `${part}, Owner. ${stats.active} akun aktif, ${stats.expiring} hampir habis.`;
+    todayNote.textContent = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  /** Navigating between rooms always leaves the data they need loaded. */
+  function go(next: Tab): void {
+    tab = next;
+    render();
+    if (next === 'accounts' || next === 'security' || next === 'overview') void loadDesk();
+    if (next === 'rating' || next === 'overview') void loadRatings();
+    if (next === 'security') {
+      void probeHeaders();
+      void loadCsp();
+    }
+    if (next === 'overview') void ping();
+  }
+
+  function ownerTabs(): HTMLElement {
+    return el(
+      'div',
+      { class: 'owner-tabs', attrs: { role: 'tablist', 'aria-label': 'Bagian panel owner' } },
+      ...TABS.map((entry) =>
+        el(
+          'button',
+          {
+            class: 'owner-tab',
+            attrs: {
+              type: 'button',
+              role: 'tab',
+              'aria-selected': String(entry.id === tab),
+              'data-tab': entry.id,
+            },
+            on: {
+              click: () => {
+                if (entry.id === tab) return;
+                go(entry.id);
+              },
+            },
+          },
+          el('span', { class: 'owner-tab__icon' }, icon(entry.icon, 17)),
+          el(
+            'span',
+            { class: 'owner-tab__text' },
+            el('b', { text: entry.label }),
+            el('em', { text: entry.purpose }),
+          ),
+        ),
+      ),
+    );
+  }
+
   function renderLive(): void {
     const ok = Boolean(health?.ok);
     body.append(
@@ -382,7 +502,7 @@ export function createControl(): Screen {
       el(
         'div',
         { class: 'plate ctrl-plate' },
-        sectionHead('01', 'KESEHATAN LAYANAN'),
+        sectionHead('04', 'KESEHATAN LAYANAN'),
         el(
           'div',
           { class: 'ops-line' },
@@ -408,7 +528,7 @@ export function createControl(): Screen {
       el(
         'div',
         { class: 'plate ctrl-plate' },
-        sectionHead('02', 'SESI OPERATOR'),
+        sectionHead('05', 'SESI OPERATOR'),
         el(
           'div',
           { class: 'ctrl-kv' },
@@ -479,7 +599,10 @@ export function createControl(): Screen {
       el(
         'div',
         { class: 'plate ctrl-plate' },
-        sectionHead('03', 'DAFTAR AKUN'),
+        sectionHead('01', 'DAFTAR AKUN'),
+        note(
+          'Semua pembeli yang tercatat di perangkat ini. Cari dengan nomor seri, nama, atau potongan kunci. Tombol di tiap baris untuk perpanjang, cabut, atau lepas ikatan perangkat.',
+        ),
         el(
           'div',
           { class: 'ops-toolbar' },
@@ -600,7 +723,7 @@ export function createControl(): Screen {
         'Kanal penilaian tidak terbaca sekarang. Angka di bawah memakai cache terakhir dan penilaian di perangkat ini.';
     } finally {
       ratingBusy = false;
-      if (tab === 'rating') render();
+      if (tab === 'rating' || tab === 'overview') render();
     }
   }
 
@@ -699,7 +822,8 @@ export function createControl(): Screen {
       el(
         'div',
         { class: 'plate ctrl-plate' },
-        sectionHead('04', 'KANAL PENILAIAN'),
+        sectionHead('01', 'KANAL PENILAIAN'),
+        note('Bintang yang dikirim pengguna dari halaman SISTEM. Kamu tidak bisa mengubah atau menghapusnya — ini yang membuatnya bisa dipercaya.'),
         el(
           'div',
           { class: 'ops-line' },
@@ -1229,11 +1353,14 @@ export function createControl(): Screen {
       el(
         'div',
         { class: 'plate ctrl-plate' },
-        sectionHead('04', 'TERBITKAN KUNCI'),
+        sectionHead('01', 'TERBITKAN KUNCI'),
+        note(
+          'Kunci untuk pembeli baru. Pilih lama aktif, lalu tekan TERBITKAN — kuncinya langsung tersalin untuk dikirim lewat Telegram.',
+        ),
         el('p', {
           class: 'lab-group__note',
           style: 'margin-top:0',
-          text: 'Kunci ditandatangani HMAC-SHA256 oleh server; rahasianya tidak pernah menyentuh browser. Satu kunci bisa dipakai di semua perangkat pemiliknya.',
+          text: 'Kunci ditandatangani HMAC-SHA256 di server; rahasianya tidak pernah sampai ke browser. Satu kunci hanya hidup di satu perangkat.',
         }),
         el(
           'div',
@@ -1346,7 +1473,10 @@ export function createControl(): Screen {
       el(
         'div',
         { class: 'plate ctrl-plate' },
-        sectionHead('05', 'HEADER LIVE'),
+        sectionHead('01', 'HEADER LIVE'),
+        note(
+          'Pemeriksaan pengamanan yang dikirim server ke setiap pengunjung. Semua harus hijau. Kalau ada yang merah, jangan panik dulu: tekan PERIKSA ULANG.',
+        ),
         el(
           'ul',
           { class: 'ctrl-checks' },
@@ -1462,7 +1592,7 @@ export function createControl(): Screen {
       },
     });
     const error = el('p', { class: 'form-error', attrs: { role: 'alert' } });
-    const submit = button('MASUK OPS', { tone: 'primary', block: true, icon: 'system' });
+    const submit = button('BUKA PANEL', { tone: 'primary', block: true, icon: 'key' });
 
     const run = async (): Promise<void> => {
       if (!adminInput.value.trim()) {
@@ -1473,12 +1603,12 @@ export function createControl(): Screen {
       submit.textContent = 'MEMERIKSA…';
       const problem = await session.signInAdmin(adminInput.value);
       submit.disabled = false;
-      submit.textContent = 'MASUK OPS';
+      submit.textContent = 'BUKA PANEL';
       if (problem) {
         error.textContent = problem;
         return;
       }
-      toast('Konsol terbuka', 'ok', 1600);
+      toast('Panel owner terbuka', 'ok', 1600);
       render();
     };
 
@@ -1506,13 +1636,14 @@ export function createControl(): Screen {
     gate.append(
       el(
         'div',
-        { class: 'plate ctrl-gate__card' },
-        el('div', { class: 'screen__kicker', text: 'RESTRICTED' }),
-        el('h2', { class: 'ctrl-gate__title', text: 'AKSES OPERATOR' }),
+        { class: 'plate ctrl-gate__card owner-gate' },
+        el('div', { class: 'owner-gate__seal' }, brandMark(58)),
+        el('div', { class: 'screen__kicker', text: 'KHUSUS PEMILIK' }),
+        el('h2', { class: 'ctrl-gate__title', text: 'PANEL OWNER' }),
         el('p', {
           class: 'lab-group__note',
           text: session.state.adminEnabled
-            ? 'Halaman ini tidak ditautkan dari navigasi. Buka tautan operator sekali — sesi bertahan 30 hari di perangkat ini — atau tempel kuncinya, langsung masuk tanpa menekan tombol.'
+            ? 'Halaman ini hanya untuk kamu. Tidak ada tautannya di menu mana pun. Tempel kunci operator, atau buka tautan operator sekali — panel ini ingat perangkatmu selama 30 hari.'
             : 'Kunci operator belum disetel di server. Tambahkan AEGIS_ADMIN_PASSWORD lalu deploy ulang.',
         }),
         el('div', { class: 'field' }, el('span', { class: 'label', text: 'KUNCI OPERATOR' }), adminInput),
@@ -1531,12 +1662,335 @@ export function createControl(): Screen {
   }
 
   // ------------------------------------------------------------------ render
+
+  // ------------------------------------------------------------------ overview
+  /**
+   * The first thing the owner sees: is the shop open, who is inside, how much
+   * has been sold, and what needs a decision today. No log lines, no endpoints.
+   */
+  function renderSummary(): void {
+    const stats = ledger.stats();
+    const ok = Boolean(health?.ok);
+    const summary = summarize(dedupe(ratings));
+    const accounts = ledger.all();
+    const startOfDay = new Date().setHours(0, 0, 0, 0);
+    const issuedToday = accounts.filter((a) => a.issued >= startOfDay).length;
+
+    const attention: { tone: 'ok' | 'warn' | 'bad'; title: string; body: string; act?: [string, () => void] }[] = [];
+    // Before the first probe there is nothing to report: saying "down" would be
+    // a guess, and the owner would act on it.
+    if (health && !ok) {
+      attention.push({
+        tone: 'bad',
+        title: 'Situs tidak menjawab',
+        body: 'Pemeriksaan terakhir gagal. Coba cek ulang; kalau tetap gagal, deployment-nya yang bermasalah, bukan pembelimu.',
+        act: ['CEK ULANG', () => void ping()],
+      });
+    }
+    if (stats.expiring > 0) {
+      attention.push({
+        tone: 'warn',
+        title: `${stats.expiring} akun habis dalam 7 hari`,
+        body: 'Hubungi pemiliknya untuk perpanjangan, atau biarkan turun ke paket gratis.',
+        act: ['BUKA AKUN', () => go('accounts')],
+      });
+    }
+    if (!desk) {
+      attention.push({
+        tone: 'warn',
+        title: 'Data lisensi belum terbaca',
+        body: 'Server belum menjawab daftar lisensi. Angka di kartu ini hanya dari catatan perangkat ini.',
+        act: ['MUAT ULANG', () => void loadDesk()],
+      });
+    }
+    if (desk?.devSecret) {
+      attention.push({
+        tone: 'bad',
+        title: 'Kunci keamanan masih mode uji',
+        body: 'Selama mode ini hidup, kunci yang kamu jual bisa dipalsukan. Ganti nilainya di pengaturan Vercel sebelum menerima pembayaran.',
+      });
+    }
+    if (desk && !desk.adminEnabled) {
+      attention.push({
+        tone: 'warn',
+        title: 'Kata sandi operator belum disetel',
+        body: 'Tanpa kata sandi, panel ini hanya bisa dibuka dari tautan operator yang kamu simpan sendiri.',
+      });
+    }
+    if (stats.revoked > 0) {
+      attention.push({
+        tone: 'warn',
+        title: `${stats.revoked} kunci dicabut`,
+        body: 'Kuncinya sudah mati, tapi akunnya masih tercatat di sini. Hapus kalau sudah tidak perlu.',
+        act: ['LIHAT DAFTAR', () => go('accounts')],
+      });
+    }
+    if (csp.length > 0) {
+      attention.push({
+        tone: 'warn',
+        title: `${csp.length} laporan keamanan masuk`,
+        body: 'Ada yang mencoba memuat sesuatu yang diblokir. Biasanya ekstensi browser, bukan serangan.',
+        act: ['BACA LAPORAN', () => go('security')],
+      });
+    }
+
+    const quick: HTMLElement[] = [
+      el(
+        'button',
+        { class: 'owner-quick', attrs: { type: 'button' }, on: { click: () => void quickAccount().then(() => go('accounts')) } },
+        el('span', { class: 'owner-quick__icon' }, icon('plus', 16)),
+        el('b', { text: 'Buat 1 akun PRO 30 hari' }),
+        el('span', { text: 'Kunci dibuat dan disalin otomatis. Kirim ke pembeli lewat Telegram.' }),
+      ),
+      el(
+        'button',
+        { class: 'owner-quick', attrs: { type: 'button' }, on: { click: () => go('accounts') } },
+        el('span', { class: 'owner-quick__icon' }, icon('shield', 16)),
+        el('b', { text: 'Premiumkan akun Google' }),
+        el('span', { text: 'Kalau pembeli sudah masuk dengan Google, cukup tandai akunnya — tanpa kunci.' }),
+      ),
+      el(
+        'button',
+        { class: 'owner-quick', attrs: { type: 'button' }, on: { click: () => go('security') } },
+        el('span', { class: 'owner-quick__icon' }, icon('cpu', 16)),
+        el('b', { text: 'Periksa kesehatan situs' }),
+        el('span', { text: 'Cek apakah halaman, server, dan pengamanannya masih normal.' }),
+      ),
+      el(
+        'button',
+        { class: 'owner-quick', attrs: { type: 'button' }, on: { click: () => go('guide') } },
+        el('span', { class: 'owner-quick__icon' }, icon('book', 16)),
+        el('b', { text: 'Buka panduan' }),
+        el('span', { text: 'Langkah demi langkah untuk jualan, perpanjang, dan memindah perangkat.' }),
+      ),
+    ];
+
+    body.append(
+      el(
+        'div',
+        { class: 'owner-stats' },
+        statCard(
+          'SITUS',
+          health ? (ok ? 'Hidup' : 'Gangguan') : 'Memeriksa…',
+          health ? (ok ? `jawab ${latency} ms` : 'cek ulang di Layanan') : 'menunggu jawaban server',
+        ),
+        statCard('AKUN AKTIF', String(stats.active), `${stats.total} tercatat · ${issuedToday} baru hari ini`),
+        statCard('PENDAPATAN', money(stats.revenue), 'dari pass yang tercatat'),
+        statCard('PENILAIAN', summary.count ? `${summary.average.toFixed(1)} / 5` : '—', summary.count ? `${summary.count} penilaian masuk` : 'belum ada yang menilai'),
+      ),
+      el(
+        'div',
+        { class: 'owner-cols' },
+        el(
+          'div',
+          { class: 'plate ctrl-plate owner-plate' },
+          sectionHead('01', 'PERLU KEPUTUSAN'),
+          note('Daftar ini kosong kalau semuanya aman. Kalau ada isinya, kerjakan dari atas.'),
+          attention.length
+            ? el(
+                'div',
+                { class: 'owner-alerts' },
+                ...attention.map((item) =>
+                  el(
+                    'div',
+                    { class: `owner-alert owner-alert--${item.tone}` },
+                    el('span', { class: 'owner-alert__dot' }),
+                    el('div', { class: 'owner-alert__body' }, el('b', { text: item.title }), el('p', { text: item.body })),
+                    item.act
+                      ? button(item.act[0], { tone: 'ghost', size: 'sm', onClick: item.act[1] })
+                      : null,
+                  ),
+                ),
+              )
+            : el(
+                'p',
+                { class: 'owner-clear' },
+                icon('check', 15),
+                el('span', { text: 'Semua beres. Tidak ada yang menunggu hari ini.' }),
+              ),
+        ),
+        el(
+          'div',
+          { class: 'plate ctrl-plate owner-plate' },
+          sectionHead('02', 'MULAI DARI SINI'),
+          note('Empat tombol yang menutup hampir semua pekerjaan harian.'),
+          el('div', { class: 'owner-quick-grid' }, ...quick),
+        ),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate owner-plate' },
+        sectionHead('03', 'HARI INI'),
+        el(
+          'div',
+          { class: 'ctrl-kv' },
+          kv('KUNCI HARI INI', `${issuedToday} terbit`),
+          kv('AKUN HAMPIR HABIS', `${stats.expiring} akun`),
+          kv('PENDAPATAN TERCATAT', money(stats.revenue)),
+          kv('VERSI SITUS', health?.commit ?? '—'),
+          kv('WILAYAH SERVER', health?.region ?? '—'),
+          kv('CEK TERAKHIR', lastProbe ? fmtTime(lastProbe) : 'belum dicek'),
+        ),
+        howTo('Apa arti angka-angka ini?', [
+          'Akun aktif = kunci yang belum kedaluwarsa dan belum dicabut.',
+          'Pendapatan dihitung dari pass yang tercatat di perangkat ini, bukan dari rekening bank.',
+          'Versi situs adalah potongan kode yang sedang tayang. Kalau berbeda dengan yang terakhir kamu kirim, deployment belum selesai.',
+        ]),
+      ),
+    );
+
+    // The raw telemetry stays at the bottom: numbers the owner may need when
+    // talking to support, not the first thing they should read.
+    renderLive();
+  }
+
+  // ------------------------------------------------------------------ guide
+  /**
+   * The manual. Written for the person who sells the product, not the person
+   * who built it: short sentences, no endpoint names, and an answer for every
+   * question that arrives on Telegram.
+   */
+  function renderGuide(): void {
+    const telegram = (body: string, label: string): HTMLElement =>
+      el(
+        'div',
+        { class: 'owner-tpl' },
+        el('code', { text: body }),
+        button('SALIN', { tone: 'ghost', size: 'sm', icon: 'copy', onClick: () => copy(body, `${label} disalin`) }),
+      );
+
+    const flow = [
+      {
+        title: 'Kalau ada yang membayar',
+        steps: [
+          'Buka Telegram dan pastikan uangnya benar-benar masuk.',
+          'Tab Kunci → pilih 30 hari → tekan TERBITKAN. Kuncinya langsung tersalin.',
+          'Tempel kunci ke chat pembeli, sertakan alamat situs.',
+          'Pembeli membuka situs → MASUK DENGAN GOOGLE → tempel kunci di AKTIFKAN KUNCI.',
+        ],
+      },
+      {
+        title: 'Kalau pembeli sudah punya akun Google',
+        steps: [
+          'Tab Akun → bagian AKUN GOOGLE.',
+          'Tempel alamat Gmail pembeli, pilih 30 hari, lalu PREMIUMKAN.',
+          'Minta pembeli muat ulang halaman. Paket PRO langsung aktif tanpa kunci.',
+        ],
+      },
+      {
+        title: 'Kalau pembeli minta perpanjang',
+        steps: [
+          'Tab Akun → cari nomor seri atau namanya.',
+          'Tekan PERPANJANG 30 HARI. Masa aktif ditambah dari tanggal berakhir yang lama.',
+          'Kirim pesan konfirmasi. Kunci baru tidak perlu dibuat.',
+        ],
+      },
+      {
+        title: 'Kalau pembeli ganti HP',
+        steps: [
+          'Tab Akun → bagian IKATAN PERANGKAT.',
+          'Cari nomor serinya, lalu tekan LEPAS.',
+          'Pembeli mengaktifkan kunci yang sama di perangkat baru. Tidak ada biaya.',
+        ],
+      },
+      {
+        title: 'Kalau ada yang menyalahgunakan kunci',
+        steps: [
+          'Tab Akun → cari akunnya → tekan CABUT.',
+          'Kunci itu mati seketika di semua perangkat.',
+          'Catat alasannya di kolom catatan supaya nanti tidak bingung.',
+        ],
+      },
+    ];
+
+    const glossary = [
+      ['Kunci', 'Deretan huruf dan angka yang kamu kirim ke pembeli. Satu kunci hanya hidup di satu perangkat.'],
+      ['Pass', 'Masa aktif 30 hari. Boleh ditumpuk: beli dua kali, aktifnya 60 hari.'],
+      ['Akun Google', 'Cara masuk ke studio. Premium bisa ditempel ke akun ini tanpa kunci sama sekali.'],
+      ['Perangkat', 'HP atau laptop yang dipakai. Kunci menempel di satu perangkat; pindah perangkat harus dilepas dulu.'],
+      ['Catatan (ledger)', 'Buku kas kecil di perangkat ini: siapa beli, berapa pass, kapan. Bukan rekening bank.'],
+      ['Pendapatan', 'Jumlah pass yang tercatat dikali harga. Kalau kamu mencatat manual, angkanya ikut.'],
+    ];
+
+    body.append(
+      el(
+        'div',
+        { class: 'plate ctrl-plate owner-plate' },
+        sectionHead('01', 'LIMA PEKERJAAN UTAMA'),
+        note('Kalau kamu hanya ingat satu halaman dari panel ini, ingat halaman ini.'),
+        el(
+          'div',
+          { class: 'owner-flows' },
+          ...flow.map((item, i) =>
+            el(
+              'div',
+              { class: 'owner-flow' },
+              el('span', { class: 'owner-flow__num', text: String(i + 1).padStart(2, '0') }),
+              el('h3', { text: item.title }),
+              el('ol', {}, ...item.steps.map((line) => el('li', { text: line }))),
+            ),
+          ),
+        ),
+      ),
+      el(
+        'div',
+        { class: 'owner-cols' },
+        el(
+          'div',
+          { class: 'plate ctrl-plate owner-plate' },
+          sectionHead('02', 'ISTILAH, DITERJEMAHKAN'),
+          el(
+            'dl',
+            { class: 'owner-gloss' },
+            ...glossary.flatMap(([term, meaning]) => [
+              el('dt', { text: term }),
+              el('dd', { text: meaning }),
+            ]),
+          ),
+        ),
+        el(
+          'div',
+          { class: 'plate ctrl-plate owner-plate' },
+          sectionHead('03', 'PESAN SIAP KIRIM'),
+          note('Tempel ke Telegram. Ganti bagian dalam kurung kalau perlu.'),
+          telegram(
+            'Halo! Pembayaran sudah masuk. Ini kunci PRO 30 hari kamu:\n\nAEGIS-PRO-…\n\nCara pakai: buka situs, MASUK DENGAN GOOGLE, lalu tempel kunci di AKTIFKAN KUNCI. Satu kunci untuk satu perangkat. Kalau ganti HP, chat saya lagi — dilepas gratis.',
+            'Pesan pengiriman',
+          ),
+          telegram(
+            'Sudah saya perpanjang 30 hari ya. Kunci yang sama tetap dipakai, tidak perlu aktivasi ulang. Terima kasih!',
+            'Pesan perpanjangan',
+          ),
+          telegram(
+            'Ikatannya sudah saya lepas. Silakan buka situs di HP baru, masuk dengan Google, lalu tempel kunci yang sama. Kalau ada kendala, kirim tangkapan layarnya.',
+            'Pesan pindah perangkat',
+          ),
+        ),
+      ),
+      el(
+        'div',
+        { class: 'plate ctrl-plate owner-plate' },
+        sectionHead('04', 'YANG JANGAN DILAKUKAN'),
+        el(
+          'ul',
+          { class: 'owner-dont' },
+          el('li', { text: 'Jangan kirim kunci operator ke siapa pun. Itu kunci rumahmu, bukan produk.' }),
+          el('li', { text: 'Jangan menilai ulang pembeli dari akun sendiri untuk menaikkan bintang.' }),
+          el('li', { text: 'Jangan mencabut kunci tanpa mencatat alasan — tiga bulan lagi kamu akan lupa.' }),
+          el('li', { text: 'Jangan menganggap angka pendapatan di sini sebagai pembukuan resmi.' }),
+        ),
+      ),
+    );
+  }
+
   function render(): void {
     const isAdmin = session.state.tier === 'admin';
 
     gate.replaceChildren();
     tabsHost.replaceChildren();
     body.replaceChildren();
+
+    greet();
 
     if (!isAdmin) {
       renderGate();
@@ -1545,35 +1999,31 @@ export function createControl(): Screen {
     }
     screen.dataset.gate = 'open';
 
-    tabsHost.append(
-      segmented(
-        [
-          { value: 'live', label: 'LIVE' },
-          { value: 'accounts', label: 'AKUN' },
-          { value: 'rating', label: 'RATING' },
-          { value: 'issue', label: 'TERBIT' },
-          { value: 'security', label: 'KEAMANAN' },
-        ],
-        tab,
-        (value) => {
-          tab = value as Tab;
-          render();
-          if (tab === 'security') {
-            void probeHeaders();
-            void loadCsp();
-            void loadDesk();
-          }
-          if (tab === 'accounts') void loadDesk();
-          if (tab === 'rating') void loadRatings();
-        },
-      ).wrap,
-    );
+    tabsHost.append(ownerTabs());
+    tabsHost.scrollTop = 0;
 
-    if (tab === 'live') renderLive();
+    // First paint has no data yet: fetch it once, quietly, so the summary is
+    // never a wall of dashes on arrival. A failure is retried by the button,
+    // not by a loop.
+    if (!deskAutoTried) {
+      deskAutoTried = true;
+      void loadDesk();
+    }
+    if (tab === 'overview' && !ratingAutoTried) {
+      ratingAutoTried = true;
+      void loadRatings();
+    }
+    if (!healthAutoTried) {
+      healthAutoTried = true;
+      void ping();
+    }
+
+    if (tab === 'overview') renderSummary();
     else if (tab === 'accounts') renderAccounts();
     else if (tab === 'rating') renderRating();
     else if (tab === 'issue') renderIssue();
-    else renderSecurity();
+    else if (tab === 'security') renderSecurity();
+    else renderGuide();
   }
 
   session.subscribe(render);

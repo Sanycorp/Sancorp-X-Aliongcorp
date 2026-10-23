@@ -110,8 +110,10 @@ describe('app shell', () => {
 
   it('tells the console whether the admin password is configured', () => {
     const copy = document.querySelector('#screen-control')?.textContent ?? '';
-    expect(copy).toContain('tidak ditautkan dari navigasi');
-    expect(copy).not.toContain('belum disetel');
+    // The owner is told the panel is private, in words they would use.
+    expect(copy).toContain('hanya untuk kamu');
+    expect(copy).toContain('Tidak ada tautannya di menu');
+    expect(copy).not.toContain('AEGIS_ADMIN_PASSWORD');
   });
 
   it('keeps the operator console off the navigation', () => {

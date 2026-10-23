@@ -85,6 +85,10 @@ export const ICONS = {
   wave: '<path d="M2 12h3l2-6 3 12 3-9 2 5 2-3h5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/>',
+  book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v18H6.5A2.5 2.5 0 0 1 4 18.5z"/><path d="M8 3v18"/>',
+  help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.35-1.1.95-1.1 1.7v.4"/><path d="M12 17h.01"/>',
+  shield: '<path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  key: '<circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M17 17l2-2M14 14l2-2"/>',
 };
 
 export function icon(name: keyof typeof ICONS, size = 16): HTMLElement {

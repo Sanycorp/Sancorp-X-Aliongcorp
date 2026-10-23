@@ -1,4 +1,4 @@
-# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.11.0
+# PROJECT HANDOFF — AEGIS SOUND LAB (Sanayacorp) v8.12.0
 
 Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. Ringkas, faktual, tanpa narasi sejarah Flutter.
 
@@ -19,7 +19,7 @@ Dokumen ini untuk siapa pun (atau model berikutnya) yang melanjutkan repo ini. R
 ## 2. Status
 
 - `npx tsc --noEmit` → **clean**
-- `npx vitest run` → **274 test lulus** (22 file; tambahan v8.11.0: adaptive 18, device 15, boot 1, boot-signed 1)
+- `npx vitest run` → **274 test lulus** (22 file; tambahan v8.12.0: adaptive 18, device 15, boot 1, boot-signed 1)
 - `npx vite build` → **sukses**; `dist/` ~99 kB app + 163 kB codec + 36 kB CSS + 5 font
 - `npm run dev` → bind `0.0.0.0:5173`, `allowedHosts: true` (aman untuk preview proxy)
 - FLAC output didekode oleh FFmpeg 7.0.2 (bukan cuma parser sendiri)
@@ -34,7 +34,7 @@ tsconfig.json              # strict, noUnusedLocals, bundler resolution
 capacitor.config.ts        # appId, webDir dist, StatusBar/Share
 public/
   manifest.webmanifest     # PWA, shortcuts, maskable icon
-  sw.js                    # cache shell, versi aegis-sound-lab-v8.11.0
+  sw.js                    # cache shell, versi aegis-sound-lab-v8.12.0
   icons/                   # hasil tools/make-icons.mjs (jangan edit manual)
 brand/aegis-music-icon.png # master logo Sanayacorp (phoenix + perisai + S)
 tools/brand-icon.mjs       # decode PNG zero-dep, framing, downscale, ikon set
@@ -225,7 +225,7 @@ ffmpeg -v error -i hasil.flac -f null -
 | Project | `sanayacorp-aegismusic` · `prj_ccvhzBXmu7JK4rVcqkgTGJqucUBj` (nama project diganti 2026-10-20; ID tetap) |
 | Team | `SANCORP` · `team_AWY0rnVWqjWBuD5zU7odihmb` (Hobby) |
 | Framework | vite · `npm ci` · `npm run build` · output `dist` · region `sin1` |
-| Deployment aktif | `dpl_6JniEK2Fnr6GjiMrUZ4iUrEPYT5T` (commit `bf03b26`, v8.11.0) — `READY`/`PROMOTED`, satu-satunya domain project: `sanayacorp-aegismusic.vercel.app`; `/api/health` → `commit:"bf03b26"`, `/api/auth` → `{"signedIn":false,"lic":null,"adminEnabled":true,"google":true}` |
+| Deployment aktif | `dpl_6JniEK2Fnr6GjiMrUZ4iUrEPYT5T` (commit `bf03b26`, v8.12.0) — `READY`/`PROMOTED`, satu-satunya domain project: `sanayacorp-aegismusic.vercel.app`; `/api/health` → `commit:"bf03b26"`, `/api/auth` → `{"signedIn":false,"lic":null,"adminEnabled":true,"google":true}` |
 | Protection | **mati** (`ssoProtection: null`) |
 | Prober | workflow `.github/workflows/probe.yml` + `tools/probe-prod.mjs` (tanpa secret) |
 
@@ -253,7 +253,7 @@ walaupun log job tidak bisa diunduh dari sandbox.
 
 - ~~Deployment Protection `all_except_custom_domains`~~ → dimatikan pemilik akun, `ssoProtection: null`.
 - ~~GitHub Login Connection belum terpasang~~ → ternyata deploy berbasis git tetap jalan lewat `git_source`; deployment pertama gagal karena protection, bukan karena repo.
-- Deploy yang tersisa: **satu**, `dpl_6JniEK2Fnr6GjiMrUZ4iUrEPYT5T` (`bf03b26`, v8.11.0 — adaptif per perangkat, akun wajib, satu kunci satu perangkat). `/api/health` → `commit:"bf03b26"`; `/api/auth` → `"google":true`; `/api/auth/google/callback` → 302 `/?masuk=gagal` tanpa `state`. `/api/auth` → `"google":true`; `GET /api/auth?google=start` diteruskan ke `accounts.google.com` dengan `redirect_uri=https://sanayacorp-aegismusic.vercel.app/api/auth/google/callback`. **Env baru hanya terbaca deployment baru** — menyimpan `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` tanpa deploy ulang menyisakan `"google":false`. 19 deployment lama dihapus 2026-10-20 atas permintaan pemilik, jadi URL per-deployment yang beredar (`sancorp-x-aliongcorp-*.vercel.app`, `sanayacorp-aegismusic-*.vercel.app`) sekarang menjawab `404 DEPLOYMENT_NOT_FOUND`.
+- Deploy yang tersisa: **satu**, `dpl_6JniEK2Fnr6GjiMrUZ4iUrEPYT5T` (`bf03b26`, v8.12.0 — adaptif per perangkat, akun wajib, satu kunci satu perangkat). `/api/health` → `commit:"bf03b26"`; `/api/auth` → `"google":true`; `/api/auth/google/callback` → 302 `/?masuk=gagal` tanpa `state`. `/api/auth` → `"google":true`; `GET /api/auth?google=start` diteruskan ke `accounts.google.com` dengan `redirect_uri=https://sanayacorp-aegismusic.vercel.app/api/auth/google/callback`. **Env baru hanya terbaca deployment baru** — menyimpan `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` tanpa deploy ulang menyisakan `"google":false`. 19 deployment lama dihapus 2026-10-20 atas permintaan pemilik, jadi URL per-deployment yang beredar (`sancorp-x-aliongcorp-*.vercel.app`, `sanayacorp-aegismusic-*.vercel.app`) sekarang menjawab `404 DEPLOYMENT_NOT_FOUND`.
 - Riwayat rilis tetap terbaca dari git, bukan dari Vercel: `07e09e4` (ikon + brand Sanayacorp), `9067373` (probe race), `f76335d` (rating), `a0200c3` (a11y), `cedbdee` (v8.6.0 pass 30 hari), `5457339` (probe per-sha), `5c39de9` (shortcut OPS), `54aebc5` (rename 8.9.0), `c3ce769`, `8dc378f`, `f984f5e`.
 - Karena hanya satu deployment tersisa, **tidak ada sasaran rollback** di Vercel. Rollback berarti push ulang commit lama lalu buat deployment baru.
 
@@ -490,7 +490,7 @@ Ikon **tidak** memuat teks, jadi mengganti nama tidak memerlukan gambar baru.
 Kalau nama berubah lagi, cukup `grep -ri "Aegis Sound Lab"` dan ganti; tidak ada
 jalur render yang membakar nama ke dalam PNG.
 
-## 12f. Adaptif per perangkat, akun wajib, satu kunci satu perangkat (v8.11.0)
+## 12f. Adaptif per perangkat, akun wajib, satu kunci satu perangkat (v8.12.0)
 
 **Tujuan.** Satu bundel yang sama harus terasa dibuat untuk perangkat yang sedang
 dipakai: PC 27", laptop 14", tablet, dan HP dengan OS berbeda. Tidak ada pemilih
@@ -579,7 +579,7 @@ perangkat lain sebagai FREE tanpa menggandakan lisensi.
 `tests/boot.test.ts` (gate wajib, jsdom) · `tests/boot-signed.test.ts` (akun
 masuk tidak diblokir).
 
-## 12g. Halaman depan komersil + satu kosakata (v8.11.0)
+## 12g. Halaman depan komersil + satu kosakata (v8.12.0)
 
 **Masalah.** Sampai v8.9.6 situs langsung membuka gate login. Tidak ada satu
 kalimat pun yang menjelaskan produknya sebelum pengunjung diminta akun. Istilah
@@ -636,7 +636,7 @@ EXPORT` → `… SETELAH RENDER`, `SAME DSP AS EXPORT` → `DSP SAMA DENGAN REND
 .app-header`, `.nav`), splash tidak menahan halaman publik, dan segel merek di
 header studio menjadi tombol kembali ke beranda.
 
-## 12h. Studio diberi nama sesuai pekerjaannya (v8.11.0)
+## 12h. Studio diberi nama sesuai pekerjaannya (v8.12.0)
 
 Empat layar studio masih memakai nama internal yang tidak berarti apa pun bagi
 pembeli, dan satu di antaranya mencampur dua metafora ("FORGE DECK" — tempa dan
@@ -668,7 +668,7 @@ Rail PIPELINE di deck juga dibangun dari `CHAIN_STAGES`: dua belas baris sesuai
 urutan mesin, dengan label yang sama dengan halaman depan. Baris karangan
 "DYNAMICS" hilang, dan CLEAN, MONO, serta DE-ESS kini terlihat statusnya.
 
-## 12i. Satu header, satu pintu masuk (v8.11.0)
+## 12i. Satu header, satu pintu masuk (v8.12.0)
 
 Halaman depan punya header sendiri (merek, lima anchor, status, tombol MASUK)
 sementara studio punya header lain (merek, READY, FREE, FINISH) dan tab bar di
@@ -711,3 +711,37 @@ rute:
    ujung tanda tangan; kalau tanda tangan memang berakhir dengan "A", token tidak
    berubah dan tes gagal sekitar satu dari enam puluh kali. Sekarang karakternya
    dibalik ke nilai yang dijamin berbeda.
+
+## 12j. Panel owner (v8.12.0)
+
+`#/control` sekarang punya dua wajah: gerbang dan panel. Gerbang menampilkan
+segel perusahaan, satu kalimat "halaman ini hanya untuk kamu", satu kolom kunci,
+dan tombol BUKA PANEL. Panel punya masthead sendiri (segel 52 px, sapaan
+"Selamat pagi, Owner. N hampir habis", tanggal, versi, jam) dan enam ruang:
+
+| Ruang | Isi | Untuk apa, dalam bahasa manusia |
+| --- | --- | --- |
+| Ringkasan | empat angka + "Perlu keputusan" + empat tombol cepat | kondisi hari ini |
+| Akun | daftar pembeli, perpanjang, cabut, lepas perangkat | siapa aktif, sampai kapan |
+| Kunci | terbitkan 1–20 kunci, tempel kunci lama | buat kunci untuk pembeli |
+| Penilaian | distribusi bintang, peringkat preset, ulasan | bintang dan ulasan |
+| Layanan | probe header, CSP, pencabutan, telemetri mentah | situs, kecepatan, keamanan |
+| Panduan | lima alur kerja, glosarium, tiga pesan siap kirim | cara pakai, bahasa manusia |
+
+Aturan yang dipegang:
+
+- **Satu kalimat sebelum satu kontrol.** Tiap ruang diawali `.owner-note` yang
+  menjelaskan gunanya; istilah teknis ada di balik `details` ("Apa arti
+  angka-angka ini?").
+- **Ringkasan menjawab "apa yang harus saya kerjakan hari ini"**, dan berkata
+  "Semua beres" kalau tidak ada. Peringatan hanya muncul dari fakta: situs tidak
+  menjawab (hanya setelah probe pertama), `devSecret` hidup, kata sandi operator
+  kosong, akun hampir habis, laporan CSP masuk.
+- **Tidak ada jalan masuk lewat Google.** Panel tetap hanya dengan kunci
+  operator; pelanggan PRO tidak bisa membukanya.
+- **Panduan** memuat lima pekerjaan nyata (pembayaran, akun Google, perpanjang,
+  pindah HP, penyalahgunaan), glosarium enam istilah, tiga templat pesan
+  Telegram siap salin, dan empat larangan.
+
+Telat satu ketukan: panel memuat health, ledger, dan rating sekali saat dibuka
+supaya ringkasan tidak pernah berupa deretan tanda hubung.
