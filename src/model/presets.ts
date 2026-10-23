@@ -956,6 +956,169 @@ export const PRESETS: Preset[] = [
       });
     },
   },
+  // ---------------------------------------------------------------------
+  // KINO — five presets built from a measurement of one file, not from taste.
+  //
+  // Source: "Kino — Спокойная ночь [Outro Loop]" (Taivas edit), opus 48 kHz,
+  // 8:56, 132 kbps. Measured on a runner with ffmpeg + numpy:
+  //   integrated −11.4 LUFS · LRA 2.0 dB · true peak +0.7 dBTP (it clips)
+  //   band energy: sub −11.6 · bass −8.3 · low-mid 250–500 −6.9 · mid −5.9
+  //                presence 2–4k −12.0 · brilliance 4–8k −20.0 · air −27.9 dB
+  //   centroid 2335 Hz · 85% of energy below 1.26 kHz · side energy 11%
+  //   tempo ≈100 BPM
+  //
+  // What that means, in plain terms: the file is already squashed and clipped,
+  // it is dark (almost nothing above 8 kHz), it is narrow, and its low-mids are
+  // the loudest thing in it. So none of these presets add loudness, sub or
+  // limiting — they recover headroom and open the top instead.
+  // ---------------------------------------------------------------------
+  {
+    id: 'kino_calm_night',
+    owner: true,
+    name: 'СПОКОЙНАЯ НОЧЬ',
+    tagline: 'Kino · edisi jujur',
+    detail:
+      'Untuk lagu ini apa adanya: headroom dikembalikan 2,6 dB, kotak 680 Hz dikurangi, dan ujung atas dibuka tipis. Tidak menambah bass — lagunya sudah penuh.',
+    why: 'Sumber terukur −11,4 LUFS dengan true peak +0,7 dBTP, jadi target −14 LUFS menurunkan 2,6 dB dan mengembalikan ruang gerak. 680 Hz −1,0 dB (low-mid adalah band terkuat: −6,9 dB), 2,8 kHz +0,75 dB, 8 kHz +1,6 dB dari air −27,9 dB. Mono bass 120 Hz karena sub −11,6 dB.',
+    tag: 'SIGNATURE',
+    accent: 'cobalt',
+    apply: (s) => {
+      Object.assign(s, {
+        clarity: 0.4,
+        presence: 0.3,
+        air: 0.4,
+        monoBass: true,
+        width: 0.68,
+        reverbEnabled: true,
+        reverbType: 'plate',
+        reverbLevel: 0.14,
+        reverbRoom: 0.3,
+        reverbDamp: 0.55,
+        target: 'streaming',
+        fadeIn: 0.15,
+        fadeOut: 2.0,
+      });
+    },
+  },
+  {
+    id: 'kino_night_air',
+    owner: true,
+    name: 'НОЧНОЙ ВОЗДУХ',
+    tagline: 'Buka ujung atas · lebar',
+    detail:
+      'Lagu ini kehilangan semua udara di atas 8 kHz dan hanya 11% lebarnya. Preset ini membuka ujung atas 2,8 dB dan melebarkan stereo tanpa mengubah tempo.',
+    why: 'Air 0,70 = +2,8 dB di 8 kHz (sumber −27,9 dB), presence 0,45 = +1,1 dB di 2,8 kHz, lebar 0,75 dari side 11%. De-esser dinyalakan karena mengangkat 8 kHz di master −11,4 LUFS membuat huruf S menonjol.',
+    tag: 'SPACE',
+    accent: 'amber',
+    apply: (s) => {
+      Object.assign(s, {
+        clarity: 0.45,
+        presence: 0.45,
+        air: 0.7,
+        deEsser: true,
+        monoBass: true,
+        width: 0.75,
+        reverbEnabled: true,
+        reverbType: 'plate',
+        reverbLevel: 0.2,
+        reverbRoom: 0.4,
+        reverbDamp: 0.35,
+        target: 'streaming',
+        fadeIn: 0.1,
+        fadeOut: 2.0,
+      });
+    },
+  },
+  {
+    id: 'kino_slowed_tape',
+    owner: true,
+    name: 'КИНО · ЗАМЕДЛЕННО',
+    tagline: '0,90× tape · pelat',
+    detail:
+      'Versi lambat: 0,90× dengan nada ikut turun 1,8 semitone, saturasi tape tipis, dan pelat sedang. Ekor 3 detik supaya tidak terpotong.',
+    why: '0,90× resample = −1,82 semitone, karakter tape yang dipakai kebanyakan edit slowed. 680 Hz −0,9 dB, 8 kHz +1,4 dB, pelat 30% ruang 50% redam 45%. Target −14 LUFS: lagu aslinya sudah −11,4, jadi tidak ada tambahan limiter.',
+    tag: 'SLOW',
+    accent: 'crimson',
+    apply: (s) => {
+      Object.assign(s, {
+        speed: 0.9,
+        speedMode: 'retro',
+        clarity: 0.36,
+        presence: 0.22,
+        air: 0.35,
+        warmth: 0.2,
+        monoBass: true,
+        width: 0.7,
+        reverbEnabled: true,
+        reverbType: 'plate',
+        reverbLevel: 0.3,
+        reverbRoom: 0.5,
+        reverbDamp: 0.45,
+        target: 'streaming',
+        fadeIn: 0.3,
+        fadeOut: 3.0,
+      });
+    },
+  },
+  {
+    id: 'kino_deep_quiet',
+    owner: true,
+    name: 'ТИХАЯ ГЛУБИНА',
+    tagline: 'Dengar malam · −16 LUFS',
+    detail:
+      'Untuk mendengar pelan di malam hari: semuanya turun 4,6 dB, low-mid dibersihkan lebih tegas, hall panjang. Tidak ada tambahan bass atau kompresi.',
+    why: 'Target −16 LUFS menurunkan 4,6 dB dari sumber −11,4, sehingga true peak +0,7 menjadi −3,9 dB: kliping di berkas asli tidak lagi ikut terdengar. 680 Hz −1,25 dB (band low-mid terkuat), hall 30% ruang 70% redam 40%, mono bass 120 Hz.',
+    tag: 'SPACE',
+    accent: 'ink',
+    apply: (s) => {
+      Object.assign(s, {
+        clarity: 0.5,
+        presence: 0.2,
+        air: 0.3,
+        monoBass: true,
+        width: 0.6,
+        reverbEnabled: true,
+        reverbType: 'hall',
+        reverbLevel: 0.3,
+        reverbRoom: 0.7,
+        reverbDamp: 0.4,
+        target: 'podcast',
+        fadeIn: 0.4,
+        fadeOut: 2.5,
+      });
+    },
+  },
+  {
+    id: 'kino_outro_loop',
+    owner: true,
+    name: 'ВЫХОД · ПЕТЛЯ',
+    tagline: 'Outro loop · katedral',
+    detail:
+      'Untuk delapan menit terakhir yang diputar berulang: katedral besar, gerak 8D sangat pelan, stereo lebar, dan fade 4 detik yang menyambung mulus ke putaran berikutnya.',
+    why: 'Katedral 32% ruang 88% redam 30% memberi ekor ±5 detik; 8D 0,04 Hz depth 0,25 = satu putaran 25 detik, cukup untuk loop tanpa memicu pusing. Air 0,5 (+2 dB di 8 kHz) menambal ujung atas yang −27,9 dB, mono bass 120 Hz, target −14 LUFS.',
+    tag: 'SPACE',
+    accent: 'cobalt',
+    apply: (s) => {
+      Object.assign(s, {
+        clarity: 0.35,
+        presence: 0.25,
+        air: 0.5,
+        monoBass: true,
+        width: 0.78,
+        spatial8d: true,
+        spinRate: 0.04,
+        depth: 0.25,
+        reverbEnabled: true,
+        reverbType: 'cathedral',
+        reverbLevel: 0.32,
+        reverbRoom: 0.88,
+        reverbDamp: 0.3,
+        target: 'streaming',
+        fadeIn: 1.2,
+        fadeOut: 4.0,
+      });
+    },
+  },
 ];
 
 export const presetById = (id: string | null | undefined): Preset | undefined =>

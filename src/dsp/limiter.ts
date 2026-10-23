@@ -19,6 +19,11 @@ function catmullAt(x: Float32Array, i: number, t: number): number {
  * Detection looks at 4 sub-sample positions between every pair of samples, so
  * inter-sample peaks that would clip a DAC are caught. Gain is linked across
  * channels, attack is instant via look-ahead, release is exponential.
+ *
+ * Memory is O(look-ahead), not O(length): an 8:56 track used to allocate four
+ * more arrays the size of the song here, which is exactly what killed the app
+ * at the write stage on a phone. The sliding minimum is now a monotonic deque
+ * over a ring buffer of `look+1` entries, and the gain is applied in place.
  */
 export function limit(
   input: Stereo,
@@ -28,16 +33,26 @@ export function limit(
 ): Stereo {
   const sr = input.sampleRate;
   const n = input.left.length;
-  if (n === 0) return input;
-  void n;
-  const ceiling = dbToGain(ceilingDb);
+  const out: Stereo = {
+    left: input.left.slice(),
+    right: input.right.slice(),
+    sampleRate: sr,
+  };
+  if (n === 0) return out;
 
-  // 1. Required gain at every sample, including sub-sample estimates.
-  const need = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
+  const ceiling = dbToGain(ceilingDb);
+  const look = Math.max(1, Math.round((attackMs / 1000) * sr));
+  const width = look + 1;
+
+  // Ring buffer of required gains, plus a monotonic deque of indices whose
+  // values are increasing — the head is always the minimum of the window.
+  const ring = new Float32Array(width);
+  const deque = new Int32Array(width);
+  let head = 0;
+  let count = 0;
+
+  const required = (i: number): number => {
     let env = Math.max(Math.abs(input.left[i]), Math.abs(input.right[i]));
-    // 4x oversampled envelope: the same kernel the true-peak meter uses, so
-    // the limiter cannot be fooled by an inter-sample peak it did not see.
     for (let k = 1; k <= 4; k++) {
       const t = k / 4;
       const il = Math.abs(catmullAt(input.left, i, t));
@@ -45,44 +60,41 @@ export function limit(
       if (il > env) env = il;
       if (ir > env) env = ir;
     }
-    need[i] = env > ceiling ? ceiling / env : 1;
-  }
+    return env > ceiling ? ceiling / env : 1;
+  };
 
-  // 2. Sliding-window minimum over the look-ahead so the gain is already closed
-  //    when the transient arrives.
-  const look = Math.max(1, Math.round((attackMs / 1000) * sr));
-  const smooth = new Float32Array(n);
-  const deque: number[] = [];
-  let next = 0;
-  for (let i = 0; i < n; i++) {
-    const hi = Math.min(n - 1, i + look);
-    while (next <= hi) {
-      while (deque.length > 0 && need[deque[deque.length - 1]] >= need[next]) {
-        deque.pop();
-      }
-      deque.push(next);
-      next++;
+  const push = (index: number, value: number): void => {
+    while (count > 0) {
+      const lastIdx = deque[(head + count - 1) % width];
+      if (ring[lastIdx % width] < value) break;
+      count--;
     }
-    while (deque.length > 0 && deque[0] < i) deque.shift();
-    smooth[i] = need[deque[0]];
-  }
+    const slot = (head + count) % width;
+    deque[slot] = index;
+    ring[index % width] = value;
+    count++;
+  };
 
-  // 3. Release smoothing (instant attack is already handled by look-ahead).
+  // Prime the window with the look-ahead.
+  for (let i = 0; i <= look && i < n; i++) push(i, required(i));
+
   const rel = Math.exp(-1 / ((releaseMs / 1000) * sr));
   let g = 1;
-  const out: Stereo = {
-    left: new Float32Array(n),
-    right: new Float32Array(n),
-    sampleRate: sr,
-  };
   for (let i = 0; i < n; i++) {
-    const target = smooth[i];
+    while (count > 0 && deque[head] < i) {
+      head = (head + 1) % width;
+      count--;
+    }
+    const target = count > 0 ? ring[deque[head] % width] : 1;
     g = target < g ? target : target + (g - target) * rel;
     out.left[i] = input.left[i] * g;
     out.right[i] = input.right[i] * g;
+
+    const next = i + look + 1;
+    if (next < n) push(next, required(next));
   }
 
-  // 4. Safety net on the true peak (interpolated), not just sample peaks.
+  // Safety net on the true peak (interpolated), not just sample peaks.
   let peak = 0;
   for (let i = 0; i < n; i++) {
     const a = Math.abs(out.left[i]);

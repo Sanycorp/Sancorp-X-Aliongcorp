@@ -19,6 +19,8 @@ import { PRO_PASS_DAYS, PRO_PRICE, planFor, formatAllowed, targetAllowed, upgrad
 import { formatChoices, targetChoices } from '../../model/entitlements';
 import { openAccount, openPaywall } from '../account';
 import { createRatingGroup } from '../rating';
+import { setBatteryGuard } from '../../state/battery';
+import { backgroundRenderAvailable } from '../../state/background';
 import { FORM_LABELS, PLATFORM_LABELS, detectPlatform, readEnvironment } from '../../model/platform';
 import { formatBytes, formatDuration } from '../../io/audioFile';
 import type { Screen } from './deck';
@@ -49,6 +51,10 @@ export function createSystem(): Screen {
     store.patchSettings({ haptics: v });
     if (v) Haptics.medium();
   });
+  const batteryToggle = toggle('AEGIS BATTERY PROTECTION', store.settings.batteryGuard, (v) => {
+    setBatteryGuard(v);
+    if (v) Haptics.medium();
+  });
 
   const uiGroup = el(
     'div',
@@ -59,6 +65,23 @@ export function createSystem(): Screen {
     el('div', { style: 'height:10px' }),
     motionToggle.wrap,
     hapticToggle.wrap,
+    el(
+      'div',
+      { class: 'battery-block' },
+      batteryToggle.wrap,
+      el('p', {
+        class: 'lab-field__hint',
+        text:
+          'Animasi dan gambar latar berhenti, meter diperbarui sekali per detik, dan notifikasi render tidak dipanggil tiap tahap. ' +
+          'Render tetap jalan — termasuk saat layar dikunci. Kualitas audio tidak berubah sama sekali.',
+      }),
+    ),
+    backgroundRenderAvailable()
+      ? el('p', {
+          class: 'lab-field__hint',
+          text: 'Render di latar belakang aktif di aplikasi ini: pindah aplikasi atau kunci layar, render lanjut. Tombol STOP ada di notifikasi dan di layar RENDER.',
+        })
+      : null,
   );
 
   // ------------------------------------------------------------- output
@@ -257,7 +280,9 @@ export function createSystem(): Screen {
   }
 
   // ------------------------------------------------------------- rating
-  const ratingGroup = createRatingGroup();
+  // Rating is a web feature. In the private app there is nobody to rate: the
+  // owner is the only user, so the block is never built.
+  const ratingGroup = isNativeApp() ? null : createRatingGroup();
 
   // ------------------------------------------------------------- device
   // The layout already adapts through CSS; this block is the receipt. It names
@@ -368,7 +393,7 @@ export function createSystem(): Screen {
       outputGroup,
       historyGroup,
       accountGroup,
-      ratingGroup.el,
+      ratingGroup ? ratingGroup.el : null,
       deviceGroup,
       aboutGroup,
     ),
@@ -437,8 +462,8 @@ export function createSystem(): Screen {
     el: screen,
     update,
     onEnter: () => {
-      ratingGroup.onEnter();
-      ratingGroup.update();
+      ratingGroup?.onEnter();
+      ratingGroup?.update();
     },
   };
 }

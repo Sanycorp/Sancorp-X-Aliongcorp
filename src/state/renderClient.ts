@@ -102,6 +102,15 @@ export async function renderOffThread(
   return result;
 }
 
+/** Stops the current job and throws the worker away. The caller re-renders from
+ * a clean one next time, which is what makes cancel feel instant. */
+export function cancelRenderJob(reason = 'Render dibatalkan'): void {
+  worker?.terminate();
+  worker = null;
+  for (const [, job] of pending) job.reject(new Error(reason));
+  pending.clear();
+}
+
 export function disposeRenderWorker(): void {
   worker?.terminate();
   worker = null;

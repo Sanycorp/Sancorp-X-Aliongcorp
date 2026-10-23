@@ -107,6 +107,8 @@ export interface AppSettings {
   shareAfterExport: boolean;
   keepHistory: boolean;
   analystMode: boolean;
+  /** Aegis Battery Protection: fewer frames, fewer wake-ups, same render. */
+  batteryGuard: boolean;
 }
 
 export const APP_DEFAULTS: AppSettings = {
@@ -119,6 +121,7 @@ export const APP_DEFAULTS: AppSettings = {
   shareAfterExport: false,
   keepHistory: true,
   analystMode: false,
+  batteryGuard: false,
 };
 
 export const FORMAT_META: Record<

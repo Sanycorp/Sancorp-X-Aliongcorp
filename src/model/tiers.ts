@@ -84,6 +84,12 @@ export const ALL_PRESET_IDS = [
   'radio_am',
   'mahakarya',
   'aegis_prime',
+  // Measured against the owner's own Kino edit.
+  'kino_calm_night',
+  'kino_night_air',
+  'kino_slowed_tape',
+  'kino_deep_quiet',
+  'kino_outro_loop',
 ];
 
 export const PLANS: Record<Tier, Plan> = {

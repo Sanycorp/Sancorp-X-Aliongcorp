@@ -58,6 +58,9 @@ jobs:
       - name: Harden Android manifest
         run: node tools/android-harden.mjs
 
+      - name: Background render service
+        run: node tools/android-background.mjs
+
       - name: Launcher icons
         run: node tools/make-icons.mjs
 

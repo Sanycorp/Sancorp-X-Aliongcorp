@@ -4,7 +4,8 @@ import type { ChainStage } from '../../model/chain';
 import { FORMAT_META, SPEED_MODE_META, TARGET_META, SPACE_META } from '../../model/settings';
 import type { SourceInfo } from '../../model/settings';
 import { store } from '../../state/store';
-import { forgeExport, getPreviewStats, loadSource, renderPreview, shareLast } from '../../state/forge';
+import { cancelExport, forgeExport, getPreviewStats, loadSource, renderPreview, shareLast } from '../../state/forge';
+import { shouldPaint } from '../../state/battery';
 import { formatBytes, formatDuration, formatRate } from '../../io/audioFile';
 import { PreviewPlayer } from '../../io/player';
 import { Haptics } from '../haptics';
@@ -426,7 +427,7 @@ export function createDeck(): Screen {
     el('div', {
       class: 'footnote',
       style: 'margin-top:8px;text-align:left',
-      text: 'Trim gain statis + limiter true-peak −1.2 dB. Tidak ada loudnorm dinamis.',
+      text: 'Trim gain statis + limiter true-peak −1,2 dB. Tidak ada loudnorm dinamis. Satu render maksimal 5 menit supaya memori HP tidak jebol — potong dulu untuk lagu yang lebih panjang.',
     }),
   );
 
@@ -441,8 +442,23 @@ export function createDeck(): Screen {
   const progressPct = el('span', { class: 'progress-plate__pct', text: '0%' });
   const progressNote = el('div', {
     class: 'progress-plate__note',
-    text: 'Proses berjalan di perangkat — jangan kunci layar untuk hasil tercepat.',
+    text: 'Render berjalan di perangkat. Kamu boleh pindah aplikasi atau mengunci layar.',
   });
+  const cancelBtn = el(
+    'button',
+    {
+      class: 'chip cancel-chip',
+      attrs: { type: 'button' },
+      on: {
+        click: () => {
+          cancelExport();
+          Haptics.tap();
+          update();
+        },
+      },
+    },
+    el('span', { text: 'STOP RENDER' }),
+  );
   const progressPlate = el(
     'div',
     { class: 'progress-plate hidden', attrs: { 'aria-live': 'polite' } },
@@ -450,6 +466,7 @@ export function createDeck(): Screen {
     el('div', { class: 'meter' }, progressFill),
     el('div', { class: 'stages' }, stagePips),
     progressNote,
+    cancelBtn,
   );
 
   // ---------------------------------------------------------------- report
@@ -796,6 +813,8 @@ export function createDeck(): Screen {
 
   function updateReport(): void {
     const status = store.status;
+    // Battery protection: the numbers may lag a second, the render never does.
+    if (status.active && !shouldPaint()) return;
     progressPlate.classList.toggle('hidden', !status.active);
     if (status.active) {
       progressStage.textContent = status.stage;

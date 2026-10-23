@@ -150,8 +150,8 @@ describe('app shell', () => {
   });
 
   it('renders the owner edition and the classics as two labelled rails', () => {
-    expect(document.querySelectorAll('.preset-chip').length).toBe(34);
-    expect(document.querySelectorAll('.preset-card').length).toBe(34);
+    expect(document.querySelectorAll('.preset-chip').length).toBe(39);
+    expect(document.querySelectorAll('.preset-card').length).toBe(39);
     const labels = Array.from(document.querySelectorAll('#screen-deck .rail-label')).map(
       (n) => n.textContent ?? '',
     );
@@ -177,7 +177,7 @@ describe('app shell', () => {
     const visible = Array.from(document.querySelectorAll<HTMLElement>('#screen-arsenal .preset-card')).filter(
       (card) => !card.classList.contains('hidden'),
     );
-    expect(visible.length).toBe(20);
+    expect(visible.length).toBe(25);
     expect(visible.every((card) => card.querySelector('.owner-tag'))).toBe(true);
   });
 

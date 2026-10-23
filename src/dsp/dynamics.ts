@@ -178,3 +178,82 @@ export function orbit8d(
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// In-place variants for the export chain.
+//
+// The renderer owns its buffers, so copying them again is pure waste. On a
+// phone that waste is what turns a 6-minute render into an out-of-memory kill:
+// monoBass alone used to allocate five arrays the size of the song.
+// ---------------------------------------------------------------------------
+
+/** Saturate `buf` in place. Same maths as `saturate`. */
+export function saturateInto(buf: Stereo, amount: number): void {
+  const mix = Math.max(0, Math.min(1, amount)) * 0.25;
+  if (mix < 0.005) return;
+  const drive = 1 + mix * 6;
+  const l = buf.left;
+  const r = buf.right;
+  for (let i = 0; i < l.length; i++) {
+    l[i] += (Math.tanh(l[i] * drive) / drive) * mix;
+    r[i] += (Math.tanh(r[i] * drive) / drive) * mix;
+  }
+}
+
+/** Mid/side width control in place. Same maths as `widen`. */
+export function widenInto(buf: Stereo, width: number): void {
+  const w = Math.max(0, Math.min(1, width));
+  const gain = 0.2 + w * 1.6;
+  const l = buf.left;
+  const r = buf.right;
+  for (let i = 0; i < l.length; i++) {
+    const a = l[i];
+    const b = r[i];
+    const mid = (a + b) * 0.5;
+    const side = (a - b) * 0.5 * gain;
+    l[i] = mid + side;
+    r[i] = mid - side;
+  }
+}
+
+/** Mono bass in place, with two scratch buffers instead of five. */
+export function monoBassInto(buf: Stereo, crossover = 120): void {
+  const sr = buf.sampleRate;
+  const lowL = buf.left.slice();
+  const lowR = buf.right.slice();
+  Biquad.of('lowpass', crossover, 0.707, 0, sr).process(lowL, lowR);
+  for (let i = 0; i < buf.left.length; i++) {
+    const mono = (lowL[i] + lowR[i]) * 0.5;
+    buf.left[i] = mono + (buf.left[i] - lowL[i]);
+    buf.right[i] = mono + (buf.right[i] - lowR[i]);
+  }
+}
+
+/** De-esser in place, two scratch buffers instead of five. */
+export function deEssInto(buf: Stereo, strength = 1): void {
+  const sr = buf.sampleRate;
+  const lowL = buf.left.slice();
+  const lowR = buf.right.slice();
+  Biquad.of('lowpass', 5800, 0.7, 0, sr).process(lowL, lowR);
+
+  const attack = Math.exp(-1 / (0.006 * sr));
+  const release = Math.exp(-1 / (0.18 * sr));
+  const threshold = dbToGain(-24);
+  let env = 0;
+  let gain = 1;
+
+  for (let i = 0; i < buf.left.length; i++) {
+    const hiL = buf.left[i] - lowL[i];
+    const hiR = buf.right[i] - lowR[i];
+    const level = Math.max(Math.abs(hiL), Math.abs(hiR));
+    const det = Math.max(level, env * release);
+    env = det;
+    let target = 1;
+    if (det > threshold) target = Math.pow(det / threshold, 1 / 2 - 1);
+    const coeff = target < gain ? attack : release;
+    gain = target + (gain - target) * coeff;
+    const applied = 1 - (1 - gain) * 0.65 * strength;
+    buf.left[i] = lowL[i] + hiL * applied;
+    buf.right[i] = lowR[i] + hiR * applied;
+  }
+}

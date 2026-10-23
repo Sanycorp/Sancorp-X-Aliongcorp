@@ -12,7 +12,14 @@ import {
   sliceSeconds,
   duration as dur,
 } from './buffer';
-import { deEss, fade, monoBass, orbit8d, saturate, widen } from './dynamics';
+import {
+  deEssInto,
+  fade,
+  monoBassInto,
+  orbit8d,
+  saturateInto,
+  widenInto,
+} from './dynamics';
 import { spectralDenoise, voiceFocus } from './denoise';
 import { computeTrim, integratedLoudness, samplePeakDb, truePeakDb } from './loudness';
 import { limit } from './limiter';
@@ -111,10 +118,10 @@ function creativeChain(
     audio = fade(audio, s.fadeIn, s.fadeOut);
   }
 
-  // 7. Tone shaping.
+  // 7. Tone shaping, in place: the chain owns these buffers.
   report(0.3, 'TONE');
-  const toneL = audio.left.slice();
-  const toneR = audio.right.slice();
+  const toneL = audio.left;
+  const toneR = audio.right;
   if (s.bass > 0.01) {
     const f = 80 + 120 * clamp(s.bassFreq, 0, 1);
     Biquad.of('lowshelf', f, 0.8, 2 + s.bass * 10.5, sr).process(toneL, toneR);
@@ -139,7 +146,7 @@ function creativeChain(
 
   // 8. Width.
   if (Math.abs(s.width - 0.5) > 0.01) {
-    audio = widen(audio, s.width);
+    widenInto(audio, s.width);
   }
 
   // 9. 8D orbit.
@@ -164,23 +171,26 @@ function creativeChain(
   // 11. Warmth.
   if (s.warmth > 0.02) {
     report(0.56, 'WARMTH');
-    audio = saturate(audio, s.warmth);
+    saturateInto(audio, s.warmth);
   }
 
   // 12. Mono bass.
   if (s.monoBass) {
-    audio = monoBass(audio, 120);
+    monoBassInto(audio, 120);
   }
 
   // 13. De-esser.
   if (s.deEsser) {
     report(0.62, 'DE-ESS');
-    audio = deEss(audio);
+    deEssInto(audio);
   }
 
   // 14. Manual master gain.
   if (Math.abs(s.finalGain - 1) > 0.001) {
-    audio = applyGain(audio, s.finalGain);
+    for (let i = 0; i < audio.left.length; i++) {
+      audio.left[i] *= s.finalGain;
+      audio.right[i] *= s.finalGain;
+    }
   }
 
   const lufs = measure ? integratedLoudness(audio) : null;

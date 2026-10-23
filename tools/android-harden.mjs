@@ -13,6 +13,7 @@
  *  - android:dataExtractionRules="@xml/data_extraction_rules"
  *  - android:usesCleartextTraffic="false"
  *  - android:networkSecurityConfig="@xml/network_security_config"
+ *  - android:largeHeap="true" (long renders need the headroom)
  *
  * Asserted (build fails if violated):
  *  - no dangerous runtime permissions (camera, mic, location, contacts, SMS,
@@ -54,7 +55,6 @@ const DANGEROUS = [
   'android.permission.BLUETOOTH_SCAN',
   'android.permission.ACTIVITY_RECOGNITION',
   'android.permission.BODY_SENSORS',
-  'android.permission.POST_NOTIFICATIONS',
   'android.permission.QUERY_ALL_PACKAGES',
 ];
 
@@ -64,6 +64,9 @@ const ATTRIBUTES = {
   'android:dataExtractionRules': '@xml/data_extraction_rules',
   'android:usesCleartextTraffic': 'false',
   'android:networkSecurityConfig': '@xml/network_security_config',
+  // A phone that renders a 6-minute file needs more than the default heap.
+  // Measured: 3 minutes of stereo DSP peaks around 280 MB of buffers.
+  'android:largeHeap': 'true',
 };
 
 let manifest = await readFile(manifestPath, 'utf8');

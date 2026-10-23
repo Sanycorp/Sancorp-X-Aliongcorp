@@ -24,6 +24,9 @@ import { session } from './state/session';
 import { icon, el, toast } from './ui/elements';
 import { brandMark } from './ui/brand';
 import { closeGate, gateOpen, openGate, readRedirect } from './ui/gate';
+import { applyBatteryGuard } from './state/battery';
+import { onBackgroundStop } from './state/background';
+import { cancelExport } from './state/forge';
 import { bootPlatform } from './model/platform';
 import { isNativeApp } from './security/platform';
 import {
@@ -218,6 +221,11 @@ function boot(): void {
   });
 
   app.replaceChildren(skipLink, shell, nav, routeAnnouncer, el('div', { id: 'toast-host' }));
+
+  // Battery protection has to be on <html> before the first paint, otherwise
+  // the first frames pay for animations the owner asked to skip.
+  applyBatteryGuard();
+  void onBackgroundStop(() => cancelExport());
 
   // ------------------------------------------------------------------ motion
   document.documentElement.dataset.platform = isNativeApp() ? 'app' : 'web';

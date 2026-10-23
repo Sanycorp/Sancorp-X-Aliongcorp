@@ -154,11 +154,11 @@ describe('presets', () => {
   const bed = musicBed(8);
   const info = source(8);
 
-  it('ships 34 unique presets, 20 of them owner-built', () => {
-    expect(PRESETS).toHaveLength(34);
-    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(34);
-    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(34);
-    expect(PRESETS.filter((p) => p.owner)).toHaveLength(20);
+  it('ships 39 unique presets, 25 of them owner-built', () => {
+    expect(PRESETS).toHaveLength(39);
+    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(39);
+    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(39);
+    expect(PRESETS.filter((p) => p.owner)).toHaveLength(25);
     expect(PRESETS.every((p) => (p.why ?? '').length > 60)).toBe(true);
   });
 
@@ -240,8 +240,8 @@ describe('loudness targets', () => {
 describe('owner edition presets', () => {
   const owners = PRESETS.filter((p) => p.owner);
 
-  it('are 20 distinct builds, not renames of the classics', () => {
-    expect(owners).toHaveLength(20);
+  it('are 25 distinct builds, not renames of the classics', () => {
+    expect(owners).toHaveLength(25);
     for (const preset of owners) {
       const s: EditSettings = { ...NEUTRAL };
       preset.apply(s);

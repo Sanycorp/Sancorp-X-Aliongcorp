@@ -1,10 +1,11 @@
 import type { Stereo } from '../dsp/buffer';
 import { duration } from '../dsp/buffer';
-import { renderOffThread } from './renderClient';
+import { cancelRenderJob, renderOffThread } from './renderClient';
+import { startRenderService, stopRenderService, updateRenderService } from './background';
 import { encode } from '../io/encode';
 import { Haptics } from '../ui/haptics';
 import { decodeFile } from '../io/audioFile';
-import { saveExport, shareExport } from '../io/storage';
+import { removeExport, saveExport, shareExport } from '../io/storage';
 import type { EditSettings, SourceInfo } from '../model/settings';
 import { effectiveEnd } from '../model/settings';
 import { presetById } from '../model/presets';
@@ -15,6 +16,31 @@ import { session } from './session';
 import { mayRender } from '../model/entitlements';
 
 let previewAudio: Stereo | null = null;
+
+/**
+ * One export at a time, and one generation number for all of them. Cancelling
+ * bumps the generation, so every step checks it and stops writing.
+ */
+let exportGeneration = 0;
+
+/**
+ * How much audio one render may hold at once.
+ *
+ * Measured on the render chain: a 3-minute stereo file peaks around 280 MB of
+ * DSP buffers. A phone webview cannot take a 9-minute pass (≈840 MB) — that is
+ * what killed the app at the write stage. Five minutes is the ceiling; longer
+ * sources render after trimming, and the message says so instead of dying.
+ */
+export const MAX_RENDER_SECONDS = 300;
+
+export function cancelExport(): void {
+  if (!store.status.active) return;
+  exportGeneration += 1;
+  cancelRenderJob();
+  void stopRenderService();
+  store.setStatus({ active: false, stage: 'CANCELLED', progress: 0, error: null });
+  Haptics.tap();
+}
 let previewStats: { lufs: number | null; truePeak: number } | null = null;
 
 /** Loudness/peak of the current preview render — drives the deck meter. */
@@ -132,6 +158,17 @@ export async function forgeExport(): Promise<void> {
   }
   if (status.active) return;
 
+  const seconds = effectiveEnd(store.edit, source.duration) - store.edit.trimStart;
+  if (seconds > MAX_RENDER_SECONDS) {
+    store.setStatus({
+      active: false,
+      stage: 'TOO_LONG',
+      progress: 0,
+      error: `Lagu ini ${Math.round(seconds)} detik. Satu render dibatasi ${MAX_RENDER_SECONDS} detik supaya aplikasi tidak kehabisan memori di HP. Pakai POTONG di bawah waveform: ambil bagian yang kamu mau, lalu render lagi.`,
+    });
+    return;
+  }
+
   // Backstop. The deck already refused a locked combination and the session
   // clamp normally ran on boot, but the encoder is the last place a stale value
   // could still ship a paid format, so the tier is applied again right here.
@@ -149,6 +186,8 @@ export async function forgeExport(): Promise<void> {
   }
 
   Haptics.heavy();
+  const generation = ++exportGeneration;
+  const cancelled = (): boolean => generation !== exportGeneration;
   store.setStatus({
     active: true,
     progress: 0,
@@ -157,14 +196,22 @@ export async function forgeExport(): Promise<void> {
     report: null,
   });
 
+  // From here on the render is protected: a foreground service on Android, so
+  // locking the screen or switching apps cannot freeze it, and the notification
+  // carries a STOP button that calls cancelExport().
+  await startRenderService(`Merender ${safeName(source.name)}`);
+
   // Yield so the console paints before the DSP blocks the main thread.
   await new Promise((r) => setTimeout(r, 40));
 
   try {
     const started = performance.now();
     const result = await renderOffThread(audio, edit, source, (p, stage) => {
+      if (cancelled()) return;
       store.setStatus({ progress: p * 0.78, stage });
+      void updateRenderService(`${stage} · ${Math.round(p * 78)}%`, p * 0.78);
     });
+    if (cancelled()) return;
 
     store.setStatus({ progress: 0.82, stage: 'ENCODE' });
     await new Promise((r) => setTimeout(r, 30));
@@ -180,9 +227,21 @@ export async function forgeExport(): Promise<void> {
     };
     const encoded = await encode(result.audio, edit.format, edit.bitrate, meta);
     const name = outputName(edit, source, encoded.ext);
+    if (cancelled()) return;
 
     store.setStatus({ progress: 0.94, stage: 'WRITE' });
-    const saved = await saveExport(encoded, name);
+    void updateRenderService('Menulis file · 94%', 0.94);
+    // Chunked on native: the old one-shot base64 string is what OOM-killed the
+    // app at exactly this percentage.
+    const saved = await saveExport(encoded, name, (fraction) => {
+      if (cancelled()) return;
+      store.setStatus({ progress: 0.94 + fraction * 0.05, stage: 'WRITE' });
+    });
+    if (cancelled()) {
+      // A cancelled write must not leave half a file in Documents.
+      void removeExport(name);
+      return;
+    }
 
     const record: ExportRecord = {
       id: `${Date.now()}-${hash.slice(0, 6)}`,
@@ -221,11 +280,14 @@ export async function forgeExport(): Promise<void> {
       },
     });
     Haptics.success();
+    void stopRenderService();
     // Keep the encoded blob around so the manifest can offer Share again.
     lastExport = { encoded, name };
     void started;
   } catch (err) {
+    if (cancelled()) return;
     const message = err instanceof Error ? err.message : String(err);
+    void stopRenderService();
     store.setStatus({ active: false, stage: 'ERROR', error: message, progress: 0 });
     Haptics.error();
   }

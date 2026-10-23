@@ -2344,3 +2344,43 @@ html:not([data-route='home']) .header__links {
   line-height: 1.6;
   color: var(--ink-soft);
 }
+
+/* ==========================================================================
+   Aegis Battery Protection + cancel
+   ========================================================================== */
+
+.cancel-chip {
+  margin-top: 10px;
+  border-color: var(--crimson);
+  color: var(--crimson);
+  cursor: pointer;
+}
+
+.battery-block {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--signal) 6%, var(--panel-alt));
+}
+
+/* The whole point of the switch: nothing decorative repaints. */
+html[data-battery='on'] .aurora,
+html[data-battery='on'] .grain,
+html[data-battery='on'] .scanline {
+  display: none !important;
+}
+
+html[data-battery='on'] *,
+html[data-battery='on'] *::before,
+html[data-battery='on'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+html[data-battery='on'] .nav__btn.is-active::after,
+html[data-battery='on'] .kinetic span {
+  animation: none !important;
+}
