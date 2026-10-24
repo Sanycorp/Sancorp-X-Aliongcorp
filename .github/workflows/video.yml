@@ -187,6 +187,7 @@ jobs:
           OUTRO: ${{ steps.req.outputs.outro }}
           ZOOM: ${{ steps.req.outputs.zoom }}
           CUT: ${{ steps.req.outputs.seconds }}
+          SLUG: ${{ steps.req.outputs.slug }}
         run: |
           set -euo pipefail
           full=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 /tmp/w/soundtrack.wav)
@@ -227,8 +228,6 @@ jobs:
             "/tmp/w/${SLUG:-video}.mp4"
 
           ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate,channels -of json "/tmp/w/${SLUG:-video}.mp4"
-        env:
-          SLUG: ${{ steps.req.outputs.slug }}
 
       - name: Thumbnail
         env:

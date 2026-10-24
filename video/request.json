@@ -11,5 +11,6 @@
   "outroSeconds": 5,
   "zoom": true,
   "trimEnd": 60,
-  "seconds": 72
+  "seconds": 72,
+  "job": "kino-malam-1080p"
 }
