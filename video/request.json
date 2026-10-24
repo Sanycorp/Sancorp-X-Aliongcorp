@@ -1,0 +1,15 @@
+{
+  "audio": "https://drive.google.com/file/d/1RDVLDZtVwR0l6yo9aWPz4zX2XCQOCUbG/view?usp=drivesdk",
+  "photoFile": "video/assets/cover-night.jpg",
+  "preset": "kino_katedral",
+  "title": "Кино — Спокойная ночь",
+  "subtitle": "slowed + reverb · Aegis Sound Lab",
+  "slug": "kino-malam",
+  "size": "1920x1080",
+  "fps": 30,
+  "introSeconds": 4,
+  "outroSeconds": 5,
+  "zoom": true,
+  "trimEnd": 60,
+  "seconds": 72
+}

@@ -1,0 +1,293 @@
+name: video
+
+# Turns one song + one photo into a finished 1920×1080 video, using the app's
+# own DSP for the audio. Same presets, same limiter, same loudness target as the
+# APK — this is not a second, parallel audio chain.
+#
+# Trigger: drop your request into video/request.json and push. (A dispatch
+# button needs a token with workflow scope; a committed file does not.)
+#
+# Request shape — every field except `audio` is optional:
+# {
+#   "audio":   "https://drive.google.com/file/d/<id>/view",   // required
+#   "photo":   "https://drive.google.com/file/d/<id>/view",   // or photoFile
+#   "photoFile": "video/assets/cover.jpg",                    // a committed image
+#   "preset":  "kino_katedral",      // any arsenal id; omit for a neutral chain
+#   "title":   "Кино — Спокойная ночь",
+#   "subtitle":"slowed + reverb",
+#   "slug":    "kino-calm-night",
+#   "size":    "1920x1080",
+#   "fps":     30,
+#   "introSeconds": 4,
+#   "outroSeconds": 5,
+#   "zoom":    true,                 // slow push-in on the photo
+#   "seconds": 90                    // optional: cut the video to N seconds
+# }
+
+on:
+  workflow_dispatch:
+    inputs:
+      request:
+        description: 'Path to the request json'
+        required: false
+        default: 'video/request.json'
+  push:
+    paths:
+      - 'video/request.json'
+  # Test hook: a pull request touching the workflow runs it once with the
+  # request file as-is, so the pipeline can be proven before it is used.
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build the video
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+
+      - name: Read the request
+        id: req
+        run: |
+          set -euo pipefail
+          file="${{ inputs.request || 'video/request.json' }}"
+          python3 - "$file" <<'PY'
+          import json, os, re, sys
+          raw = json.load(open(sys.argv[1]))
+          def drive_id(value):
+              if not value:
+                  return ''
+              m = re.search(r'/file/d/([A-Za-z0-9_-]{10,})', value) or re.search(r'[?&]id=([A-Za-z0-9_-]{10,})', value)
+              return m.group(1) if m else (value if re.fullmatch(r'[A-Za-z0-9_-]{10,}', value) else '')
+          out = {
+              'audio_id': drive_id(raw.get('audio')),
+              'photo_id': drive_id(raw.get('photo')),
+              'photo_file': raw.get('photoFile', ''),
+              'preset': raw.get('preset', ''),
+              'title': raw.get('title', ''),
+              'subtitle': raw.get('subtitle', ''),
+              'slug': raw.get('slug', 'video'),
+              'size': raw.get('size', '1920x1080'),
+              'fps': int(raw.get('fps', 30)),
+              'intro': float(raw.get('introSeconds', 4)),
+              'outro': float(raw.get('outroSeconds', 5)),
+              'zoom': 'true' if raw.get('zoom', True) else 'false',
+              'seconds': raw.get('seconds') or '',
+              'trimStart': raw.get('trimStart') or '',
+              'trimEnd': raw.get('trimEnd') or '',
+          }
+          if not out['audio_id'] and not raw.get('audioFile'):
+              sys.exit('request has no audio')
+          with open('/tmp/req.json', 'w') as fh:
+              json.dump(out, fh)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              for k, v in out.items():
+                  fh.write(f'{k}={v}\n')
+          print(json.dumps(out, indent=2))
+          PY
+
+      - name: Fetch the audio
+        run: |
+          set -euo pipefail
+          id="${{ steps.req.outputs.audio_id }}"
+          mkdir -p /tmp/w
+          for u in \
+            "https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t" \
+            "https://drive.google.com/uc?export=download&id=${id}&confirm=t"
+          do
+            if curl -fsSL --retry 3 --max-time 600 -o /tmp/w/source "$u" && [ "$(stat -c%s /tmp/w/source)" -gt 200000 ]; then
+              echo "audio: $(stat -c%s /tmp/w/source) bytes"; break
+            fi
+          done
+          test -s /tmp/w/source || { echo "audio download failed — is the file shared publicly?" >&2; exit 1; }
+
+      - name: Fetch the photo
+        if: steps.req.outputs.photo_id != ''
+        run: |
+          set -euo pipefail
+          id="${{ steps.req.outputs.photo_id }}"
+          for u in \
+            "https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t" \
+            "https://drive.google.com/uc?export=download&id=${id}&confirm=t"
+          do
+            if curl -fsSL --retry 3 --max-time 300 -o /tmp/w/photo "$u" && [ "$(stat -c%s /tmp/w/photo)" -gt 20000 ]; then
+              echo "photo: $(stat -c%s /tmp/w/photo) bytes"; break
+            fi
+          done
+          test -s /tmp/w/photo || { echo "photo download failed" >&2; exit 1; }
+
+      - name: Use the committed photo
+        if: steps.req.outputs.photo_id == '' && steps.req.outputs.photo_file != ''
+        run: cp "${{ steps.req.outputs.photo_file }}" /tmp/w/photo
+
+      - name: No photo — draw a backdrop
+        if: steps.req.outputs.photo_id == '' && steps.req.outputs.photo_file == ''
+        run: |
+          ffmpeg -v error -y -f lavfi -i "color=c=0x070a0f:s=1920x1080" -frames:v 1 /tmp/w/photo.png
+
+      - name: Decode the audio to float PCM
+        run: |
+          set -euo pipefail
+          ffprobe -v error -show_entries format=duration,size,bit_rate -of json /tmp/w/source > /tmp/w/probe.json
+          cat /tmp/w/probe.json
+          dur=$(python3 -c "import json;print(json.load(open('/tmp/w/probe.json'))['format']['duration'])")
+          echo "AUDIO_SECONDS=$dur" >> "$GITHUB_ENV"
+          ffmpeg -v error -y -i /tmp/w/source -ac 2 -ar 48000 -f f32le -acodec pcm_f32le /tmp/w/source.f32
+          ls -l /tmp/w/source.f32
+
+      - name: Build the renderer
+        run: npx vite build --ssr tools/render-cli.ts --outDir /tmp/cli --emptyOutDir
+
+      - name: Render the soundtrack with the app's DSP
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          req = json.load(open('/tmp/req.json'))
+          job = {
+              'input': '/tmp/w/source.f32',
+              'out': '/tmp/w/soundtrack.wav',
+              'sampleRate': 48000,
+              'duration': float(os.environ['AUDIO_SECONDS']),
+              'name': req['slug'],
+              'preset': req['preset'] or None,
+              'bitDepth': 16,
+          }
+          for src, dst in (('trimStart', 'trimStart'), ('trimEnd', 'trimEnd')):
+              if req[src] != '':
+                  job[dst] = float(req[src])
+          json.dump(job, open('/tmp/w/job.json', 'w'), indent=2)
+          print(json.dumps(job, indent=2))
+          PY
+          node /tmp/cli/render-cli.js /tmp/w/job.json | tee /tmp/w/render.json
+          ffprobe -v error -show_entries format=duration -of default=nw=1 /tmp/w/soundtrack.wav
+
+      - name: Cut the video and burn the fades
+        env:
+          SIZE: ${{ steps.req.outputs.size }}
+          FPS: ${{ steps.req.outputs.fps }}
+          INTRO: ${{ steps.req.outputs.intro }}
+          OUTRO: ${{ steps.req.outputs.outro }}
+          ZOOM: ${{ steps.req.outputs.zoom }}
+          CUT: ${{ steps.req.outputs.seconds }}
+        run: |
+          set -euo pipefail
+          full=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 /tmp/w/soundtrack.wav)
+          if [ -n "${CUT:-}" ]; then dur="$CUT"; else dur="$full"; fi
+          title="${{ steps.req.outputs.title }}"
+          sub="${{ steps.req.outputs.subtitle }}"
+          fade_out_start=$(python3 -c "print(max(0, float('$dur') - float('$OUTRO')))")
+          echo "duration=$dur fadeOutStart=$fade_out_start"
+
+          if [ "$ZOOM" = "true" ]; then
+            motion="scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='min(1.0+0.00006*on,1.18)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${SIZE}:fps=${FPS}"
+          else
+            motion="scale=${SIZE}:force_original_aspect_ratio=increase,crop=${SIZE},fps=${FPS}"
+          fi
+
+          # Title card text is optional: it needs a font, and a missing font
+          # must not fail the build.
+          font=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+          text_filters=""
+          if [ -n "$title" ] && [ -f "$font" ]; then
+            safe_title=$(printf '%s' "$title" | sed "s/\\\\/\\\\\\\\/g; s/:/\\\\:/g; s/'/\\\\'/g")
+            safe_sub=$(printf '%s' "$sub" | sed "s/\\\\/\\\\\\\\/g; s/:/\\\\:/g; s/'/\\\\'/g")
+            text_filters=",drawtext=fontfile=${font}:text='${safe_title}':fontcolor=white:fontsize=64:x=(w-text_w)/2:y=h-260:alpha='if(lt(t,2),t/2,if(lt(t,${dur}-1),((${dur}-1-t)/1),0))'"
+            if [ -n "$sub" ]; then
+              text_filters="${text_filters},drawtext=fontfile=${font}:text='${safe_sub}':fontcolor=0xaab4c8:fontsize=36:x=(w-text_w)/2:y=h-180:alpha='if(lt(t,2),t/2,if(lt(t,${dur}-1),((${dur}-1-t)/1),0))'"
+            fi
+          fi
+
+          ffmpeg -v warning -stats -y \
+            -loop 1 -i /tmp/w/photo \
+            -i /tmp/w/soundtrack.wav \
+            -filter_complex \
+              "[0:v]${motion},setsar=1,fade=t=in:st=0:d=${INTRO}:color=black,fade=t=out:st=${fade_out_start}:d=${OUTRO}:color=black${text_filters},format=yuv420p[v]" \
+            -map "[v]" -map 1:a \
+            -t "$dur" -r "$FPS" \
+            -c:v libx264 -preset medium -crf 21 -pix_fmt yuv420p -movflags +faststart \
+            -c:a aac -b:a 320k -ar 48000 \
+            "/tmp/w/${SLUG:-video}.mp4"
+
+          ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate,channels -of json "/tmp/w/${SLUG:-video}.mp4"
+        env:
+          SLUG: ${{ steps.req.outputs.slug }}
+
+      - name: Thumbnail
+        env:
+          SLUG: ${{ steps.req.outputs.slug }}
+          TITLE: ${{ steps.req.outputs.title }}
+          SUB: ${{ steps.req.outputs.subtitle }}
+        run: |
+          set -euo pipefail
+          font=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+          text=""
+          if [ -n "$TITLE" ] && [ -f "$font" ]; then
+            safe_title=$(printf '%s' "$TITLE" | sed "s/\\\\/\\\\\\\\/g; s/:/\\\\:/g; s/'/\\\\'/g")
+            text=",drawtext=fontfile=${font}:text='${safe_title}':fontcolor=white:fontsize=76:borderw=4:bordercolor=black:x=(w-text_w)/2:y=h-260"
+            if [ -n "$SUB" ]; then
+              safe_sub=$(printf '%s' "$SUB" | sed "s/\\\\/\\\\\\\\/g; s/:/\\\\:/g; s/'/\\\\'/g")
+              text="${text},drawtext=fontfile=${font}:text='${safe_sub}':fontcolor=0xc9d4e6:fontsize=40:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h-150"
+            fi
+          fi
+          ffmpeg -v error -y -i /tmp/w/photo \
+            -vf "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,eq=contrast=1.08:saturation=1.05${text}" \
+            -frames:v 1 -q:v 2 "/tmp/w/${SLUG:-video}.jpg"
+          ls -l "/tmp/w/${SLUG:-video}.jpg"
+
+      - name: Publish
+        env:
+          SLUG: ${{ steps.req.outputs.slug }}
+          PRESET: ${{ steps.req.outputs.preset }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/out
+          cp "/tmp/w/${SLUG:-video}.mp4" "/tmp/w/${SLUG:-video}.jpg" /tmp/out/
+          cp /tmp/w/render.json /tmp/out/render.json
+          python3 - <<'PY'
+          import json, os
+          info = json.load(open('/tmp/w/render.json'))
+          info.update({
+              'slug': os.environ['SLUG'],
+              'preset': os.environ['PRESET'],
+              'video': f"{os.environ['SLUG']}.mp4",
+              'thumbnail': f"{os.environ['SLUG']}.jpg",
+          })
+          json.dump(info, open('/tmp/out/job.json', 'w'), indent=2, ensure_ascii=False)
+          PY
+          cd /tmp/out
+          git init -q -b video .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "video: ${SLUG}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" video
+          ls -lh
+
+      - name: Keep the files as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ steps.req.outputs.slug }}
+          path: |
+            /tmp/w/*.mp4
+            /tmp/w/*.jpg
+            /tmp/w/render.json
+          if-no-files-found: error
+          retention-days: 30
